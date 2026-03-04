@@ -115,6 +115,58 @@ def schedule_image_download(url: str, dest_path: str) -> "Future":
     return executor.submit(_download_image, url, dest_path)
 
 
+# ── Supabase storage upload helper ────────────────────────────────────────────
+_supabase_storage = None
+_supabase_url = ""
+
+def _init_supabase_storage():
+    """Initialize Supabase storage client (once). Returns (storage, url) or (None, '')."""
+    global _supabase_storage, _supabase_url
+    if _supabase_storage is not None:
+        return _supabase_storage, _supabase_url
+    try:
+        from Data.Access.supabase_client import get_supabase_client
+        client = get_supabase_client()
+        if client:
+            _supabase_storage = client.storage
+            _supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+            return _supabase_storage, _supabase_url
+    except Exception:
+        pass
+    _supabase_storage = False  # Mark as attempted but unavailable
+    return None, ""
+
+
+def upload_crest_to_supabase(local_path: str, bucket: str, remote_name: str) -> str:
+    """Upload a local crest file to Supabase storage. Returns public URL or ''.
+    
+    Args:
+        local_path: Absolute path to the local crest file
+        bucket: Supabase storage bucket name (e.g. 'league-crests', 'team-crests')
+        remote_name: Filename in the bucket (e.g. '1_17_myd3jn1a.png')
+    """
+    storage, sb_url = _init_supabase_storage()
+    if not storage or not sb_url:
+        return ""  # Supabase not available, fallback to local path
+
+    abs_path = os.path.join(BASE_DIR, local_path) if not os.path.isabs(local_path) else local_path
+    if not os.path.exists(abs_path):
+        return ""
+
+    try:
+        with open(abs_path, 'rb') as f:
+            storage.from_(bucket).upload(
+                path=remote_name,
+                file=f,
+                file_options={"cache-control": "3600", "upsert": "true"}
+            )
+        public_url = f"{sb_url}/storage/v1/object/public/{bucket}/{remote_name}"
+        return public_url
+    except Exception as e:
+        # Silently fail — local path is still valid
+        return ""
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Step 1: Seed leagues from JSON
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -667,16 +719,20 @@ async def extract_tab(page: Page, league_url: str, tab: str, conn,
     if fixture_rows:
         bulk_upsert_fixtures(conn, fixture_rows)
 
-    # Wait for crest downloads
+    # Wait for crest downloads + upload to Supabase
     downloaded = 0
     for fut, side, name, dest in crest_futures:
         try:
             result = fut.result(timeout=30)
             if result:
                 downloaded += 1
+                # Upload to Supabase and use public URL
+                remote_name = f"{_slugify(name)}.png"
+                sb_url = upload_crest_to_supabase(result, "team-crests", remote_name)
+                crest_value = sb_url if sb_url else dest  # Supabase URL or local fallback
                 conn.execute(
                     "UPDATE teams SET crest = ? WHERE name = ? AND country_code = ?",
-                    (dest, name, country_code)
+                    (crest_value, name, country_code)
                 )
         except Exception:
             pass
@@ -806,13 +862,17 @@ async def enrich_single_league(context, league: Dict[str, Any], conn,
         crest_url = await page.evaluate(EXTRACT_CREST_JS, selectors)
         crest_path = ""
         if crest_url and not crest_url.startswith("data:"):
-            dest = os.path.join(LEAGUE_CRESTS_DIR, f"{_slugify(league_id)}.png")
-            future = schedule_image_download(crest_url, dest)
+            local_dest = os.path.join(LEAGUE_CRESTS_DIR, f"{_slugify(league_id)}.png")
+            future = schedule_image_download(crest_url, local_dest)
             try:
                 result = future.result(timeout=15)
                 if result:
-                    crest_path = result
-                    print(f"    [Crest] [OK] Downloaded league crest -> {os.path.basename(dest)}")
+                    # Upload to Supabase and store public URL
+                    remote_name = f"{_slugify(league_id)}.png"
+                    sb_url = upload_crest_to_supabase(result, "league-crests", remote_name)
+                    crest_path = sb_url if sb_url else result  # Supabase URL or local fallback
+                    src = "Supabase" if sb_url else "local"
+                    print(f"    [Crest] [OK] League crest -> {src}: {os.path.basename(local_dest)}")
             except Exception:
                 print(f"    [Crest] [!] Failed to download crest")
 
