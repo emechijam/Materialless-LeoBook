@@ -369,39 +369,10 @@ async def run_utility(args):
             await run_review_process(p)
             print_accuracy_report()
 
-    elif args.backtest and not args.rule_engine:
-        print("\n  --- LEO: Single-Pass Backtest ---")
-        from Scripts.backtest_monitor import TRIGGER_FILE, CONFIG_FILE
-        from Core.Intelligence.rule_config import RuleConfig
-        import json
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, 'r') as f:
-                config_data = json.load(f)
-            valid_keys = RuleConfig.__annotations__.keys()
-            filtered = {k: v for k, v in config_data.items() if k in valid_keys}
-            config = RuleConfig(**filtered)
-            await run_flashscore_offline_repredict(playwright=None, custom_config=config)
-        else:
-            print(f"  [ERROR] Config file not found: {CONFIG_FILE}")
-
     elif args.streamer:
         print("\n  --- LEO: Live Score Streamer ---")
         async with async_playwright() as p:
             await live_score_streamer(p)
-
-    elif args.schedule:
-        refresh = getattr(args, 'refresh', False)
-        extract_all = getattr(args, 'all', False)
-        mode = "Full Deep" if extract_all else ("Refresh" if refresh else "Extract")
-        print(f"\n  --- LEO: Schedule {mode} ---")
-        async with async_playwright() as p:
-            # If redo/all requested, we MUST refresh today effectively
-            await run_flashscore_schedule_only(p, refresh=refresh or extract_all, extract_all=extract_all, target_dates=getattr(args, 'date', None))
-
-    elif args.enrich:
-        print("\n  --- LEO: Manual Metadata Enrichment ---")
-        await enrich_all_schedules(extract_standings=True, league_page=True)
-        await run_full_sync(session_name="Manual Enrich")
 
     elif args.rule_engine:
         from Core.Intelligence.rule_engine_manager import RuleEngineManager
@@ -658,16 +629,6 @@ async def main():
         if os.path.exists(LOCK_FILE): os.remove(LOCK_FILE)
 
 
-@AIGOSuite.aigo_retry(max_retries=2, delay=10.0)
-async def main_offline_repredict():
-    """Run offline reprediction."""
-    print("    --- LEO: Offline Reprediction Mode ---      ")
-    init_csvs()
-    async with async_playwright() as p:
-        try:
-            await run_flashscore_offline_repredict(p)
-        except Exception as e:
-            print(f"[ERROR] Offline repredict: {e}")
 
 
 # ============================================================
@@ -680,17 +641,15 @@ if __name__ == "__main__":
 
     # Determine which mode to run
     is_utility = any([args.sync, args.recommend, args.accuracy,
-                      args.search_dict, args.review, args.backtest,
-                      args.rule_engine, args.streamer, args.schedule,
-                      args.enrich, args.assets,
+                      args.search_dict, args.review,
+                      args.rule_engine, args.streamer,
+                      args.assets,
                       args.logos, args.enrich_leagues, args.upgrade_crests,
                       args.train_rl])
     is_granular = args.prologue or args.chapter is not None
 
     try:
-        if args.offline_repredict:
-            asyncio.run(main_offline_repredict())
-        elif is_utility:
+        if is_utility:
             asyncio.run(run_utility(args))
         elif is_granular:
             asyncio.run(dispatch(args))

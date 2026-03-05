@@ -76,12 +76,8 @@ def setup_terminal_logging(args):
         elif args.accuracy: prefix = "leo_accuracy_session"
         elif args.search_dict: prefix = "leo_search_session"
         elif args.review: prefix = "leo_review_session"
-        elif args.backtest: prefix = "leo_backtest_session"
-        elif args.offline_repredict: prefix = "leo_offline_repredict_session"
         elif args.rule_engine: prefix = "leo_rule_engine_session"
         elif args.streamer: prefix = "leo_streamer_session"
-        elif args.enrich: prefix = "leo_enrich_session"
-        elif args.schedule: prefix = "leo_schedule_session"
         elif args.prologue: prefix = "leo_prologue_session"
         elif args.chapter: prefix = f"leo_chapter{args.chapter}_session"
         elif args.assets: prefix = "leo_assets_session"
@@ -138,14 +134,6 @@ Examples:
   python Leo.py --accuracy                 Print accuracy report only
   python Leo.py --search-dict              Rebuild the search dictionary from SQLite
   python Leo.py --review                   Run outcome review process only
-  python Leo.py --backtest                 Run a single-pass backtest check
-  python Leo.py --offline-repredict        Offline reprediction mode
-  python Leo.py --streamer                 Run the live score streamer independently
-  python Leo.py --schedule                 Extract schedules only (no predictions)
-  python Leo.py --schedule --refresh       Re-extract schedules starting from today
-  python Leo.py --schedule --all           Extract today's schedules + H2H + standings
-  python Leo.py --schedule --refresh --all Extract 7 days of schedules + H2H + standings
-  python Leo.py --enrich                   Manual metadata enrichment (gap-fill)
   python Leo.py --rule-engine              Show default rule engine info (combine with --list, --set-default, --backtest)
   python Leo.py --rule-engine --list       List all saved rule engines
   python Leo.py --rule-engine --backtest   Progressive backtest default engine
@@ -186,20 +174,8 @@ Examples:
                        help='Rebuild the search dictionary from SQLite')
     parser.add_argument('--review', action='store_true',
                        help='Run outcome review process only')
-    parser.add_argument('--backtest', action='store_true',
-                       help='Run a single-pass backtest check')
-    parser.add_argument('--offline-repredict', action='store_true',
-                       help='Run offline reprediction using stored data')
     parser.add_argument('--streamer', action='store_true',
                        help='Run the live score streamer independently')
-    parser.add_argument('--schedule', action='store_true',
-                       help='Extract match schedules only (no predictions)')
-    parser.add_argument('--refresh', action='store_true',
-                       help='Force re-extract from today (use with --schedule)')
-    parser.add_argument('--all', action='store_true',
-                       help='Also extract H2H + standings per match (use with --schedule)')
-    parser.add_argument('--enrich', action='store_true',
-                       help='Run manual metadata enrichment (gap-fill for historical data)')
     parser.add_argument('--assets', action='store_true',
                        help='Sync team and league assets (crests/logos) to Supabase Storage')
     parser.add_argument('--limit', type=str, metavar='N or START-END',
@@ -228,6 +204,8 @@ Examples:
     # --- Rule Engine Management ---
     parser.add_argument('--rule-engine', action='store_true',
                        help='Show default rule engine info (combine with --list, --set-default, --backtest)')
+    parser.add_argument('--backtest', action='store_true',
+                       help='Run progressive backtest (use with --rule-engine)')
     parser.add_argument('--list', action='store_true',
                        help='List all saved rule engines (use with --rule-engine)')
     parser.add_argument('--set-default', type=str, metavar='NAME',
@@ -247,10 +225,8 @@ Examples:
         parser.error("--list requires --rule-engine")
     if args.set_default and not args.rule_engine:
         parser.error("--set-default requires --rule-engine")
-    if args.refresh and not args.schedule:
-        parser.error("--refresh requires --schedule")
-    if getattr(args, 'all', False) and not args.schedule:
-        parser.error("--all requires --schedule")
+    if args.backtest and not args.rule_engine:
+        parser.error("--backtest requires --rule-engine")
     if args.league and not args.train_rl:
         parser.error("--league requires --train-rl")
     if args.season is not None and not args.enrich_leagues:

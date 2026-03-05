@@ -333,7 +333,7 @@ def find_best_match_league(input_name: str, country: str, existing_leagues: dict
     best_score = 0
 
     for league_id, row in existing_leagues.items():
-        existing_name = normalize_for_search(row.get("league", ""))
+        existing_name = normalize_for_search(row.get("name", "") or row.get("league", ""))
         existing_country = (row.get("country") or "").strip().lower()
 
         # Country must match if both are present
@@ -453,7 +453,7 @@ async def main():
                 for a in item.get("abbreviations", []): search_terms.add(normalize_for_search(a))
                 
                 upsert_data = clean_none_values({
-                    "league": official_name,
+                    "name": official_name,
                     "other_names": item.get("other_names", []),
                     "abbreviations": item.get("abbreviations", []),
                     "search_terms": list(filter(None, search_terms)),
@@ -617,7 +617,7 @@ async def enrich_match_search_dict(
 
                 upsert_data = clean_none_values({
                     "league_id": league_id,
-                    "league": official_name,
+                    "name": official_name,
                     "other_names": item.get("other_names", []),
                     "abbreviations": item.get("abbreviations", []),
                     "search_terms": list(filter(None, search_terms)),
