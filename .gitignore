@@ -61,6 +61,11 @@ playwright-state/
 *.db-shm
 *.db-wal
 
+# Process lock files
+*.lock
+*.lock-journal
+*.streamer_heartbeat
+
 # Environment variables
 .env
 .env.local
