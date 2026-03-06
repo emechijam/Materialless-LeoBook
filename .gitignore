@@ -58,6 +58,8 @@ playwright-state/
 !Data/Store/predictions.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
 
 # Environment variables
 .env
