@@ -375,10 +375,6 @@ class SyncManager:
         if keep_cols:
             df = df[keep_cols]
 
-        # AGGRESSIVE NaN / Inf cleaning — this fixes the JSON error
-        df = df.replace([np.nan, np.inf, -np.inf], None)
-        df = df.where(pd.notna(df), None)
-
         # Date/score sanitization
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.strftime('%Y-%m-%d')
@@ -398,6 +394,11 @@ class SyncManager:
         # Remove auto-increment id
         if 'id' in df.columns:
             df = df[~df['id'].astype(str).str.fullmatch(r'\d+') | df['id'].isna()]
+
+        # FINAL NaN / Inf cleaning — MUST be last, after all coercions above
+        # pd.to_numeric and pd.to_datetime reintroduce NaN for invalid values
+        df = df.replace([np.nan, np.inf, -np.inf], None)
+        df = df.where(pd.notna(df), None)
 
         cleaned_data = df.to_dict('records')
 
