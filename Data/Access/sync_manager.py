@@ -332,7 +332,7 @@ class SyncManager:
         return total_pulled
 
     async def batch_pull(self, table_key: str) -> int:
-        """Force full pull from Supabase with 5000-row batches and tqdm progress — mirrors batch_upsert."""
+        """Force full pull from Supabase — mirrors the push pipeline."""
         conf = TABLE_CONFIG.get(table_key)
         if not conf or not self.supabase:
             return 0
@@ -341,32 +341,40 @@ class SyncManager:
         remote_table = conf['remote_table']
         key_field = conf['key']
 
-        # Get remote count first
+        # Get remote count (may fail on large tables with 500)
+        remote_count = None
         try:
             count_res = self.supabase.table(remote_table).select("*", count="exact").limit(0).execute()
             remote_count = count_res.count or 0
         except Exception:
-            remote_count = 0
+            remote_count = None  # Unknown — will paginate until exhausted
 
         if remote_count == 0:
             print(f"   [{remote_table}] [OK] Remote empty -- nothing to pull")
             return 0
 
-        print(f"   [{remote_table}] FORCE FULL PULL -- {remote_count:,} rows (from Supabase)")
-        print(f"   [{remote_table}] Pulling {remote_count:,} rows to local SQLite...")
+        if remote_count is not None:
+            print(f"   [{remote_table}] FORCE FULL PULL -- {remote_count:,} rows (from Supabase)")
+        else:
+            print(f"   [{remote_table}] FORCE FULL PULL -- counting... (paginating until exhausted)")
 
         total_pulled = 0
-        api_batch_size = 15000
+        page_size = 15000
         offset = 0
         disable_pbar = not logger.isEnabledFor(logging.INFO)
-        pbar = tqdm(total=remote_count, desc=f"    Pulling {remote_table}", unit="row", disable=disable_pbar)
+        pbar = tqdm(
+            total=remote_count,  # None = indeterminate spinner
+            desc=f"    Pulling {remote_table}",
+            unit="row",
+            disable=disable_pbar
+        )
 
         try:
-            while offset < remote_count:
+            while True:
                 try:
                     res = self.supabase.table(remote_table).select("*").order(
                         key_field, desc=False
-                    ).range(offset, offset + api_batch_size - 1).execute()
+                    ).limit(page_size).offset(offset).execute()
                     rows = res.data
                     if not rows:
                         break
@@ -375,9 +383,9 @@ class SyncManager:
                     total_pulled += len(rows)
                     pbar.update(len(rows))
 
-                    if len(rows) < api_batch_size:
+                    if len(rows) < page_size:
                         break
-                    offset += api_batch_size
+                    offset += page_size
                 except Exception as batch_err:
                     err_str = str(batch_err)
                     if 'PGRST205' in err_str or 'Could not find the table' in err_str:
@@ -387,10 +395,11 @@ class SyncManager:
                         raise batch_err
 
             pbar.close()
-            logger.info(f"    [SYNC] Pulled {total_pulled:,} rows from {remote_table}.")
-
-            # Set watermark after successful pull
-            self._set_watermark(remote_table, datetime.utcnow().isoformat())
+            if total_pulled > 0:
+                logger.info(f"    [SYNC] Pulled {total_pulled:,} rows from {remote_table}.")
+                self._set_watermark(remote_table, datetime.utcnow().isoformat())
+            else:
+                print(f"   [{remote_table}] [OK] Remote empty -- nothing to pull")
             return total_pulled
 
         except Exception as e:
