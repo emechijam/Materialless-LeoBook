@@ -386,8 +386,8 @@ class RLTrainer:
             print("  [TRAIN] Freezing Shared Trunk... training Adapters only.")
             for param in self.model.trunk.parameters():
                 param.requires_grad = False
-        elif cold and phase == 1:
-            print("  [TRAIN] Cold start requested. Skipping Imitation, proceeding to vanilla PPO.")
+        elif cold:
+            print("  [TRAIN] Cold start: Starting from base weights (no checkpoint loaded).")
 
         # Get all fixture dates
         cursor = conn.execute("""
@@ -416,7 +416,7 @@ class RLTrainer:
         start_day_idx = 0
 
         # --- Resume from checkpoint ---
-        if resume and latest_path.exists():
+        if resume and not cold and latest_path.exists():
             try:
                 ckpt = torch.load(latest_path, map_location=self.device, weights_only=False)
                 # Architecture mismatch guard
@@ -442,7 +442,7 @@ class RLTrainer:
 
         # Phase 1 LR reduction: imitation needs 10x lower LR than PPO exploration
         original_lrs = []
-        if phase == 1 and not cold:
+        if active_phase == 1:
             for pg in self.optimizer.param_groups:
                 original_lrs.append(pg['lr'])
                 pg['lr'] = pg['lr'] * 0.1
@@ -488,7 +488,7 @@ class RLTrainer:
                 features = FeatureEncoder.encode(vision_data)
                 expert_probs = self._get_rule_engine_probs(vision_data)
                 
-                if active_phase == 1 and not cold:
+                if active_phase == 1:
                     metrics = self.train_step(features, l_idx, h_idx, a_idx, expert_probs=expert_probs)
                 else:
                     use_kl = (active_phase == 2)
@@ -535,7 +535,7 @@ class RLTrainer:
                 rule_acc = (day_rule_acc / day_matches) * 100
                 kl = day_kl / day_matches
                 gn = day_grad_norm / day_matches
-                if active_phase == 1 and not cold:
+                if active_phase == 1:
                     il = day_imit_loss / day_matches
                     print(f"  [Day {day_idx+1:2d}/{start_day_idx + len(all_dates)}] Rule Acc: {rule_acc:4.1f}% | RL Acc: {rl_acc:4.1f}% | KL: {kl:5.3f} | ImitLoss: {il:6.4f} | GradNorm: {gn:.4f} | Matches: {day_matches}")
                 else:
