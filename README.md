@@ -173,5 +173,5 @@ python Leo.py --help                    # Comprehensive CLI command catalog
 
 ---
 
-*Last updated: March 7, 2026 (v7.3 — Supervisor-Worker + Neuro-Symbolic Ensemble + Data Quality v7.1)*
+*Last updated: March 9, 2026 (v7.3.1 — March 9 Stability Fixes: Hydration Polling, Per-Card Date Extraction, SearchDict Batching)*
 *LeoBook Engineering Team — Materialless LLC*

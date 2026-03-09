@@ -35,6 +35,11 @@ from Data.Access.db_helpers import (
 from Data.Access.league_db import LEAGUES_JSON_PATH
 
 
+# ── SearchDict guards ──────────────────────────────────────────────────
+_ENRICHMENT_IN_PROGRESS: set[str] = set()
+_ENRICHMENT_LOCK: asyncio.Lock = asyncio.Lock()
+
+
 # ── Shared session helpers ──────────────────────────────────────────────
 
 async def _create_session(playwright: Playwright):
@@ -236,6 +241,10 @@ async def _league_worker(
                 )
 
                 if match_row:
+                    # Enrich with FS team IDs for SearchDict batching
+                    match_row["home_id"] = fs_fix.get("home_team_id") or fs_fix.get("home_id")
+                    match_row["away_id"] = fs_fix.get("away_team_id") or fs_fix.get("away_id")
+
                     save_site_matches([match_row])  # immediate SQLite save
                     resolved.append(match_row)
                     print(
@@ -256,6 +265,56 @@ async def _league_worker(
                     await page.close()
                 except Exception:
                     pass
+
+
+# ── SearchDict Enrichment logic ──────────────────────────────────────
+
+async def _run_searchdict_enrichment(
+    resolved_matches: List[Dict],
+    conn: sqlite3.Connection,
+) -> None:
+    """
+    One-shot SearchDict enrichment for all unique teams
+    resolved this session. Runs ONCE between league phase
+    and odds phase. Deduplicates by team name before LLM call.
+    """
+    try:
+        team_pairs = []
+        seen_names = set()
+        
+        for m in resolved_matches:
+            # matched == True (only resolved fixtures) checked by caller
+            # Each match dict has keys: home, away (Football.com names)
+            for prefix in ["home", "away"]:
+                name = m.get(prefix)
+                tid = m.get(f"{prefix}_id") # FS ID added in _league_worker
+                
+                if name and name not in seen_names:
+                    if name not in _ENRICHMENT_IN_PROGRESS:
+                        if tid:
+                            team_pairs.append({"team_id": tid, "team_name": name})
+                            seen_names.add(name)
+
+        if not team_pairs:
+            print("    [SearchDict] All teams already enriched this session.")
+            return
+
+        async with _ENRICHMENT_LOCK:
+            # Re-filter inside lock for concurrency safety
+            final_pairs = [p for p in team_pairs if p["team_name"] not in _ENRICHMENT_IN_PROGRESS]
+            if not final_pairs:
+                print("    [SearchDict] All teams already enriched this session.")
+                return
+
+            for p in final_pairs:
+                _ENRICHMENT_IN_PROGRESS.add(p["team_name"])
+
+            from Scripts.build_search_dict import enrich_batch_teams_search_dict
+            print(f"    [SearchDict] Enriched {len(final_pairs)} teams in batch.")
+            await enrich_batch_teams_search_dict(final_pairs)
+
+    except Exception as e:
+        print(f"    [SearchDict] Enrichment failed: {e} — continuing.")
 
 
 # ── CHAPTER 1 PAGE 1 — Odds Harvesting ─────────────────────────────────
@@ -384,6 +443,15 @@ async def run_odds_harvesting(playwright: Playwright):
                 f"{total_leagues} leagues "
                 f"({unmapped_count} unmapped/skipped)"
             )
+
+            # ── SearchDict: one-shot batch enrichment ──────────────
+            all_resolved = [
+                m for m in resolved_matches
+                if m.get("matched")
+            ]
+            if all_resolved:
+                await _run_searchdict_enrichment(all_resolved, conn)
+            # ───────────────────────────────────────────────────────
 
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             # 6. FIX 3: Concurrent odds extraction (semaphore-bounded)

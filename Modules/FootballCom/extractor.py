@@ -101,27 +101,55 @@ async def _activate_and_wait_for_matches(
                 return False
 
         try:
-            # USER REQUEST: Wait for visible with 5s timeout
-            await page.wait_for_selector(REAL_CARD_SELECTOR, state="visible", timeout=5000)
-            
-            has_text = await page.evaluate(f"""
-                (sel) => {{
-                    const cards = document.querySelectorAll(sel);
+            # Phase 1: confirm DOM is alive (any card present)
+            await page.wait_for_selector(
+                REAL_CARD_SELECTOR, state="visible", timeout=5000
+            )
+
+            # Phase 2: poll until card count reaches expected_count
+            # or timeout (max 8 seconds additional wait)
+            POLL_INTERVAL = 0.4
+            POLL_TIMEOUT  = 8.0
+            _elapsed = 0.0
+            _found = 0
+
+            while _elapsed < POLL_TIMEOUT:
+                _found = await page.evaluate(f"""() => {{
+                    const cards = document.querySelectorAll(
+                        "section.match-card:not(.skeleton), "
+                        + "div.match-card:not(.skeleton), "
+                        + "[class*='match-card']:not([class*='skeleton'])"
+                    );
+                    let count = 0;
                     for (const c of cards) {{
-                        if (c.innerText.length > 20) return true;
+                        if (c.innerText && c.innerText.trim().length > 20)
+                            count++;
                     }}
-                    return false;
-                }}
-            """, REAL_CARD_SELECTOR)
-            
-            if has_text:
-                print(f"    [Extractor] Real match content verified.")
-                # USER REQUEST: Extra delay before extraction
-                await asyncio.sleep(2.0)
-                return True
+                    return count;
+                }}""")
+
+                if _found >= expected_count:
+                    break   # All expected cards are hydrated
+
+                await asyncio.sleep(POLL_INTERVAL)
+                _elapsed += POLL_INTERVAL
+
+            if _found < expected_count:
+                print(
+                    f"    [Extractor] Partial hydration: "
+                    f"{_found}/{expected_count} cards after "
+                    f"{POLL_TIMEOUT}s — proceeding with what's available."
+                )
             else:
-                await page.evaluate("window.scrollBy(0, 600)")
-                await asyncio.sleep(1.0)
+                print(
+                    f"    [Extractor] Real match content verified "
+                    f"({_found}/{expected_count} cards)."
+                )
+            
+            # Extra delay before extraction
+            await asyncio.sleep(2.0)
+            return True
+
         except Exception:
             await page.evaluate("window.scrollBy(0, 600)")
             await asyncio.sleep(1.0)
@@ -240,7 +268,7 @@ async def extract_league_matches(page: Page, target_date: str = None, target_lea
 async def _extract_matches_from_container(container, match_card_sel, home_team_sel, away_team_sel, time_sel, match_url_sel, league_text, target_date):
     """Internal helper to JS-scrape matches from a container."""
     if hasattr(container, 'evaluate'):
-        return await container.evaluate("""(args) => {
+        return await container.evaluate(r"""(args) => {
             const root = document;
             const { selectors, leagueText, targetDate } = args;
             const results = [];
@@ -251,13 +279,30 @@ async def _extract_matches_from_container(container, match_card_sel, home_team_s
                 const timeEl = card.querySelector(selectors.time_sel);
                 const linkEl = card.querySelector(selectors.match_url_sel) || card.closest('a');
                 if (homeEl && awayEl) {
+                    // Try to extract per-card date from DOM
+                    const dateEl = card.querySelector(
+                        '[data-date], [class*="match-date"], '
+                        + '[class*="event-date"], [class*="matchdate"], '
+                        + '[class*="date-label"]'
+                    );
+                    let cardDate = dateEl
+                        ? (dateEl.dataset.date || dateEl.innerText.trim())
+                        : targetDate;   // fallback to targetDate if not found
+
+                    // Normalise to YYYY-MM-DD if the element returns
+                    // a human string like "Sat 15 Mar" — keep targetDate
+                    // as fallback for unparseable strings
+                    if (cardDate && !/^\d{4}-\d{2}-\d{2}$/.test(cardDate)) {
+                        cardDate = targetDate;   // can't parse → use fallback
+                    }
+
                     results.push({
                         home: homeEl.innerText.trim(),
                         away: awayEl.innerText.trim(),
                         time: timeEl ? timeEl.innerText.trim() : "N/A",
                         league: leagueText,
                         url: linkEl ? linkEl.href : "",
-                        date: targetDate
+                        date: cardDate
                     });
                 }
             });

@@ -1,4 +1,4 @@
-> **Version**: 7.3 · **Last Updated**: 2026-03-07 · **Architecture**: Autonomous High-Velocity Architecture (Supervisor-Worker + Neuro-Symbolic Ensemble + Data Quality v7.1)
+> **Version**: 7.3.1 · **Last Updated**: 2026-03-09 · **Architecture**: Autonomous High-Velocity Architecture (Supervisor-Worker + Neuro-Symbolic Ensemble + Data Quality v7.1)
 
 ## Table of Contents
 
@@ -347,5 +347,19 @@ These questions will be answered by data, not assumption.
 
 ---
 
-*Last updated: March 6, 2026 (v7.2 — Push-Only Sync, Safety Guardrails, Observability, 13-Discrepancy Resolution)*
+---
+
+## Appendix: March 9, 2026 Updates (v7.3.1)
+
+### Stability Overhaul (Extractor)
+- **Hydration Polling**: `_activate_and_wait_for_matches` now polls for `expected_count` of match cards instead of exiting on the first card. This fixes the "partial hydration" issue where only 1 fixture would be extracted for a 10-fixture league.
+- **Per-Card Date Extraction**: Extracting dates from the DOM for each individual card resolves the "all-or-nothing" date filter failure for leagues spanning multiple days.
+- **Syntax Warning Fix**: Resolved regex escape sequence warnings in `extractor.py`.
+
+### SearchDict Optimization
+- **Batch Enrichment**: SearchDict now runs as a single one-shot batch call per session instead of per-fixture.
+- **Enrichment Locking**: Implemented an async lock to prevent duplicate concurrent LLM calls for the same teams.
+- **Team ID Capture**: Football.com matches now explicitly carry FS team IDs to ensure accurate batch enrichment mapping.
+
+*Last updated: March 9, 2026 (v7.3.1 — March 9 Stability Fixes)*
 *LeoBook Engineering Team — Materialless LLC*
