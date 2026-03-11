@@ -384,85 +384,65 @@ async def run_odds_harvesting(playwright: Playwright):
           f"{total_leagues} leagues to process "
           f"({total_leagues} page loads, was {total_fixtures}).")
 
-    # 4. Launch browser session
+    # 4. Launch matcher
     matcher = GrokMatcher()
+    all_resolved_matches: List[Dict] = []
+    total_session_odds_count = 0
 
-    max_restarts = 2
-    restarts = 0
+    # 5. Process in batches to prevent OOM
+    BATCH_SIZE = 25
+    league_ids = list(leagues_to_extract.keys())
+    batches = [league_ids[i:i + BATCH_SIZE] for i in range(0, len(league_ids), BATCH_SIZE)]
 
-    while restarts <= max_restarts:
+    print(f"  [System] Processing {total_leagues} leagues in {len(batches)} batches (Size: {BATCH_SIZE})...")
+
+    for batch_idx, batch_ids in enumerate(batches):
+        batch_num = batch_idx + 1
+        print(f"\n  [Batch {batch_num}/{len(batches)}] Starting extraction for {len(batch_ids)} leagues...")
+        
         context = None
         try:
-            print(f"  [System] Launching Harvest Session (Restart {restarts}/{max_restarts})...")
             context, _ = await _create_session_no_login(playwright)
-            log_state(chapter="Ch1 P1", action="Direct fb_url odds extraction v9")
-
-            from playwright.async_api import Error as PlaywrightError
-
-            resolved_count = 0
-            unresolved_count = 0
-
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # 5. Concurrent league harvesting (extraction only)
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             league_sem = asyncio.Semaphore(MAX_CONCURRENCY)
-            unmapped_count = 0
-
-            print(
-                f"  [Harvest] Processing {total_leagues} leagues "
-                f"with MAX_CONCURRENCY={MAX_CONCURRENCY}..."
-            )
-
+            
             league_tasks = []
-            for league_id, fs_fixtures in leagues_to_extract.items():
-                league_entry = fb_lookup[league_id]
+            for lid in batch_ids:
+                league_entry = fb_lookup[lid]
                 fb_url = league_entry['fb_url']
-                lname = league_entry.get('fb_league_name', league_entry.get('name', league_id))
+                lname = league_entry.get('fb_league_name', league_entry.get('name', lid))
+                fs_fixtures = leagues_to_extract[lid]
                 league_tasks.append(
                     _league_worker(
                         league_sem, context,
-                        league_id, lname,
+                        lid, lname,
                         fs_fixtures, fb_url, conn, matcher,
                     )
                 )
 
-            league_results = await asyncio.gather(
-                *league_tasks,
-                return_exceptions=True,
-            )
+            batch_extraction_results = await asyncio.gather(*league_tasks, return_exceptions=True)
+            
+            # Close browser context immediately after extraction to free memory
+            if context:
+                await context.close()
+                if hasattr(context, '_browser_ref'):
+                    await context._browser_ref.close()
+                context = None
 
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # 5b. Collect all extraction pairs from completed leagues
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # All browser pages are now closed. No page is open.
-            # Gather any exceptions and flatten the pair lists.
-            all_extraction_pairs: List[Dict] = []
-            for result in league_results:
-                if isinstance(result, list):
-                    all_extraction_pairs.extend(result)
+            # Flatten pairs for this batch
+            batch_pairs: List[Dict] = []
+            for res in batch_extraction_results:
+                if isinstance(res, list):
+                    batch_pairs.extend(res)
 
-            print(
-                f"\n  [Harvest] Extraction phase complete: "
-                f"{total_leagues} leagues navigated, "
-                f"{len(all_extraction_pairs)} fixture pairs collected."
-            )
+            if not batch_pairs:
+                print(f"    [Batch {batch_num}] No fixtures extracted.")
+                continue
 
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # 5c. Resolution phase — runs AFTER all extraction is done
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # Only now does GrokMatcher (fuzzy + LLM) run.
-            # LLM health pings and key consumption happen here,
-            # with zero browser pages open and all league data in memory.
-            resolved_matches: List[Dict] = []
-            resolved_count = 0
-
-            print(
-                f"  [Resolution] Resolving {len(all_extraction_pairs)} fixtures "
-                f"(fuzzy → LLM cascade)..."
-            )
-
-            for pair in all_extraction_pairs:
-                fs_fix     = pair['fs_fix']
+            # 6. Resolve batch immediately
+            print(f"    [Batch {batch_num}] Resolving {len(batch_pairs)} fixtures...")
+            batch_resolved = []
+            for pair in batch_pairs:
+                fs_fix = pair['fs_fix']
                 candidates = pair['candidates']
 
                 match_row, score, method = await matcher.resolve_with_cascade(
@@ -474,116 +454,85 @@ async def run_odds_harvesting(playwright: Playwright):
                     match_row["away_id"] = fs_fix.get("away_team_id") or fs_fix.get("away_id")
                     match_row["resolution_method"] = method
                     save_site_matches([match_row])  # immediate SQLite save
-                    resolved_matches.append(match_row)
-                    resolved_count += 1
+                    batch_resolved.append(match_row)
+                    all_resolved_matches.append(match_row)
                 else:
-                    resolved_matches.append({"status": "failed", "resolution_method": "failed"})
+                    all_resolved_matches.append({"status": "failed", "resolution_method": "failed"})
 
-            unresolved_count = len(all_extraction_pairs) - resolved_count
-
-            # ── SearchDict: one-shot batch enrichment ──────────────
-            all_resolved = [
-                m for m in resolved_matches
-                if m.get("matched")
-            ]
-            if all_resolved:
-                await _run_searchdict_enrichment(all_resolved, conn)
-            # ───────────────────────────────────────────────────────
-
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # 6. FIX 3: Concurrent odds extraction (semaphore-bounded)
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            session_odds_count = 0
-            if resolved_matches:
-                sem = asyncio.Semaphore(MAX_CONCURRENCY)
-                total = len(resolved_matches)
-                print(f"\n  [Odds] Extracting odds for {total} matches "
-                      f"(MAX_CONCURRENCY={MAX_CONCURRENCY})...")
-
-                odds_conn = get_connection()
-                results = await asyncio.gather(
-                    *[
-                        _odds_worker(sem, context, m, odds_conn)
-                        for m in resolved_matches
-                    ],
-                    return_exceptions=True,
-                )
-
-                succeeded = sum(
-                    1 for r in results
-                    if isinstance(r, OddsResult) and r.outcomes_extracted > 0
-                )
-                total_outcomes = sum(
-                    r.outcomes_extracted for r in results
-                    if isinstance(r, OddsResult)
-                )
-                failed = total - succeeded
-                session_odds_count = total_outcomes
-                print(f"  [Odds] Complete: {succeeded}/{total} matches "
-                      f"extracted, {failed} failed or empty, "
-                      f"{total_outcomes} total outcomes")
-            else:
-                print("  [Ch1 P1] No matches resolved for odds extraction.")
-
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # 7. Post-session Supabase sync
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            if resolved_matches or session_odds_count > 0:
+            # 7. Extract odds for batch (also requires a browser session)
+            if batch_resolved:
+                print(f"    [Batch {batch_num}] Extracting odds for {len(batch_resolved)} matches...")
+                context_odds, _ = await _create_session_no_login(playwright)
                 try:
-                    from Data.Access.sync_manager import SyncManager, TABLE_CONFIG
-                    manager = SyncManager()
-                    await manager._sync_table('fb_matches', TABLE_CONFIG['fb_matches'])
-                    await manager._sync_table('match_odds', TABLE_CONFIG['match_odds'])
-                    print(
-                        f"  [Sync] Ch1 P1 complete: "
-                        f"{resolved_count} fb_matches, "
-                        f"{session_odds_count} odds outcomes pushed to Supabase"
+                    odds_sem = asyncio.Semaphore(MAX_CONCURRENCY)
+                    odds_conn = get_connection()
+                    results = await asyncio.gather(
+                        *[
+                            _odds_worker(odds_sem, context_odds, m, odds_conn)
+                            for m in batch_resolved
+                        ],
+                        return_exceptions=True,
                     )
-                except Exception as e:
-                    print(f"  [Sync] [Warning] Supabase push failed: {e}")
-
-            # Session Summary
-            method_counts = {
-                "search_terms": sum(1 for m in resolved_matches if m.get("resolution_method") == "search_terms"),
-                "fuzzy":        sum(1 for m in resolved_matches if m.get("resolution_method") == "fuzzy"),
-                "llm":          sum(1 for m in resolved_matches if m.get("resolution_method") == "llm"),
-                "failed":       sum(1 for m in resolved_matches if m.get("resolution_method") == "failed"),
-            }
-            resolved_count  = method_counts["search_terms"] + method_counts["fuzzy"] + method_counts["llm"]
-            unresolved_count = method_counts["failed"]
-
-            print(f"\n    [Ch1 P1] -- Session Summary --------------------------")
-            print(f"    [Ch1 P1] Fixtures processed  : {total_fixtures}")
-            print(f"    [Ch1 P1] Leagues navigated   : {total_leagues} (was {total_fixtures})")
-            print(f"    [Ch1 P1] Resolved            : {resolved_count}")
-            print(f"    [Ch1 P1]   - search_terms    : {method_counts['search_terms']}")
-            print(f"    [Ch1 P1]   - fuzzy           : {method_counts['fuzzy']}")
-            print(f"    [Ch1 P1]   - llm             : {method_counts['llm']}")
-            print(f"    [Ch1 P1] Unresolved          : {unresolved_count}")
-            print(f"    [Ch1 P1] Odds outcomes       : {session_odds_count}")
-            print(f"    [Ch1 P1] MAX_CONCURRENCY     : {MAX_CONCURRENCY}")
-            print(f"    [Ch1 P1] -------------------------------------------------\n")
-
-            break  # Success
+                    
+                    batch_outcomes = sum(
+                        r.outcomes_extracted for r in results 
+                        if isinstance(r, OddsResult)
+                    )
+                    total_session_odds_count += batch_outcomes
+                    print(f"    [Batch {batch_num}] Odds extracted: {batch_outcomes} outcomes.")
+                finally:
+                    if context_odds:
+                        await context_odds.close()
+                        if hasattr(context_odds, '_browser_ref'):
+                            await context_odds._browser_ref.close()
 
         except Exception as e:
-            if restarts < max_restarts:
-                print(f"\n[!!!] Session Error: {e}. Restarting...")
-                restarts += 1
-                if context:
-                    await context.close()
-                await asyncio.sleep(5)
-            else:
-                print(f"  [CRITICAL] Odds harvesting failed after {restarts} restarts: {e}")
-                break
-        finally:
+            print(f"  [Batch {batch_num}] CRITICAL ERROR: {e}")
             if context:
-                try:
-                    await context.close()
-                    if hasattr(context, '_browser_ref'):
-                        await context._browser_ref.close()
-                except Exception:
-                    pass
+                await context.close()
+        
+        # Small cooldown between batches
+        await asyncio.sleep(2)
+
+    # 8. Post-Harvest Processing (SearchDict + Sync)
+    print("\n  [Post-Harvest] Starting global enrichment and sync...")
+    
+    # ── SearchDict: one-shot batch enrichment ──────────────
+    all_resolved = [m for m in all_resolved_matches if m.get("matched")]
+    if all_resolved:
+        await _run_searchdict_enrichment(all_resolved, conn)
+    
+    # ── Supabase Sync ──────────────────────────────────────
+    if all_resolved or total_session_odds_count > 0:
+        try:
+            from Data.Access.sync_manager import SyncManager, TABLE_CONFIG
+            manager = SyncManager()
+            await manager._sync_table('fb_matches', TABLE_CONFIG['fb_matches'])
+            await manager._sync_table('match_odds', TABLE_CONFIG['match_odds'])
+            print(f"  [Sync] Complete: {len(all_resolved)} matches, {total_session_odds_count} odds outcomes.")
+        except Exception as e:
+            print(f"  [Sync] [Warning] Supabase push failed: {e}")
+
+    # Session Summary
+    method_counts = {
+        "search_terms": sum(1 for m in all_resolved_matches if m.get("resolution_method") == "search_terms"),
+        "fuzzy":        sum(1 for m in all_resolved_matches if m.get("resolution_method") == "fuzzy"),
+        "llm":          sum(1 for m in all_resolved_matches if m.get("resolution_method") == "llm"),
+        "failed":       sum(1 for m in all_resolved_matches if m.get("resolution_method") == "failed"),
+    }
+    resolved_count = method_counts["search_terms"] + method_counts["fuzzy"] + method_counts["llm"]
+
+    print(f"\n    [Ch1 P1] -- Session Summary --------------------------")
+    print(f"    [Ch1 P1] Fixtures processed  : {total_fixtures}")
+    print(f"    [Ch1 P1] Leagues navigated   : {total_leagues}")
+    print(f"    [Ch1 P1] Resolved            : {resolved_count}")
+    print(f"    [Ch1 P1]   - search_terms    : {method_counts['search_terms']}")
+    print(f"    [Ch1 P1]   - fuzzy           : {method_counts['fuzzy']}")
+    print(f"    [Ch1 P1]   - llm             : {method_counts['llm']}")
+    print(f"    [Ch1 P1] Unresolved          : {method_counts['failed']}")
+    print(f"    [Ch1 P1] Odds outcomes       : {total_session_odds_count}")
+    print(f"    [Ch1 P1] -------------------------------------------------\n")
+
 
 
 # ── CHAPTER 2 PAGE 1 — Automated Booking (unchanged) ───────────────────

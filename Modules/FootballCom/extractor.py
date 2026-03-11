@@ -113,9 +113,13 @@ async def _activate_and_wait_for_matches(
             )
 
             # Phase 2: poll until card count reaches expected_count
-            # or timeout (max 8 seconds additional wait)
+            # or timeout (scaled by fixture count)
             POLL_INTERVAL = 0.4
-            POLL_TIMEOUT  = 8.0
+            
+            # SCALED HYDRATION: Give larger leagues more time to render.
+            # Base 8.0s + 0.5s per fixture, capped at 25s.
+            POLL_TIMEOUT = max(8.0, min(25.0, expected_count * 0.5)) if expected_count > 0 else 8.0
+            
             _elapsed = 0.0
             _found = 0
 
@@ -144,7 +148,7 @@ async def _activate_and_wait_for_matches(
                 print(
                     f"    [Extractor] Partial hydration: "
                     f"{_found}/{expected_count} cards after "
-                    f"{POLL_TIMEOUT}s — proceeding with what's available."
+                    f"{POLL_TIMEOUT:.1f}s — proceeding with what's available."
                 )
             else:
                 print(
