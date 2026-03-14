@@ -1,93 +1,598 @@
 # Supabase Setup Guide
 
-> **Version**: 7.1 · **Last Updated**: 2026-03-07
+> **Version**: 8.1 · **Last Updated**: 2026-03-14
+> **One-stop reference** — everything needed to provision a fresh Supabase database for LeoBook from scratch.
 
-## Quick Setup (5 minutes)
+---
 
-### Step 1: Create Supabase Account
-1. Go to **https://supabase.com**
-2. Click **"Start your project"**
-3. Sign up with **GitHub** (recommended) or email
+## Overview
 
-### Step 2: Create Project
-1. Click **"New Project"**
-2. Fill in details:
-   - **Name**: `leobook-production`
-   - **Region**: e.g., **Europe (Frankfurt)** for Aba, Nigeria
-   - **Pricing Plan**: Free tier is sufficient
+LeoBook uses Supabase (PostgreSQL) as its cloud data layer. The local SQLite database (`leobook.db`) is the source of truth for all prediction and enrichment work. Supabase is the sync target — it powers the Flutter app's real-time data, enables recovery bootstrapping, and provides the cloud backup of all predictions, schedules, odds, and audit logs.
 
-### Step 3: Run Database Schema
-1. Go to **SQL Editor** (left sidebar)
-2. Click **"New Query"**
-3. Copy the contents of [`Data/Supabase/supabase_schema.sql`](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Data/Supabase/supabase_schema.sql)
-4. Paste and click **"Run"**
-5. **MANDATORY (v7.0)**: Create the `computed_standings` VIEW using the SQL found in [`Data/Access/league_db.py`](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Data/Access/league_db.py) under `_COMPUTED_STANDINGS_SQL`.
+**Sync direction**: Local SQLite → Supabase (push-only on startup, watermark-based delta on pipeline milestones).
 
-### Step 4: Get API Credentials
-1. Go to **Project Settings** → **API**
-2. Copy the **Project URL**, **Anon Key**, and **Service Role Key**.
+---
 
-### Step 5: Configure Environment Files
-**Python Backend (`.env`):**
+## Part 1 — Create a Supabase Project
+
+1. Go to **[https://supabase.com](https://supabase.com)** and sign in (GitHub recommended).
+2. Click **New Project**.
+3. Fill in:
+   - **Name**: `leobook-production` (or any name you prefer)
+   - **Database Password**: generate a strong password and save it
+   - **Region**: choose the closest to your location (e.g. `West EU (Frankfurt)` for Nigeria)
+   - **Pricing Plan**: Free tier is sufficient to start
+4. Wait ~2 minutes for provisioning to complete.
+
+---
+
+## Part 2 — Get API Credentials
+
+1. Go to **Project Settings** → **API**.
+2. Copy the following and add them to your `.env` file:
+
 ```env
-SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1...
+SUPABASE_URL=https://xxxxxxxxxxxxxxxxxxxx.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
+
+> **Security rules:**
+> - The **Service Role Key** has full admin access. Use it ONLY in the Python backend (`.env`). Never commit it to git or expose it in the Flutter app.
+> - The **Anon Key** is for the Flutter frontend (read-only public access).
+> - Never commit `.env` to the repo. It is in `.gitignore`.
 
 ---
 
-## Autonomous Sync Architecture (v7.0)
+## Part 3 — Bootstrap the Database (MANDATORY, one-time)
 
-LeoBook v7.0 transitions to an **autonomous, event-driven sync strategy** managed by the `TaskScheduler`. Standing tables are NO LONGER synced; they are computed on-the-fly.
+This is the most important step. A fresh Supabase project has no tables and no `exec_sql` function. Without running this script first, `python Leo.py --sync` will silently fail with `404 Not Found` on every table — and appear to succeed.
 
-### Sync Lifecycle
-```
-1. Startup Bootstrap: run_startup_sync() ensures DB parity before any other tasks start.
-2. Data Readiness: Data Gates (P1-P3) verify coverage before predictions.
-3. Pipeline Sync: run_full_sync() executes after significant pipeline milestones (Chapter 1 P3).
-4. Live Updates: fs_live_streamer.py performs real-time delta upserts to live_scores.
-```
+### How to run
 
-### Tables Synced (11 tables)
-*Notice: `standings` has been removed as it is now a computed VIEW.*
+1. Go to your Supabase dashboard → **SQL Editor** (left sidebar).
+2. Click **New Query**.
+3. Paste the entire SQL block below.
+4. Click **Run** (or press `Cmd/Ctrl + Enter`).
 
-| Table                 | Unique Key                                        |
-| --------------------- | ------------------------------------------------- |
-| `predictions`         | `fixture_id`                                      |
-| `schedules`           | `fixture_id`                                      |
-| `teams`               | `team_id`                                         |
-| `region_league`       | `league_id`                                       |
-| `fb_matches`          | `site_match_id`                                   |
-| `profiles`            | `id`                                              |
-| `custom_rules`        | `id`                                              |
-| `accuracy_reports`    | `report_id`                                       |
-| `live_scores`         | `fixture_id`                                      |
-| `match_odds`          | `fixture_id`, `market_id`, `outcome_name`, `line` |
-| `scheduled_tasks`     | `task_id`                                         |
-| `readiness_cache`     | `gate_id`                                         |
-| `enrichment_queue`    | `id`                                              |
-| `season_completeness` | `league_id`, `season`                             |
+The script is safe to re-run at any time — all statements use `CREATE TABLE IF NOT EXISTS` and `CREATE OR REPLACE`.
 
 ---
 
-## Computed Standings VIEW
-To ensure zero-latency data integrity, v7.0 uses a database VIEW instead of a persistent table.
-
-**Verification**:
 ```sql
-SELECT * FROM computed_standings WHERE league_id = 'YOUR_LEAGUE_ID' LIMIT 20;
+-- =============================================================================
+-- LEOBOOK SUPABASE BOOTSTRAP v8.1
+-- Run this ONCE on a fresh Supabase project via SQL Editor.
+-- Safe to re-run — all statements are idempotent.
+-- =============================================================================
+
+-- =============================================================================
+-- STEP 1: exec_sql RPC function
+-- Required by sync_manager._ensure_remote_table() for auto-provisioning.
+-- Without this, the auto-create fallback silently fails (PGRST202).
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.exec_sql(query TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  EXECUTE query;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.exec_sql(TEXT) TO service_role;
+
+-- =============================================================================
+-- STEP 2: Extensions
+-- =============================================================================
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- =============================================================================
+-- STEP 3: Core data tables
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.leagues (
+    league_id TEXT PRIMARY KEY,
+    fs_league_id TEXT,
+    country_code TEXT,
+    continent TEXT,
+    name TEXT NOT NULL,
+    crest TEXT,
+    current_season TEXT,
+    url TEXT,
+    region_flag TEXT,
+    other_names TEXT,
+    abbreviations TEXT,
+    search_terms TEXT,
+    level TEXT,
+    season_format TEXT,
+    date_updated TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.teams (
+    team_id TEXT PRIMARY KEY,
+    name TEXT,
+    league_ids TEXT,
+    crest TEXT,
+    country_code TEXT,
+    url TEXT,
+    city TEXT,
+    stadium TEXT,
+    other_names TEXT,
+    abbreviations TEXT,
+    search_terms TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.schedules (
+    fixture_id TEXT PRIMARY KEY,
+    date TEXT,
+    match_time TEXT,
+    region_league TEXT,
+    league_id TEXT,
+    home_team TEXT,
+    away_team TEXT,
+    home_team_id TEXT,
+    away_team_id TEXT,
+    home_score TEXT,
+    away_score TEXT,
+    match_status TEXT,
+    match_link TEXT,
+    league_stage TEXT,
+    season TEXT,
+    home_crest TEXT,
+    away_crest TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.predictions (
+    fixture_id TEXT PRIMARY KEY,
+    date TEXT,
+    match_time TEXT,
+    region_league TEXT,
+    home_team TEXT,
+    away_team TEXT,
+    home_team_id TEXT,
+    away_team_id TEXT,
+    prediction TEXT,
+    confidence TEXT,
+    reason TEXT,
+    xg_home TEXT,
+    xg_away TEXT,
+    btts TEXT,
+    over_2_5 TEXT,
+    best_score TEXT,
+    top_scores TEXT,
+    home_form_n TEXT,
+    away_form_n TEXT,
+    home_tags TEXT,
+    away_tags TEXT,
+    h2h_tags TEXT,
+    standings_tags TEXT,
+    h2h_count TEXT,
+    actual_score TEXT,
+    outcome_correct TEXT,
+    status TEXT,
+    match_link TEXT,
+    odds TEXT,
+    market_reliability_score TEXT,
+    home_crest_url TEXT,
+    away_crest_url TEXT,
+    recommendation_score TEXT,
+    h2h_fixture_ids TEXT,
+    form_fixture_ids TEXT,
+    standings_snapshot TEXT,
+    league_stage TEXT,
+    home_score TEXT,
+    away_score TEXT,
+    generated_at TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.fb_matches (
+    site_match_id TEXT PRIMARY KEY,
+    date TEXT,
+    time TEXT,
+    home_team TEXT,
+    away_team TEXT,
+    league TEXT,
+    url TEXT,
+    last_extracted TEXT,
+    fixture_id TEXT,
+    matched TEXT,
+    odds TEXT,
+    booking_status TEXT,
+    booking_details TEXT,
+    booking_code TEXT,
+    booking_url TEXT,
+    status TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.match_odds (
+    fixture_id TEXT NOT NULL,
+    site_match_id TEXT NOT NULL,
+    market_id TEXT NOT NULL,
+    base_market TEXT NOT NULL,
+    category TEXT,
+    exact_outcome TEXT NOT NULL,
+    line TEXT,
+    odds_value REAL,
+    likelihood_pct INTEGER,
+    rank_in_list INTEGER,
+    extracted_at TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (fixture_id, market_id, exact_outcome, line)
+);
+
+CREATE TABLE IF NOT EXISTS public.live_scores (
+    fixture_id TEXT PRIMARY KEY,
+    home_team TEXT,
+    away_team TEXT,
+    home_score TEXT,
+    away_score TEXT,
+    minute TEXT,
+    status TEXT,
+    region_league TEXT,
+    match_link TEXT,
+    timestamp TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.countries (
+    code TEXT PRIMARY KEY,
+    name TEXT,
+    continent TEXT,
+    capital TEXT,
+    flag_1x1 TEXT,
+    flag_4x3 TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- STEP 4: Reporting and audit tables
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.audit_log (
+    id TEXT PRIMARY KEY,
+    timestamp TEXT,
+    event_type TEXT,
+    description TEXT,
+    balance_before REAL,
+    balance_after REAL,
+    stake REAL,
+    status TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.accuracy_reports (
+    report_id TEXT PRIMARY KEY,
+    timestamp TEXT,
+    volume INTEGER DEFAULT 0,
+    win_rate REAL DEFAULT 0,
+    return_pct REAL DEFAULT 0,
+    period TEXT DEFAULT 'last_24h',
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.paper_trades (
+    id SERIAL,
+    fixture_id TEXT NOT NULL,
+    trade_date TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    league_id INTEGER,
+    match_date TEXT,
+    market_key TEXT NOT NULL,
+    market_name TEXT NOT NULL,
+    recommended_outcome TEXT NOT NULL,
+    live_odds REAL,
+    synthetic_odds REAL,
+    model_prob REAL NOT NULL,
+    ev REAL,
+    gated INTEGER NOT NULL,
+    stairway_step INTEGER,
+    simulated_stake REAL,
+    simulated_payout REAL,
+    home_score INTEGER,
+    away_score INTEGER,
+    outcome_correct INTEGER,
+    simulated_pl REAL,
+    reviewed_at TEXT,
+    rule_pick TEXT,
+    rl_pick TEXT,
+    ensemble_pick TEXT,
+    rl_confidence REAL,
+    rule_confidence REAL,
+    last_updated TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (fixture_id, market_key)
+);
+
+-- =============================================================================
+-- STEP 5: User and rule engine tables
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id TEXT PRIMARY KEY,
+    email TEXT,
+    username TEXT,
+    full_name TEXT,
+    avatar_url TEXT,
+    tier TEXT DEFAULT 'free',
+    credits REAL DEFAULT 0,
+    created_at TEXT,
+    updated_at TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.custom_rules (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    name TEXT,
+    description TEXT,
+    is_active INTEGER,
+    logic TEXT,
+    priority INTEGER,
+    created_at TEXT,
+    updated_at TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.rule_executions (
+    id TEXT PRIMARY KEY,
+    rule_id TEXT,
+    fixture_id TEXT,
+    user_id TEXT,
+    result TEXT,
+    executed_at TEXT,
+    last_updated TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- STEP 6: Computed Standings VIEW
+-- Standings are never stored as a table — they are always computed on-the-fly
+-- from the schedules table. Zero storage, always accurate.
+-- =============================================================================
+
+CREATE OR REPLACE VIEW public.computed_standings AS
+WITH all_matches AS (
+    SELECT
+        league_id,
+        season,
+        home_team_id AS team_id,
+        home_team AS team_name,
+        CAST(home_score AS INTEGER) AS gf,
+        CAST(away_score AS INTEGER) AS ga
+    FROM public.schedules
+    WHERE home_score IS NOT NULL AND away_score IS NOT NULL
+      AND home_score ~ '^\d+$' AND away_score ~ '^\d+$'
+
+    UNION ALL
+
+    SELECT
+        league_id,
+        season,
+        away_team_id AS team_id,
+        away_team AS team_name,
+        CAST(away_score AS INTEGER) AS gf,
+        CAST(home_score AS INTEGER) AS ga
+    FROM public.schedules
+    WHERE home_score IS NOT NULL AND away_score IS NOT NULL
+      AND home_score ~ '^\d+$' AND away_score ~ '^\d+$'
+)
+SELECT
+    league_id,
+    season,
+    team_id,
+    team_name,
+    COUNT(*) AS played,
+    SUM(CASE WHEN gf > ga THEN 1 ELSE 0 END) AS won,
+    SUM(CASE WHEN gf = ga THEN 1 ELSE 0 END) AS drawn,
+    SUM(CASE WHEN gf < ga THEN 1 ELSE 0 END) AS lost,
+    SUM(gf) AS goals_for,
+    SUM(ga) AS goals_against,
+    SUM(gf) - SUM(ga) AS goal_difference,
+    SUM(CASE WHEN gf > ga THEN 3 WHEN gf = ga THEN 1 ELSE 0 END) AS points
+FROM all_matches
+GROUP BY league_id, season, team_id, team_name;
+
+GRANT SELECT ON public.computed_standings TO anon, authenticated, service_role;
+
+-- =============================================================================
+-- STEP 7: Row Level Security — service_role full access, anon read-only
+-- =============================================================================
+
+DO $$
+DECLARE
+    t TEXT;
+    tables TEXT[] := ARRAY[
+        'leagues', 'teams', 'schedules', 'predictions', 'fb_matches',
+        'match_odds', 'live_scores', 'countries', 'audit_log',
+        'accuracy_reports', 'paper_trades', 'profiles',
+        'custom_rules', 'rule_executions'
+    ];
+BEGIN
+    FOREACH t IN ARRAY tables LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('
+            DROP POLICY IF EXISTS "service_role_all_%1$s" ON public.%1$I;
+            CREATE POLICY "service_role_all_%1$s" ON public.%1$I
+            FOR ALL TO service_role USING (true) WITH CHECK (true);
+        ', t);
+        EXECUTE format('
+            DROP POLICY IF EXISTS "anon_read_%1$s" ON public.%1$I;
+            CREATE POLICY "anon_read_%1$s" ON public.%1$I
+            FOR SELECT TO anon, authenticated USING (true);
+        ', t);
+    END LOOP;
+END $$;
+
+-- =============================================================================
+-- STEP 8: Auto-update last_updated trigger on every table
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION update_last_updated_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.last_updated = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+DECLARE
+    t TEXT;
+    tables TEXT[] := ARRAY[
+        'leagues', 'teams', 'schedules', 'predictions', 'fb_matches',
+        'match_odds', 'live_scores', 'countries', 'audit_log',
+        'accuracy_reports', 'paper_trades', 'profiles',
+        'custom_rules', 'rule_executions'
+    ];
+BEGIN
+    FOREACH t IN ARRAY tables LOOP
+        EXECUTE format('
+            DROP TRIGGER IF EXISTS trg_last_updated_%1$s ON public.%1$I;
+            CREATE TRIGGER trg_last_updated_%1$s
+            BEFORE UPDATE ON public.%1$I
+            FOR EACH ROW EXECUTE FUNCTION update_last_updated_column();
+        ', t);
+    END LOOP;
+END $$;
+
+-- =============================================================================
+-- Bootstrap complete.
+-- Run: python Leo.py --sync
+-- All tables are ready. exec_sql is live. RLS is enabled.
+-- =============================================================================
 ```
 
 ---
 
-## Security
-1. ✅ **Never commit** `.env` files.
-2. ✅ Use **Service Role Key** only for the Python backend.
-3. ✅ Use **Anon Key** for the Flutter app.
+## Part 4 — Verify the Bootstrap
+
+After running the SQL above, verify in **Table Editor** (left sidebar) that the following tables are visible:
+
+| Table | Purpose |
+|---|---|
+| `leagues` | League metadata + `current_season` |
+| `teams` | Team metadata + search enrichment |
+| `schedules` | All fixtures — the backbone of the system |
+| `predictions` | Rule Engine + RL ensemble predictions |
+| `fb_matches` | Football.com match objects (odds harvesting) |
+| `match_odds` | Per-market odds extracted from Football.com |
+| `live_scores` | Live score updates from the streamer |
+| `countries` | Country codes and flag URLs |
+| `audit_log` | Every system event (bets, syncs, errors) |
+| `accuracy_reports` | Periodic prediction accuracy snapshots |
+| `paper_trades` | Simulated bet log (RL training signal) |
+| `profiles` | App user accounts |
+| `custom_rules` | User-defined rule engine entries |
+| `rule_executions` | Log of each custom rule execution |
+
+Also verify in **Database** → **Functions** that `exec_sql` appears in the `public` schema.
 
 ---
 
+## Part 5 — First Sync
+
+With the schema in place, run the first sync from your codespace:
+
+```bash
+python Leo.py --sync
+```
+
+**Expected output (healthy):**
+```
+[schedules]  Pushing X,XXX rows to Supabase...
+[leagues]    Pushing X,XXX rows to Supabase...
+[teams]      Pushing X,XXX rows to Supabase...
+[SUCCESS] Sync complete.
+```
+
+**Failure symptom to watch for:**
+```
+[AUTO] Table 'X' not found — creating...
+[!] exec_sql RPC failed ...
+✓ Both local and remote empty     ← this is WRONG if local has data
+```
+If you see this, the bootstrap SQL was not run or did not complete. Return to Part 3.
+
 ---
 
-*Last updated: March 7, 2026 (v7.1 — readiness_cache + enrichment_queue)*
-*LeoBook Engineering Team*
+## Part 6 — Sync Architecture Reference
+
+### How sync works
+
+```
+Leo.py startup
+  └── SyncManager.sync_on_startup()
+        └── For each table in TABLE_CONFIG:
+              ├── Local empty?  → bootstrap (pull from Supabase)
+              ├── First sync?   → push all rows
+              └── Subsequent?  → push only rows newer than watermark
+                                 (watermark stored in _sync_watermarks table)
+```
+
+### Sync triggers
+
+| Trigger | Command | Tables |
+|---|---|---|
+| Startup | `python Leo.py` (automatic) | All 14 tables |
+| Manual full push | `python Leo.py --sync` | All 14 tables |
+| Post-prediction | Chapter 1 P3 (automatic) | predictions, schedules |
+| Live scores | Live streamer (automatic, 60s) | live_scores |
+| Recovery pull | `python Leo.py --pull` | All 14 tables |
+
+### Batch sizes (tuned for Supabase's 8s statement timeout)
+
+| Table | Batch size | Reason |
+|---|---|---|
+| `schedules` | 500 rows | Large JSONB + complex conflict resolution |
+| `match_odds` | 1,000 rows | Composite primary key |
+| All others | 2,000 rows | Standard |
+
+### Computed Standings
+
+`standings` is **not** a synced table — it is a PostgreSQL `VIEW` computed on-the-fly from `schedules`. The Flutter app and Python backend query `computed_standings` directly. This means standings are always accurate without any sync overhead.
+
+---
+
+## Part 7 — Troubleshooting
+
+### "exec_sql RPC failed (PGRST202)"
+The `exec_sql` function was not created. Re-run Part 3 (Step 1 of the SQL).
+
+### "Could not find the table 'public.X' (PGRST205)"
+A table is missing. Re-run Part 3 in full.
+
+### "Both local and remote empty" but local SQLite has data
+The upsert silently failed because the table didn't exist at upsert time. Re-run Part 3, then `python Leo.py --sync`.
+
+### Sync succeeds but Flutter app shows no data
+Check Row Level Security. The `anon_read_*` policies (Part 3 Step 7) must exist. Verify in Supabase dashboard → **Authentication** → **Policies**.
+
+### `python Leo.py --pull` — recovery from Supabase
+If local SQLite is lost or corrupted, this pulls all tables from Supabase back to local:
+```bash
+python Leo.py --pull
+```
+
+---
+
+## Part 8 — Environment Variables Reference
+
+| Variable | Where | Purpose |
+|---|---|---|
+| `SUPABASE_URL` | `.env` | Project URL from Settings → API |
+| `SUPABASE_SERVICE_KEY` | `.env` | Service Role Key (full access, backend only) |
+
+The Flutter app uses the **Anon Key** configured separately in `leobookapp/lib/config/`.
+
+---
+
+*Last updated: March 14, 2026 (v8.1 — Bootstrap SQL + exec_sql function + full table inventory)*
+*LeoBook Engineering Team — Materialless LLC*
