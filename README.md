@@ -2,7 +2,7 @@
 
 **Developer**: Materialless LLC
 **Chief Engineer**: Emenike Chinenye James
-**Powered by**: Multi-Key Gemini Rotation (25+ Keys, 6 Models) · xAI Grok API (Optional)
+**Powered by**: Rule Engine + Neural RL Stairway Engine · Gemini Multi-Key (AIGO browser assistant + search enrichment only)
 **Architecture**: 3-Phase RL "Stairway Engine" v8.0 (30-dim Action Space + Poisson Grounding + Chapter 1 v9.0)
 
 ---
@@ -13,7 +13,7 @@ LeoBook is an **autonomous sports prediction and betting system** with two halve
 
 | Component     | Tech                               | Purpose                                                                                                                              |
 | ------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `Leo.py`      | Python 3.12 + Playwright + PyTorch | Autonomous data extraction, rule-based + neural RL prediction, odds harvesting, automated bet placement, and dynamic task scheduling |
+| `Leo.py`      | Python 3.12 + Playwright + PyTorch | Autonomous data extraction, **Rule Engine + Neural RL prediction** (no LLM), odds harvesting, automated bet placement, and dynamic task scheduling |
 | `leobookapp/` | Flutter/Dart                       | Cross-platform dashboard with "Telegram-grade" UI density, Liquid Glass aesthetics, and real-time streaming                          |
 
 **Leo.py** is an **autonomous orchestrator** powered by a **Supervisor-Worker Pattern** (`Core/System/supervisor.py`). It replaces the monolithic loop with isolated chapter workers (`Core/System/pipeline_workers.py`), ensuring failure isolation, retries, and state persistence. The system enforces **Data Readiness Gates** (Prologue P1-P3) with **materialized readiness cache** for O(1) checks. **Data Quality & Season Completeness** are tracked autonomously, protecting the pipeline from malformed IDs and missing historical data. Cloud sync uses **watermark-based delta detection**.
