@@ -624,11 +624,11 @@ async def run_automated_booking(playwright: Playwright):
             context, page, current_balance = await _create_session(playwright)
             log_state(chapter="Chapter 2A", action="Placing bets")
 
-            from .booker.placement import place_multi_bet_from_codes
+            from .booker.placement import place_stairway_accumulator
 
             for target_date, harvested in booking_queue.items():
                 print(f"\n--- Booking Date: {target_date} ---")
-                await place_multi_bet_from_codes(page, harvested, current_balance)
+                await place_stairway_accumulator(page, harvested, current_balance)
                 log_state(chapter="Chapter 2A", action="Booking Complete",
                           next_step=f"Processed {target_date}")
 
