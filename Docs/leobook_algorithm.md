@@ -1,8 +1,8 @@
 # LeoBook Algorithm & Codebase Reference
  
-> **Version**: 8.1.0 · **Last Updated**: 2026-03-10 · **Architecture**: Autonomous High-Velocity Architecture (Supervisor-Worker + Neuro-Symbolic Ensemble + Safety Guardrails v1.0)
+> **Version**: 9.1 · **Last Updated**: 2026-03-15 · **Architecture**: v9.1 "Stairway Engine" (Fully Modular · Season-Aware RL Weighting · CUP_FORMAT Completeness)
 
-This document maps the **execution flow** of [Leo.py](Leo.py) to specific files and functions.
+This document maps the **execution flow** of [Leo.py](Leo.py) (469 lines — entry point only) to specific files and functions. Chapter/page execution functions live in `Core/System/pipeline.py`.
 
 ---
 
@@ -37,8 +37,9 @@ Leo.py (Orchestrator) v7.3
 1. **Gate P1 (Quantity & ID)**: Checks coverage and data quality.
    - **Thresholds**: 90% league coverage AND teams >= 3 per league. Validates IDs (fail if >5% invalid).
    - **Remediation**: Triggers `auto_remediate("leagues")`.
-2. **Gate P2 (History & Quality)**: Checks fixture coverage.
-   - **Logic**: Pass if 0 critical gaps AND 0 completed season mismatches. **ACTIVE seasons never block.**
+2. **Gate P2 (History & Quality)**: Checks fixture coverage. Two separate jobs:
+   - **Job A (blocks pipeline)**: Pass if 0 critical gaps AND 0 completed season mismatches. ACTIVE seasons never block. CUP_FORMAT competitions (< 4 registered teams) are excluded entirely — they never become phantom COMPLETED seasons.
+   - **Job B (informs only)**: Reports RL tier — `RULE_ENGINE` (0 leagues with prior season data), `PARTIAL` (20–50% have history), `FULL` (50%+ have history). Never blocks the pipeline.
    - **Remediation**: Triggers `auto_remediate("seasons")`.
 3. **Gate P3 (AI)**: RL adapters trained.
    - **Remediation**: Triggers `auto_remediate("rl")`.
@@ -82,6 +83,7 @@ The standalone `standings` table has been deprecated and removed.
 ## Neural RL Engine (`Core/Intelligence/rl/`)
 
 **Architecture**: SharedTrunk + LoRA league adapters + league-conditioned team adapters.
+Split across three files (v9.1): `trainer.py` (core class, 832L), `trainer_phases.py` (Phase 1/2/3 reward functions — mixin), `trainer_io.py` (save/load/checkpoint management — mixin).
 
 - **Primary Reward**: Prediction accuracy.
 - **Constraint**: Same team produces different predictions in different competitions.
@@ -112,6 +114,26 @@ Where:
 - **Reasoning**: Neural models can "hallucinate" high confidence on OOD (Out-Of-Distribution) data. The Rule Engine provides a physical/logical baseline that neural signals must augment, not replace, when uncertain.
 - **Circuit Breaker**: SearchDict LLM enrichment skips remaining batches if all providers (Gemini + Grok) are offline.
 
+### 4. Season-Aware RL Weighting (v9.1)
+
+`W_neural` is dynamically scaled by `data_richness_score` [0.0, 1.0] per league:
+
+| Prior Seasons | `data_richness_score` | `W_neural` | Effect |
+|---|---|---|---|
+| 0 | 0.0 | 0.0 | Pure Rule Engine — no RL history |
+| 1 | 0.33 | ≈0.10 | RL contributing lightly |
+| 2 | 0.67 | ≈0.20 | RL contributing moderately |
+| 3+ | 1.0 | 0.30 | Full configured RL weight |
+
+`W_symbolic = 1.0 − W_neural` (always sums to 1.0).
+Scores are bulk-loaded at pipeline start via one DB query and cached for 6 hours (`EnsembleEngine._load_richness_cache()`).
+
+To advance the RL tier from `RULE_ENGINE`:
+```bash
+python Leo.py --enrich-leagues --seasons 2  # → PARTIAL tier
+python Leo.py --enrich-leagues --seasons 4  # → FULL tier (3+ prior seasons)
+```
+
 ---
 
 ## Safety Guardrails (v1.0)
@@ -127,5 +149,5 @@ Where:
 
 ---
 
-*Last updated: March 10, 2026 (v8.1.0 — Supervisor-Worker + Neuro-Symbolic Ensemble + Safety Guardrails v1.0)*
+*Last updated: 2026-03-15 (v9.1 — Season-Aware RL · CUP_FORMAT · Fully Modular · trainer_phases + trainer_io)*
 *LeoBook Engineering Team — Materialless LLC*

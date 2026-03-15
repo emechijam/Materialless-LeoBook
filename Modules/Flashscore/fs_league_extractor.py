@@ -1,0 +1,413 @@
+# fs_league_extractor.py: JS scripts, season parsing, match extraction, gap verification.
+# Part of LeoBook Modules — Flashscore
+
+import re
+import json
+from datetime import datetime
+from typing import Dict, List, Optional
+
+from playwright.async_api import Page
+
+from Core.Utils.constants import now_ng
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  JS Extraction Scripts
+# ═══════════════════════════════════════════════════════════════════════════════
+
+EXTRACT_MATCHES_JS = r"""(ctx) => {
+    const matches = [];
+    const s = ctx.selectors;
+    const startYear = ctx.startYear || new Date().getFullYear();
+    const endYear = ctx.endYear || startYear;
+    const isSplitSeason = ctx.isSplitSeason || false;
+    const tab = ctx.tab || 'results';
+
+    function inferYear(day, month) {
+        if (!isSplitSeason) return startYear;
+        return month >= 7 ? startYear : endYear;
+    }
+
+    const container = document.querySelector(s.main_container)?.parentElement || document.body;
+    const allEls = container.querySelectorAll(`${s.match_round}, ${s.match_row}`);
+    let currentRound = '';
+
+    allEls.forEach(el => {
+        if (el.matches(s.match_round)) { currentRound = el.innerText.trim(); return; }
+        const rowId = el.getAttribute('id') || '';
+        if (!rowId || !rowId.startsWith('g_1_')) return;
+        const row = el;
+        const fixtureId = rowId.replace('g_1_', '');
+        const timeEl = row.querySelector(s.match_time);
+        let matchTime = '', matchDate = '', extraTag = '';
+        if (timeEl) {
+            const stageInTime = timeEl.querySelector(`${s.match_stage_block}, ${s.match_stage_pkv}, ${s.match_stage}`);
+            if (stageInTime) extraTag = stageInTime.innerText.trim();
+            let raw = '';
+            for (const node of timeEl.childNodes) {
+                if (node.nodeType === 3) raw += node.textContent;
+                else if (node.classList && node.classList.contains('lineThrough')) raw += node.textContent;
+            }
+            raw = raw.trim();
+            if (!raw) raw = timeEl.innerText.trim().replace(/FRO|Postp\.?|Canc\.?|Abn\.?/gi, '').trim();
+            const fullM = raw.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})/);
+            if (fullM) {
+                matchDate = `${fullM[3]}-${fullM[2]}-${fullM[1]}`; matchTime = `${fullM[4]}:${fullM[5]}`;
+            } else {
+                const shortM = raw.match(/(\d{2})\.(\d{2})\.\s*(\d{2}):(\d{2})/);
+                if (shortM) {
+                    const year = inferYear(parseInt(shortM[1]), parseInt(shortM[2]));
+                    matchDate = `${year}-${shortM[2]}-${shortM[1]}`; matchTime = `${shortM[3]}:${shortM[4]}`;
+                } else {
+                    const jt = raw.match(/(\d{2}):(\d{2})/);
+                    if (jt) matchTime = `${jt[1]}:${jt[2]}`;
+                }
+            }
+        }
+        const homeEl = row.querySelector(s.home_participant);
+        const homeName = homeEl ? (homeEl.querySelector(s.participant_name) || homeEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
+        const awayEl = row.querySelector(s.away_participant);
+        const awayName = awayEl ? (awayEl.querySelector(s.participant_name) || awayEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
+        const homeScoreEl = row.querySelector(s.match_score_home);
+        const awayScoreEl = row.querySelector(s.match_score_away);
+        const homeScore = homeScoreEl && homeScoreEl.innerText.trim() !== '-' ? parseInt(homeScoreEl.innerText.trim()) : null;
+        const awayScore = awayScoreEl && awayScoreEl.innerText.trim() !== '-' ? parseInt(awayScoreEl.innerText.trim()) : null;
+        let matchStatus = '';
+        const stageEl = row.querySelector(`${s.match_stage_block}, ${s.match_stage}`);
+        if (stageEl && !stageEl.closest(s.match_time)) matchStatus = stageEl.innerText.trim();
+        else if (homeScoreEl) {
+            const state = homeScoreEl.getAttribute('data-state') || '';
+            const isFinal = homeScoreEl.className.includes('isFinal') || homeScoreEl.className.includes('Final');
+            if (state === 'final' || isFinal || homeScore !== null) matchStatus = 'FT';
+        }
+        const homeImg = row.querySelector(s.match_logo_home);
+        const awayImg = row.querySelector(s.match_logo_away);
+        const homeCrest = homeImg ? (homeImg.src || homeImg.getAttribute('data-src') || '') : '';
+        const awayCrest = awayImg ? (awayImg.src || awayImg.getAttribute('data-src') || '') : '';
+        let homeTeamId = '', awayTeamId = '', homeTeamUrl = '', awayTeamUrl = '';
+        let linkEl = row.querySelector(s.match_link);
+        if (!linkEl) linkEl = document.querySelector(`a[aria-describedby="${rowId}"]`);
+        const mLink = linkEl ? linkEl.getAttribute('href') : '';
+        if (mLink && mLink.includes('/match/football/')) {
+            const parts = mLink.replace(/^(.*\/match\/football\/)/, '').split('/').filter(p => p && !p.startsWith('?'));
+            if (parts.length >= 2) {
+                const hSeg = parts[0], aSeg = parts[1];
+                homeTeamId = hSeg.substring(hSeg.lastIndexOf('-') + 1);
+                awayTeamId = aSeg.substring(aSeg.lastIndexOf('-') + 1);
+                const hSlug = hSeg.substring(0, hSeg.lastIndexOf('-'));
+                const aSlug = aSeg.substring(0, aSeg.lastIndexOf('-'));
+                if (hSlug && homeTeamId) homeTeamUrl = `https://www.flashscore.com/team/${hSlug}/${homeTeamId}/`;
+                if (aSlug && awayTeamId) awayTeamUrl = `https://www.flashscore.com/team/${aSlug}/${awayTeamId}/`;
+            }
+        }
+        matches.push({ fixture_id: fixtureId, date: matchDate, time: matchTime,
+            home_team_name: homeName, away_team_name: awayName,
+            home_team_id: homeTeamId, away_team_id: awayTeamId,
+            home_team_url: homeTeamUrl, away_team_url: awayTeamUrl,
+            home_score: homeScore, away_score: awayScore,
+            match_status: matchStatus, home_crest_url: homeCrest, away_crest_url: awayCrest,
+            league_stage: currentRound, extra: extraTag || null,
+            url: `/match/${fixtureId}/#/match-summary`, match_link: mLink || ''
+        });
+    });
+    return matches;
+}"""
+
+EXTRACT_SEASON_JS = r"""(selectors) => {
+    const s = selectors;
+    for (const sel of s.season_info.split(',').map(x => x.trim())) {
+        const el = document.querySelector(sel);
+        if (el) { const m = el.innerText.trim().match(/(\d{4}(?:\/\d{4})?)/); if (m) return m[1]; }
+    }
+    for (const b of document.querySelectorAll(s.breadcrumb_text)) {
+        const m = b.innerText.match(/(\d{4}(?:\/\d{4})?)/); if (m) return m[1];
+    }
+    return '';
+}"""
+
+EXTRACT_CREST_JS = r"""(selectors) => {
+    const img = document.querySelector(selectors.league_crest);
+    return img ? (img.src || img.getAttribute('data-src') || '') : '';
+}"""
+
+EXTRACT_FS_LEAGUE_ID_JS = r"""() => {
+    if (window.leaguePageHeaderData?.tournamentStageId) return window.leaguePageHeaderData.tournamentStageId;
+    if (window.tournament_id) return window.tournament_id;
+    if (window.config?.tournamentStage) return window.config.tournamentStage;
+    const pathM = (window.location.pathname || '').match(/-([A-Za-z0-9]{6,10})\/?$/);
+    if (pathM) return pathM[1];
+    for (const link of document.querySelectorAll('a[href*="/standings/"], a[href*="/results/"]')) {
+        const m = (link.getAttribute('href') || '').match(/\/([A-Za-z0-9]{6,10})\/standings\//);
+        if (m) return m[1];
+    }
+    const hashM = (window.location.hash || '').match(/#\/([A-Za-z0-9]{6,10})\//);
+    if (hashM) return hashM[1];
+    return '';
+}"""
+
+EXTRACT_ARCHIVE_JS = r"""(selectors) => {
+    const seasons = [], seen = new Set();
+    for (const sel of [selectors.archive_links, selectors.archive_table_links, 'a[href*="/football/"]']) {
+        if (!sel) continue;
+        for (const a of document.querySelectorAll(sel)) {
+            const href = a.getAttribute('href') || '';
+            const splitM = href.match(/\/football\/([^/]+)\/([^/]+-(\\d{4})-(\\d{4}))\/?/);
+            if (splitM && !seen.has(splitM[2])) {
+                seen.add(splitM[2]);
+                seasons.push({ slug: splitM[2], country: splitM[1],
+                    start_year: parseInt(splitM[3]), end_year: parseInt(splitM[4]),
+                    is_split: true, label: `${splitM[3]}/${splitM[4]}`,
+                    url: href.startsWith('http') ? href : 'https://www.flashscore.com' + href });
+            }
+            const calM = href.match(/\/football\/([^/]+)\/([^/]+-(\\d{4}))\/?$/);
+            if (calM && !seen.has(calM[2])) {
+                if (![...seen].some(s => s.startsWith(calM[2] + '-'))) {
+                    seen.add(calM[2]);
+                    seasons.push({ slug: calM[2], country: calM[1],
+                        start_year: parseInt(calM[3]), end_year: parseInt(calM[3]),
+                        is_split: false, label: calM[3],
+                        url: href.startsWith('http') ? href : 'https://www.flashscore.com' + href });
+                }
+            }
+        }
+    }
+    seasons.sort((a, b) => b.start_year - a.start_year || b.end_year - a.end_year);
+    return seasons;
+}"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Season Helpers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def parse_season_string(season_str: str) -> dict:
+    if not season_str:
+        year = now_ng().year
+        return {"startYear": year, "endYear": year, "isSplitSeason": False}
+    m = re.match(r"(\d{4})[/\-](\d{4})", season_str)
+    if m:
+        return {"startYear": int(m.group(1)), "endYear": int(m.group(2)), "isSplitSeason": True}
+    m = re.match(r"(\d{4})", season_str)
+    if m:
+        year = int(m.group(1))
+        return {"startYear": year, "endYear": year, "isSplitSeason": False}
+    year = datetime.now().year
+    return {"startYear": year, "endYear": year, "isSplitSeason": False}
+
+
+async def get_archive_seasons(page: Page, league_url: str, selector_mgr, context_league: str) -> List[Dict]:
+    """Navigate to /archive/ and return all available past seasons, most-recent-first."""
+    from Core.Intelligence.aigo_suite import AIGOSuite
+
+    archive_url = league_url.rstrip("/") + "/archive/"
+    print(f"    [Archive] {archive_url}")
+    try:
+        from Core.Browser.site_helpers import fs_universal_popup_dismissal
+        await page.goto(archive_url, wait_until="domcontentloaded", timeout=60000)
+        await fs_universal_popup_dismissal(page)
+        selectors = selector_mgr.get_all_selectors_for_context(context_league)
+        link_sel = (
+            selectors.get("archive_links")
+            or selectors.get("archive_table_links")
+            or "a[href*='/football/']"
+        )
+        try:
+            await page.wait_for_selector(link_sel, timeout=20000)
+        except Exception:
+            pass
+        seasons = await page.evaluate(EXTRACT_ARCHIVE_JS, selectors)
+        print(f"    [Archive] Found {len(seasons)} past seasons")
+        return seasons or []
+    except Exception as e:
+        print(f"    [Archive] Failed: {e}")
+        return []
+
+
+def _select_seasons_from_archive(
+    archive_seasons: List[Dict],
+    target_season: Optional[int],
+    num_seasons: int,
+    all_seasons: bool,
+    target_season_labels: Optional[List[str]] = None,
+) -> List[Dict]:
+    """Select seasons from the archive list.
+
+    Args:
+        target_season_labels: If provided (from gap scanner), select only these
+                              specific season strings (e.g. ["2022/2023", "2023/2024"]).
+                              Takes precedence over num_seasons / all_seasons.
+    """
+    if not archive_seasons:
+        return []
+
+    if target_season_labels:
+        label_set = set(target_season_labels)
+        matched = [s for s in archive_seasons if s["label"] in label_set]
+        if matched:
+            return matched
+        print(f"    [Archive] WARNING: none of the target seasons {label_set} matched "
+              f"archive labels {[s['label'] for s in archive_seasons[:5]]}. "
+              f"Falling back to first {len(label_set)} seasons.")
+        return archive_seasons[:max(1, len(label_set))]
+
+    if all_seasons:
+        return archive_seasons
+    if target_season is not None and target_season >= 1:
+        idx = target_season - 1
+        if idx < len(archive_seasons):
+            return [archive_seasons[idx]]
+        print(f"    [Archive] Offset {target_season} out of range — "
+              f"only {len(archive_seasons)} past seasons found")
+        return []
+    if num_seasons > 0:
+        return archive_seasons[:num_seasons]
+    return []
+
+
+def seed_leagues_from_json(conn, leagues_json_path: str) -> None:
+    from Data.Access.league_db import upsert_league
+    print(f"\n  [Seed] Reading {leagues_json_path}...")
+    with open(leagues_json_path, "r", encoding="utf-8") as f:
+        leagues = json.load(f)
+    count = 0
+    for lg in leagues:
+        upsert_league(conn, {
+            "league_id":    lg["league_id"],
+            "country_code": lg.get("country_code"),
+            "continent":    lg.get("continent"),
+            "name":         lg["name"],
+            "url":          lg.get("url"),
+        })
+        count += 1
+    print(f"  [Seed] [OK] Upserted {count} leagues.")
+
+
+def verify_league_gaps_closed(
+    conn, league_id: str, before_gaps: int, idx: int, total: int
+) -> tuple:
+    """Count remaining gaps for a single league without a full DB rescan.
+
+    Returns:
+        (remaining_gaps, closed_gaps)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        after_gaps = 0
+        for col, cond in [
+            ("home_team_name", "home_team_name IS NULL OR home_team_name = ''"),
+            ("away_team_name", "away_team_name IS NULL OR away_team_name = ''"),
+            ("home_crest",     "home_crest IS NULL OR home_crest = '' OR home_crest NOT LIKE 'http%'"),
+            ("away_crest",     "away_crest IS NULL OR away_crest = '' OR away_crest NOT LIKE 'http%'"),
+            ("fixture_id",     "fixture_id IS NULL OR fixture_id = ''"),
+            ("date",           "date IS NULL OR date = ''"),
+            ("season",         "season IS NULL OR season = ''"),
+        ]:
+            try:
+                row = conn.execute(
+                    f"SELECT COUNT(*) FROM schedules WHERE league_id = ? AND ({cond})",
+                    (league_id,)
+                ).fetchone()
+                after_gaps += row[0] if row else 0
+            except Exception:
+                pass
+
+        for col, cond in [
+            ("name",         "name IS NULL OR name = ''"),
+            ("url",          "url IS NULL OR url = ''"),
+            ("country_code", "country_code IS NULL OR country_code = ''"),
+            ("crest",        "crest IS NULL OR crest = '' OR crest NOT LIKE 'http%'"),
+        ]:
+            try:
+                row = conn.execute(
+                    f"SELECT COUNT(*) FROM leagues WHERE league_id = ? AND ({cond})",
+                    (league_id,)
+                ).fetchone()
+                after_gaps += row[0] if row else 0
+            except Exception:
+                pass
+
+        try:
+            row = conn.execute(
+                """SELECT COUNT(*) FROM teams
+                   WHERE (crest IS NULL OR crest = '' OR crest NOT LIKE 'http%'
+                          OR country_code IS NULL OR country_code = '')
+                     AND (league_ids LIKE ? OR league_ids LIKE ? OR league_ids LIKE ?)""",
+                (f'["{league_id}"]', f'"{league_id}",%', f'%,"{league_id}"%')
+            ).fetchone()
+            after_gaps += row[0] if row else 0
+        except Exception:
+            pass
+
+        closed = max(0, before_gaps - after_gaps)
+        if closed > 0 or after_gaps > 0:
+            status = "[✓]" if after_gaps == 0 else "[~]"
+            print(f"  [{idx}/{total}] {status} Gap delta for {league_id}: "
+                  f"{before_gaps} -> {after_gaps} "
+                  f"({closed} closed"
+                  + (f", {after_gaps} remaining" if after_gaps else "")
+                  + ")")
+
+        return after_gaps, closed
+    except Exception as e:
+        logger.warning("[GapVerify] Failed for %s: %s", league_id, e)
+        return 0, 0
+
+
+def _backfill_schedule_crests(conn, league_id: str, season: str, country_code: str) -> int:
+    """Overwrite empty/local-path crests in schedules with the Supabase URL from teams."""
+    if country_code:
+        cc_filter = "t.country_code = ?"
+        params_home = (country_code, league_id, season, country_code)
+        params_away = (country_code, league_id, season, country_code)
+    else:
+        cc_filter = "(t.country_code IS NULL OR t.country_code = '')"
+        params_home = (league_id, season)
+        params_away = (league_id, season)
+
+    conn.execute(f"""
+        UPDATE schedules
+        SET home_crest = (
+            SELECT t.crest FROM teams t
+            WHERE t.name = schedules.home_team_name
+              AND {cc_filter}
+              AND t.crest LIKE 'http%'
+            LIMIT 1
+        )
+        WHERE league_id = ? AND season = ?
+          AND home_team_name IS NOT NULL
+          AND (home_crest IS NULL OR home_crest = '' OR home_crest NOT LIKE 'http%')
+          AND EXISTS (
+              SELECT 1 FROM teams t
+              WHERE t.name = schedules.home_team_name
+                AND {cc_filter}
+                AND t.crest LIKE 'http%'
+          )
+    """, params_home)
+    home_updated = conn.execute("SELECT changes()").fetchone()[0]
+
+    conn.execute(f"""
+        UPDATE schedules
+        SET away_crest = (
+            SELECT t.crest FROM teams t
+            WHERE t.name = schedules.away_team_name
+              AND {cc_filter}
+              AND t.crest LIKE 'http%'
+            LIMIT 1
+        )
+        WHERE league_id = ? AND season = ?
+          AND away_team_name IS NOT NULL
+          AND (away_crest IS NULL OR away_crest = '' OR away_crest NOT LIKE 'http%')
+          AND EXISTS (
+              SELECT 1 FROM teams t
+              WHERE t.name = schedules.away_team_name
+                AND {cc_filter}
+                AND t.crest LIKE 'http%'
+          )
+    """, params_away)
+    away_updated = conn.execute("SELECT changes()").fetchone()[0]
+
+    total = home_updated + away_updated
+    if total:
+        conn.commit()
+    return total

@@ -1,6 +1,6 @@
 # Supabase Setup Guide
 
-> **Version**: 8.2 · **Last Updated**: 2026-03-14
+> **Version**: 9.1 · **Last Updated**: 2026-03-15
 > **One-stop reference** — everything needed to provision a fresh Supabase database for LeoBook from scratch.
 
 ---
@@ -60,12 +60,12 @@ The script is safe to re-run at any time — all statements use `CREATE TABLE IF
 
 ```sql
 -- =============================================================================
--- LEOBOOK SUPABASE BOOTSTRAP v8.2
+-- LEOBOOK SUPABASE BOOTSTRAP v9.1
 -- Run this ONCE on a fresh Supabase project via SQL Editor.
 -- Safe to re-run — all statements are idempotent.
 --
--- AUTHORITATIVE SOURCE: sync_manager.SUPABASE_SCHEMA
--- This file must stay in sync with Data/Access/sync_manager.py.
+-- AUTHORITATIVE SOURCE: Data/Access/sync_schema.py (TABLE_CONFIG, _COL_REMAP)
+-- This file must stay in sync with sync_schema.py.
 -- Column names, types, and PRIMARY KEY definitions here must exactly match
 -- the DDL strings in that dict — they control what _ALLOWED_COLS accepts.
 -- =============================================================================
@@ -477,15 +477,70 @@ END $$;
 
 ---
 
+## Part 3B — v9.1 Schema ALTERs (upgrade from v8.x)
+
+If you have an existing database from before v9.1, run these ALTERs in the SQL Editor. On a fresh install (Part 3 above), these are already included and can be skipped.
+
+```sql
+-- Required ALTERs for v9.1 (run in Supabase SQL Editor if upgrading)
+
+-- teams.league_ids must be JSONB (may be TEXT in older installs)
+ALTER TABLE public.teams
+  ALTER COLUMN league_ids TYPE JSONB USING league_ids::JSONB;
+
+-- schedules: add extra column if missing (stores match tags: AET, PEN, etc.)
+ALTER TABLE public.schedules
+  ADD COLUMN IF NOT EXISTS extra JSONB;
+
+-- Ensure integer scores (not TEXT)
+ALTER TABLE public.schedules
+  ALTER COLUMN home_score TYPE INTEGER USING home_score::INTEGER;
+ALTER TABLE public.schedules
+  ALTER COLUMN away_score TYPE INTEGER USING away_score::INTEGER;
+
+-- Recreate computed_standings VIEW with correct integer types
+CREATE OR REPLACE VIEW public.computed_standings AS
+WITH all_matches AS (
+    SELECT league_id, season,
+           home_team_id AS team_id, home_team AS team_name,
+           home_score AS gf, away_score AS ga
+    FROM public.schedules
+    WHERE home_score IS NOT NULL AND away_score IS NOT NULL
+      AND match_status = 'finished'
+    UNION ALL
+    SELECT league_id, season,
+           away_team_id AS team_id, away_team AS team_name,
+           away_score AS gf, home_score AS ga
+    FROM public.schedules
+    WHERE home_score IS NOT NULL AND away_score IS NOT NULL
+      AND match_status = 'finished'
+)
+SELECT league_id, season, team_id, team_name,
+    COUNT(*)                                                       AS played,
+    SUM(CASE WHEN gf > ga THEN 1 ELSE 0 END)                      AS won,
+    SUM(CASE WHEN gf = ga THEN 1 ELSE 0 END)                      AS drawn,
+    SUM(CASE WHEN gf < ga THEN 1 ELSE 0 END)                      AS lost,
+    SUM(gf)                                                        AS goals_for,
+    SUM(ga)                                                        AS goals_against,
+    SUM(gf) - SUM(ga)                                             AS goal_difference,
+    SUM(CASE WHEN gf > ga THEN 3 WHEN gf = ga THEN 1 ELSE 0 END) AS points
+FROM all_matches
+GROUP BY league_id, season, team_id, team_name;
+
+GRANT SELECT ON public.computed_standings TO anon, authenticated, service_role;
+```
+
+---
+
 ## Part 4 — Verify the Bootstrap
 
 After running the SQL above, verify in **Table Editor** (left sidebar) that the following tables are visible:
 
 | Table | Purpose |
 |---|---|
-| `leagues` | League metadata + `current_season` |
-| `teams` | Team metadata + search enrichment |
-| `schedules` | All fixtures — the backbone of the system |
+| `leagues` | League metadata — `country_code`, `region_flag`, `crest`, `current_season` |
+| `teams` | Team metadata — `league_ids` (JSONB), `crest`, `country_code` |
+| `schedules` | All fixtures — backbone of the system. `home_team`/`away_team` mapped from `home_team_name`/`away_team_name` via `_COL_REMAP` |
 | `predictions` | Rule Engine + RL ensemble predictions |
 | `fb_matches` | Football.com match objects (odds harvesting) |
 | `match_odds` | Per-market odds extracted from Football.com |
@@ -497,6 +552,8 @@ After running the SQL above, verify in **Table Editor** (left sidebar) that the 
 | `profiles` | App user accounts |
 | `custom_rules` | User-defined rule engine entries |
 | `rule_executions` | Log of each custom rule execution |
+
+> **Note**: `region_league` CSV is deprecated. All league data lives in the `leagues` table. `teams.league_ids` is JSONB in Supabase.
 
 Also verify in **Database** → **Functions** that `exec_sql` appears in the `public` schema.
 
@@ -564,6 +621,24 @@ Leo.py startup
 
 `standings` is **not** a synced table — it is a PostgreSQL `VIEW` computed on-the-fly from `schedules`. The Flutter app and Python backend query `computed_standings` directly. This means standings are always accurate without any sync overhead.
 
+### Storage Buckets
+
+LeoBook uses 3 Supabase Storage buckets for binary assets. These are NOT managed by `--sync` — they are managed by `--assets`.
+
+| Bucket | Content | Files | Managed by |
+|---|---|---|---|
+| `flags` | SVG flag icons | 171 SVGs (all countries) | `sync_region_flags()` |
+| `team-crests` | Team logo PNGs | Uploaded during enrichment | `fs_league_enricher` + `sync_team_assets()` |
+| `league-crests` | League logo PNGs | Uploaded during enrichment | `fs_league_enricher` + `sync_league_assets()` |
+
+All 3 buckets are created with `public: True`. To sync all buckets:
+```bash
+python Leo.py --assets          # sync all three buckets
+python -m Modules.Assets.asset_manager --flags  # flags only
+```
+
+Current state (2026-03-15): 1,234 leagues have `region_flag` URLs in SQLite + Supabase. 171 distinct flag SVGs in the `flags` bucket.
+
 ---
 
 ## Part 7 — Troubleshooting
@@ -599,5 +674,6 @@ The Flutter app uses the **Anon Key** configured separately in `leobookapp/lib/c
 
 ---
 
-*Last updated: March 14, 2026 (v8.2 — schema synced to sync_manager.SUPABASE_SCHEMA: JSONB types, INTEGER scores, extra column, standings VIEW fixed)*
+*Last updated: 2026-03-15 (v9.1 — v9.1 ALTERs section, Storage Buckets section, sync_schema.py canonical source reference, tables list updated)*
+*Previous: v8.2 — schema synced to sync_manager.SUPABASE_SCHEMA: JSONB types, INTEGER scores, extra column, standings VIEW fixed (2026-03-14)*
 *LeoBook Engineering Team — Materialless LLC*

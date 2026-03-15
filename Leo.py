@@ -70,8 +70,9 @@ from Modules.Flashscore.fs_live_streamer import live_score_streamer
 from Modules.FootballCom.fb_manager import run_odds_harvesting, run_automated_booking
 from Scripts.recommend_bets import get_recommendations
 from Core.Intelligence.prediction_pipeline import run_predictions, get_weekly_fixtures
-from Scripts.enrich_leagues import main as run_league_enricher
+from Modules.Flashscore.fs_league_enricher import main as run_league_enricher
 from Data.Access.asset_manager import sync_team_assets, sync_league_assets, sync_region_flags
+from Data.Access.football_logos import download_all_logos, download_all_countries
 
 
 # Configuration

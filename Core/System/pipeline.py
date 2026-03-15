@@ -16,7 +16,7 @@ from Modules.FootballCom.fb_manager import run_odds_harvesting, run_automated_bo
 from Scripts.recommend_bets import get_recommendations
 from Core.Intelligence.prediction_pipeline import run_predictions
 from Scripts.enrich_leagues import main as run_league_enricher
-from Modules.Assets.asset_manager import sync_team_assets, sync_league_assets, sync_region_flags
+from Data.Access.asset_manager import sync_team_assets, sync_league_assets, sync_region_flags
 
 
 # ============================================================

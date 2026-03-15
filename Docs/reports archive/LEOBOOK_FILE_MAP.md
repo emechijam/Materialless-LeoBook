@@ -1,8 +1,8 @@
 # LeoBook — Chapter & Page File Dependency Map
 
-> **Version**: 9.1 · **Last Updated**: 2026-03-15
+> **Version**: 9.2 · **Last Updated**: 2026-03-15
 > Reflects post-modularisation structure. All files ≤500 lines.
-> Previous version: 8.0 (pre-split monoliths)
+> Previous version: 9.1 (pre-log-system)
 
 ---
 
@@ -65,23 +65,12 @@
 | File | Role |
 |---|---|
 | `Core/System/pipeline.py` | `run_prologue_p2()` |
-| `Core/System/data_readiness.py` | `check_seasons_ready()` — Job A (gate) + Job B (RL tier) |
-| `Data/Access/season_completeness.py` | `SeasonCompletenessTracker`, `CUP_FORMAT` status, `get_data_richness_score()` |
+| `Core/System/data_readiness.py` | `check_seasons_ready()` |
 | `Data/Access/league_db.py` | `get_leagues_missing_seasons()` |
 | `Modules/Flashscore/fs_league_enricher.py` | Auto-remediation: `main(num_seasons=2)` |
 | `Data/Access/gap_scanner.py` | `GapScanner` |
 | `Data/Access/gap_models.py` | `GapReport` |
 | `Data/Access/db_helpers.py` | `log_audit_event()` |
-
-**P2 Output (v9.1):**
-```
-[Seasons] N league-seasons computed
-  - COMPLETED:   N (0 mismatches)      ← Job A gate
-  - ACTIVE:      N (avg X% coverage)
-  - CUP_FORMAT:  (excluded from gate)  ← never phantom-COMPLETED
-[History] N leagues have prior season data
-  - RL tier: RULE_ENGINE / PARTIAL / FULL  ← Job B informational
-```
 
 ---
 
@@ -112,7 +101,7 @@
 | `Data/Access/league_db.py` | `upsert_fb_match()`, `upsert_match_odds_batch()` |
 | `Data/Access/sync_schema.py` | `TABLE_CONFIG` |
 | `Data/Store/leobook.db` | `fb_matches`, `match_odds` written |
-| `Data/Store/ranked_markets_likelihood_updated_with_team_ou.json` | Market likelihood data |
+|  `Data/Store/ranked_markets_likelihood_updated_with_team_ou.json` | Market likelihood data (alongside `leagues.json`, `country.json`) |
 | `Data/Access/db_helpers.py` | `log_audit_event()` |
 
 ---
@@ -127,7 +116,6 @@
 | `Core/Intelligence/prediction_pipeline.py` | `run_predictions()` |
 | `Core/Intelligence/rule_engine.py` | Rule Engine logic |
 | `Core/Intelligence/rule_engine_manager.py` | Engine registry + default selection |
-| `Core/Intelligence/ensemble.py` | `EnsembleEngine.merge(data_richness_score=...)` |
 | `Core/Intelligence/rl/trainer.py` | `RLTrainer` — `__init__`, `train_step`, `train_from_fixtures` |
 | `Core/Intelligence/rl/trainer_phases.py` | Phase 1/2/3 reward functions (mixin) |
 | `Core/Intelligence/rl/trainer_io.py` | Save/load/checkpoint management (mixin) |
@@ -137,7 +125,6 @@
 | `Core/Intelligence/selector_manager.py` | CSS selector registry |
 | `Data/Access/league_db.py` | `upsert_prediction()`, `computed_standings()` |
 | `Data/Access/league_db_schema.py` | `computed_standings()` SQL |
-| `Data/Access/season_completeness.py` | `get_data_richness_score()` → scales `W_neural` |
 | `Data/Access/metadata_linker.py` | Links fixture metadata |
 | `Data/Store/leobook.db` | `schedules`, `predictions`, `match_odds` |
 | `Data/Store/models/leobook_base.pth` | Trained RL model weights |
@@ -145,9 +132,6 @@
 | `Core/System/scheduler.py` | `TaskScheduler` |
 | `Core/System/guardrails.py` | Pre-bet checks, staircase |
 | `Data/Access/db_helpers.py` | `log_audit_event()` |
-
-**Season-Aware RL (v9.1):** `EnsembleEngine.get_richness_score(league_id)` is called per match.
-`W_neural = W_neural_base × data_richness_score` (0.0–1.0, cached 6h).
 
 ---
 
@@ -159,7 +143,7 @@
 |---|---|
 | `Core/System/pipeline.py` | `run_chapter_1_p3()` |
 | `Scripts/recommend_bets.py` | `get_recommendations()` |
-| `Data/Store/ranked_markets_likelihood_updated_with_team_ou.json` | Market likelihood data |
+|  `Data/Store/ranked_markets_likelihood_updated_with_team_ou.json` | Market likelihood data (alongside `leagues.json`, `country.json`) |
 | `Data/Access/sync_manager.py` | `run_full_sync()` |
 | `Data/Access/sync_schema.py` | `TABLE_CONFIG`, `_COL_REMAP` |
 | `Data/Access/league_db.py` | `get_connection()` |
@@ -210,6 +194,7 @@
 |---|---|
 | `Data/Access/sync_manager.py` | `SyncManager`, `run_full_sync()`, `batch_pull()` |
 | `Data/Access/sync_schema.py` | `TABLE_CONFIG`, `SUPABASE_SCHEMA`, `_COL_REMAP` |
+| `Data/Access/log_sync.py` | `LogSync.push()` — uploads unsynced `Data/Logs/` segments to Supabase Storage `logs` bucket |
 | `Data/Access/supabase_client.py` | Connection |
 | `Data/Access/league_db.py` | All tables |
 
@@ -227,15 +212,6 @@
 | `Data/Access/db_helpers.py` | `propagate_crest_urls()`, `fill_all_country_codes()` |
 | `Data/Store/leagues.json` | League seed data |
 | `Modules/Assets/asset_manager.py` | Crest upload to Supabase Storage |
-
-**Enrichment final pass order (v9.1):**
-1. `GapResolver.resolve_immediate()`
-2. `SeasonCompletenessTracker.bulk_compute_all()`
-3. `propagate_crest_urls()`
-4. `fill_all_country_codes(conn)`
-5. **Final Supabase sync** (before gap scan)
-6. Post-enrichment gap scan
-7. Summary print
 
 ### `--train-rl`
 | File | Role |
@@ -270,11 +246,9 @@
 |---|---|
 | `Modules/Assets/asset_manager.py` | `sync_team_assets()`, `sync_league_assets()`, `sync_region_flags()` |
 | `Data/Access/supabase_client.py` | Storage client |
-| `Data/Access/league_db.py` | `get_connection()`, `DB_DIR` ← **import from here, not db_helpers** |
+| `Data/Access/league_db.py` | `DB_DIR` ← **import from here, not db_helpers** |
 | `Data/Store/crests/` | Local crest images |
-| `Modules/Assets/flag-icons-main/` | SVG flag library (171 SVGs uploaded, 1,234 leagues) |
-
-**Buckets:** `flags` (SVG icons), `team-crests` (PNG logos), `league-crests` (PNG logos)
+| `Modules/Assets/flag-icons-main/` | SVG flag library |
 
 ### `--logos`
 | File | Role |
@@ -288,7 +262,7 @@
 |---|---|
 | `Core/System/data_quality.py` | `DataQualityScanner`, `InvalidIDScanner` |
 | `Core/System/gap_resolver.py` | `GapResolver` |
-| `Data/Access/season_completeness.py` | `SeasonCompletenessTracker` — `CUP_FORMAT`, `get_data_richness_score()` |
+| `Data/Access/season_completeness.py` | `SeasonCompletenessTracker` |
 | `Data/Access/db_helpers.py` | `fill_all_country_codes()` — Pass 1 (name lookup) + Pass 2 (club cross-ref) |
 | `Data/Access/gap_scanner.py` | `GapScanner` |
 | `Data/Access/gap_models.py` | `GapReport` |
@@ -305,7 +279,7 @@
 | File | Role |
 |---|---|
 | `Scripts/recommend_bets.py` | `get_recommendations()` |
-| `Data/Store/ranked_markets_likelihood_updated_with_team_ou.json` | Market likelihood data |
+|  `Data/Store/ranked_markets_likelihood_updated_with_team_ou.json` | Market likelihood data (alongside `leagues.json`, `country.json`) |
 | `Data/Access/league_db.py` | `predictions` + `match_odds` queries |
 
 ### `--rule-engine`
@@ -349,13 +323,17 @@
 
 | File | Role |
 |---|---|
-| `Core/Utils/constants.py` | `now_ng()`, timezone |
+| `Core/Utils/constants.py` | `now_ng()`, `TZ_NG` (WAT = UTC+1/Africa Lagos), `TZ_NG_NAME = "WAT"` — single source of truth for ALL timestamps. Backend is WAT-normalised. |
+| `Core/Utils/utils.py` | `RotatingSegmentLogger` — per-line WAT timestamps, 10 MB/hour rotation, Supabase Storage upload on rotate |
+| `Core/System/lifecycle.py` | `setup_terminal_logging()` — returns `RotatingSegmentLogger`; `Leo.py` calls `close_segment()` on exit |
 | `Core/Intelligence/aigo_suite.py` | `@aigo_retry`, AIGO logging |
 | `Data/Access/league_db.py` | All SQLite operations |
-| `Data/Access/league_db_schema.py` | Schema, `get_connection()`, `init_db()` |
+| `Data/Access/league_db_schema.py` | Schema DDL, migrations, `get_connection()`, `init_db()`, `log_segments` table |
 | `Data/Access/db_helpers.py` | `log_audit_event()`, `init_csvs()` |
+| `Data/Access/log_sync.py` | `LogSync.push()` — sweeps unuploaded log segments → Supabase Storage `logs` bucket (called by `--sync`) |
 | `Data/Access/supabase_client.py` | Supabase connection singleton |
-| `Data/Store/leobook.db` | The database |
+| `Data/Store/leobook.db` | The database (includes `log_segments` metadata table) |
+| `Data/Logs/` | All log output — `Terminal/`, `Audit/`, `Error/`, `Debug/` — hierarchy: `YYYY/MM/WXX/DD/` |
 | `Data/Store/leagues.json` | League seed data (1,281 leagues) |
 | `Data/Store/country.json` | ISO country codes + flag paths (271 countries) |
 | `Data/Store/ranked_markets_likelihood_updated_with_team_ou.json` | Market likelihood data |
@@ -381,6 +359,45 @@
 | 12 | `sync_region_flags` read `region_league.csv`, missed 1,160 domestic leagues | `Modules/Assets/asset_manager.py` | Rewritten to read SQLite — 1,234 leagues updated, 171 SVGs uploaded |
 | 13 | 6 stale local crest paths in teams table (files deleted post-upload) | `Data/Store/leobook.db` | NULLed via direct SQL, synced to Supabase |
 | 14 | 6 Welsh leagues had no flag (`country_code=wal`, SVG is `gb-wls`) | `Modules/Assets/asset_manager.py` | Added `WAL → gb-wls` to `REGION_TO_ISO_OVERRIDES` |
+| 15 | `LOG_DIR = Path("Logs")` at repo root — logs escaped `Data/` boundary, never syncable | `Core/Utils/utils.py` | Fixed to `Data/Logs/` |
+| 16 | Error/Debug logs had no day-based hierarchy, no timestamps | `Core/Utils/utils.py` | Day hierarchy `YYYY/MM/WXX/DD/` + `now_ng()` timestamps |
+| 17 | `Tee` class had no timestamps, no rotation, no Supabase backup | `Core/Utils/utils.py` | Replaced with `RotatingSegmentLogger` |
+
+---
+
+## Log System (v9.2)
+
+All LeoBook logs now live under `Data/Logs/` and are WAT-timestamped.
+
+### Folder hierarchy
+```
+Data/Logs/
+├── Terminal/YYYY/MM/WXX/DD/   ← session logs, rotated 10MB or hourly
+├── Audit/YYYY/MM/WXX/DD/      ← audit events
+├── Error/YYYY/MM/WXX/DD/      ← page error captures (txt + png + html)
+└── Debug/YYYY/MM/WXX/DD/      ← debug snapshots
+```
+
+### Timestamp format
+`[2026-03-15 04:47:22 WAT]` — every non-blank line.
+Uses `now_ng()` + `TZ_NG_NAME` from `constants.py`. Never reads system clock timezone.
+
+### Rotation
+- 10 MB size limit OR hour boundary — whichever fires first
+- Rotation check fires **before** the next line is written — no mid-line splits
+- New segment opens immediately in the same session
+
+### Supabase Storage
+- Bucket: `logs` (private)
+- Remote path mirrors local: `Terminal/2026/03/W11/15/leo_session_030000.log`
+- Background thread upload on each segment close
+- `LogSync.push()` sweeps any unuploaded segments on `--sync`
+- `log_segments` SQLite table tracks metadata (path, size, uploaded, remote_path)
+
+### Timezone policy
+LeoBook backend is **WAT-normalised** regardless of host system clock.
+All timestamps: `Core/Utils/constants.py → TZ_NG → now_ng()`.
+Flutter app converts WAT → user local timezone in the app layer.
 
 ---
 
@@ -396,7 +413,8 @@
 | `4708795` | `sync_team_assets` + `sync_league_assets` rewritten to SQLite |
 | `d60d1c1` | Season-aware RL weighting + `CUP_FORMAT` completeness fix |
 | DB-only | Stale crest NULL + sync (no code change) |
+| pending | Rotating segmented log system — `RotatingSegmentLogger`, `LogSync`, `TZ_NG_NAME` |
 
 ---
 
-*LeoBook Engineering — Materialless LLC · 2026-03-15 · v9.1*
+*LeoBook Engineering — Materialless LLC · 2026-03-15 · v9.2*

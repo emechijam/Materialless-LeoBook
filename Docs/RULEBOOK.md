@@ -1,4 +1,4 @@
-# LeoBook Developer RuleBook v8.1
+# LeoBook Developer RuleBook v9.1
 
 > **This document is LAW.** Every developer and AI agent working on LeoBook MUST follow these rules without exception. Violations will break the system.
 
@@ -24,7 +24,7 @@ Before writing ANY code, ask in this exact order:
 
 - **`Leo.py` is an AUTONOMOUS ORCHESTRATOR** — it contains ZERO business logic.
 - It is powered by a **Supervisor-Worker Pattern** (`Core/System/supervisor.py`).
-- Isolated chapter workers (`Core/System/pipeline_workers.py`) handle execution, failure recovery, and state persistence.
+- Chapter/page execution functions (`run_chapter_1_p1`, `run_prologue_p2`, etc.) live in `Core/System/pipeline.py` — NOT in `Leo.py`.
 - Every script MUST be callable via `Leo.py` CLI flags.
 - **Cycle Control**: The `Supervisor` decides when to wake up based on `scheduler`. Monolithic `while True` loops are forbidden.
 
@@ -45,8 +45,9 @@ Operations MUST NOT start (including live streamer) until startup sync completes
 Leo.py operates via three sequential gates to ensure data integrity:
 
 1. **Prologue P1 (Quantity & ID Gate)**: Leagues >= 90% coverage AND Teams >= 3 per league (v7.1). Validates Flashscore IDs — fails if invalid ID rate > 5%. GapScanner feeds this gate: P1 fails if `critical` gap count across `leagues` or `teams` tables exceeds threshold.
-2. **Prologue P2 (History & Quality Gate)**: Minimum 2+ distinct seasons of fixture data per league.
-    - **Logic**: Gate passes if 0 critical gaps AND 0 completed season mismatches. **ACTIVE seasons never block the gate.**
+2. **Prologue P2 (History & Quality Gate)**: Two separate jobs (v9.1):
+    - **Job A (gate — blocks pipeline)**: 0 critical gaps AND 0 completed season mismatches. CUP_FORMAT competitions (< 4 registered teams) are EXCLUDED from this logic and from COMPLETED classification.
+    - **Job B (informational — never blocks)**: Reports RL tier — RULE_ENGINE (no prior seasons) / PARTIAL (20–50% of leagues have history) / FULL (50%+ have history). Enables the ensemble to scale `W_neural` per league via `data_richness_score`.
     - GapScanner feeds this gate: `schedules` table gaps at `critical` severity are reported per `(league_id, season)` pair. Only completed seasons with critical gaps block P2.
 3. **Prologue P3 (AI Gate)**: RL Adapters must be trained and ready.
 
@@ -63,9 +64,9 @@ Startup Sync: Push-only (local → Supabase, auto-bootstrap if empty)
 Task Scheduler: Execute pending tasks (Weekly Enrichment, predictions)
 Prologue (Data Gates):
     P1: League/Team Thresholds (90% / 5 teams) — fed by GapScanner
-    P2: Historical Data Check (2+ Seasons) — fed by GapScanner
+    P2: Job A (consistency gate) + Job B (RL tier: RULE_ENGINE / PARTIAL / FULL)
     P3: AI RL Adapter Readiness (Phase Auto-Detection)
-Chapter 1:
+Chapter 1 (via Core/System/pipeline.py):
     P1: URL Resolution & Odds Harvesting (v9.0 — Direct Harvesting, no login)
     P2: Prediction Pipeline (30-dim Stairway Engine — Rule Engine + Poisson RL)
         - DATA LEAK GUARD: Max 1 prediction per team per week.
@@ -176,8 +177,60 @@ Every Python file MUST have this header format:
 - **Expert Signal**: Phase 1 uses a **Poisson-grounded signal** derived from xG (1.20 home / 0.82 away multiplier) as the ground truth for imitation learning.
 - **Stairway Gate**: Final output must pass the odds gate (1.20 ≤ odds ≤ 4.00) and an EV-positive check before recommendation.
 - **Weights**: Default `W_symbolic=0.7`, `W_neural=0.3`. Overridable per-league in `ensemble_weights.json`.
+- **Season-Aware Scaling (v9.1)**: `W_neural` is scaled by `data_richness_score` [0.0, 1.0] per league. 0 prior seasons → `W_neural = 0.0` (pure Rule Engine). 3+ prior seasons → `W_neural = 0.3` (full weight). Prevents RL from influencing predictions for leagues with no training history.
 - **Symbolic Baseline**: If `RL_Conf < 0.3` or model failure, fallback to `100% Rule Engine`. The system MUST NOT place bets based purely on low-confidence neural signals.
 - **Phase guidance**: The Rule Engine is the reliability backbone throughout Phase 1. RL weights should only be increased beyond 0.3 after Phase 2 completes and RL accuracy on odds-grounded data is verified to exceed the Rule Engine baseline on high-volume days (≥ 200 matches).
+
+### 2.14 Module Size Limit
+
+**Rule**: All Python files MUST remain ≤500 lines. When a file approaches 500 lines, split it using the established pattern: extract a sub-module, keep the original as a façade that re-exports everything.
+
+- Backward import compatibility is mandatory — no callers should need to change their imports.
+- Monoliths are a maintenance liability and violate this rule.
+- The initial modularisation (v9.1, 2026-03-14/15) split 9 files totalling 9,439 lines into 24 files all ≤500 lines.
+
+Compliant split pattern:
+```python
+# Original: large_module.py (1,200L) → split into:
+# large_module.py       (≤500L) — façade, re-exports everything
+# large_module_schema.py (≤500L) — extracted schema/DDL
+# large_module_helpers.py (≤500L) — extracted helpers
+```
+
+### 2.15 Module Home Rule
+
+**Rule**: Files belong in the module that matches their concern:
+- Flashscore scraping → `Modules/Flashscore/`
+- Asset management → `Modules/Assets/`
+- Football.com automation → `Modules/FootballCom/`
+- Data access (SQLite/Supabase) → `Data/Access/`
+- One-shot CLI tools → `Scripts/`
+- System orchestration → `Core/System/`
+
+`Scripts/` is a staging area, not a permanent home. If a script grows beyond a single concern, it MUST be moved to the appropriate module. The original path becomes a one-line shim for backward compatibility.
+
+### 2.16 Reuse First: Proven Components Are Assets
+
+**Rule**: Before writing ANY new component — scroll handler, collapse toggle, DB helper, image downloader — search the codebase first. Proven, battle-tested components **MUST** be reused and extended, not re-implemented.
+
+**What to search for before building new:**
+- Lazy-loading / scroll-to-load → `fs_league_hydration.py` (`_scroll_to_load`, `_expand_show_more`)
+- Collapse/expand widgets → `Flutter: LeagueFixturesPanel` collapse logic
+- SQLite CRUD helpers → `Data/Access/db_helpers.py`
+- Image download + Supabase upload → `fs_league_images.py` (`schedule_image_download`, `upload_crest_to_supabase`)
+- Country flag download → `Data/Access/logo_downloader.py`
+
+**Reasoning**: Re-implementing proven components wastes time, introduces new bugs, and fragments the codebase. Every line of new code is a liability. Reuse is a force-multiplier.
+
+### 2.17 Timezone: WAT Is the Backend Standard
+
+**Rule**: All backend timestamps **MUST** be in WAT (`Africa/Lagos`, UTC+1).
+
+- **Tooling**: Use `Core.Utils.constants.now_ng()` for all `datetime.now()` calls. Never call `datetime.now()` directly.
+- **Playwright**: All browser sessions MUST use `timezone_id="Africa/Lagos"` in `new_context()`.
+- **Supabase**: Timestamps pushed to Supabase are WAT ISO strings. The Flutter frontend handles timezone display conversion for the user.
+- **Match times**: Raw Flashscore match times are scraped in WAT context. No UTC offset is applied at backend level.
+- **Reasoning**: Football.com operates in Nigeria (WAT). Developer location is WAT. Consistent WAT throughout eliminates confusion and DST edge cases in the Nigerian market.
 
 ---
 
@@ -320,6 +373,6 @@ All six Tier 1 guardrails are **LIVE as of March 10, 2026**. None may be disable
 
 ---
 
-*Last updated: March 12, 2026 (v8.1 — Guardrails all LIVE, GapScanner canonical taxonomy, §2.13 Phase guidance added)*
-*Previous: v8.0 — "Stairway Engine" 30-dim RL + Chapter 1 v9.0 + Poisson Expert Signal (March 9, 2026)*
+*Last updated: 2026-03-15 (v9.2 — §2.16 Reuse First, §2.17 Timezone WAT Standard)*
+*Previous: v9.1 — Module Size Limit §2.14, Module Home Rule §2.15, P2 two-job gate, Season-Aware RL §2.13*
 *Authored by: LeoBook Engineering Team — Materialless LLC*
