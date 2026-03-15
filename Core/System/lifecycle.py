@@ -9,7 +9,7 @@ import argparse
 import uuid
 from pathlib import Path
 from datetime import datetime as dt
-from Core.Utils.constants import DEFAULT_STAKE
+from Core.Utils.constants import DEFAULT_STAKE, TZ_NG_NAME
 from Core.Utils.utils import RotatingSegmentLogger
 
 _current_dir = Path(__file__).parent.absolute()
@@ -103,10 +103,12 @@ def setup_terminal_logging(args) -> tuple:
     sys.stderr = logger
 
     # Print session header — first timestamped line in the segment
-    from Core.Utils.constants import now_ng
+    from Core.Utils.constants import now_ng, LEOBOOK_VERSION, LEOBOOK_CODENAME
+    now = now_ng()
     print(f"{'='*60}")
-    print(f"  LeoBook Session Start | prefix={prefix}")
-    print(f"  Started: {now_ng().strftime('%Y-%m-%d %H:%M:%S WAT')}")
+    print(f"  LeoBook v{LEOBOOK_VERSION} \"{LEOBOOK_CODENAME}\"")
+    print(f"  Session: {prefix}")
+    print(f"  Started: {now.strftime('%Y-%m-%d %H:%M:%S')} {TZ_NG_NAME}")
     print(f"{'='*60}")
 
     return logger, original_stdout, original_stderr

@@ -33,3 +33,8 @@ MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", 1))
 FB_MOBILE_USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
 FB_MOBILE_VIEWPORT = {'width': 375, 'height': 612}
 
+# ── LeoBook Version ──────────────────────────────────────────────────────────
+# Increment both on every release. Referenced by lifecycle.py session header
+# and any other version-stamped output. Do NOT hardcode elsewhere.
+LEOBOOK_VERSION = "9.3"
+LEOBOOK_CODENAME = "Stairway Engine"
