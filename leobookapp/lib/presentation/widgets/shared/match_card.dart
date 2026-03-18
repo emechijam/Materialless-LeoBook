@@ -704,22 +704,12 @@ class _OddsBox extends StatelessWidget {
 
   const _OddsBox({required this.match, required this.isFinished});
 
-  String _formatOdds(List<Map<String, dynamic>> oddsList) {
-    if (oddsList.isEmpty) return "N/A";
+  @override
+  Widget build(BuildContext context) {
+    final oddsText = (match.odds != null && match.odds!.isNotEmpty)
+        ? match.odds!
+        : 'N/A';
 
-    var home = oddsList.where((o) => o['market_id'].toString() == '1' && (o['exact_outcome'] == '1' || o['exact_outcome'] == 'Home')).firstOrNull;
-    var draw = oddsList.where((o) => o['market_id'].toString() == '1' && (o['exact_outcome'] == 'X' || o['exact_outcome'] == 'Draw')).firstOrNull;
-    var away = oddsList.where((o) => o['market_id'].toString() == '1' && (o['exact_outcome'] == '2' || o['exact_outcome'] == 'Away')).firstOrNull;
-
-    if (home != null && draw != null && away != null) {
-      return "${home['line']} | ${draw['line']} | ${away['line']}";
-    }
-
-    final first = oddsList.first;
-    return "${first['exact_outcome']}: ${first['line']}";
-  }
-
-  Widget _buildContainer(BuildContext context, String text) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: Responsive.sp(context, 8),
@@ -738,33 +728,13 @@ class _OddsBox extends StatelessWidget {
         ),
       ),
       child: Text(
-        text.startsWith('Odds:') ? text : "Odds: $text",
+        'Odds: $oddsText',
         style: TextStyle(
           fontSize: Responsive.sp(context, 8),
           fontWeight: FontWeight.w900,
           color: isFinished ? AppColors.textGrey : AppColors.primary,
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (match.odds != null && match.odds!.isNotEmpty) {
-      return _buildContainer(context, match.odds!);
-    }
-
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: context.read<DataRepository>().getMatchOdds(match.fixtureId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return _buildContainer(context, "...");
-        }
-        if (snapshot.data!.isEmpty) {
-          return _buildContainer(context, "N/A");
-        }
-        return _buildContainer(context, _formatOdds(snapshot.data!));
-      },
     );
   }
 }

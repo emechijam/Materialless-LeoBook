@@ -85,10 +85,12 @@ SUPABASE_SCHEMA = {
     'fb_matches': """
         CREATE TABLE IF NOT EXISTS public.fb_matches (
             site_match_id TEXT PRIMARY KEY,
-            date TEXT, match_time TEXT, home_team TEXT, away_team TEXT,
-            league TEXT, url TEXT, last_extracted TEXT, fixture_id TEXT,
-            matched TEXT, odds TEXT, booking_status TEXT, booking_details TEXT,
-            booking_code TEXT, booking_url TEXT, status TEXT,
+            league_id TEXT,
+            date TEXT, match_time TEXT,
+            home_team TEXT, away_team TEXT,
+            url TEXT,
+            fixture_id TEXT,
+            matched TEXT,
             last_updated TIMESTAMPTZ DEFAULT now()
         );""",
         # NOTE: Supabase column renamed from 'time' → 'match_time' on 2026-03-16.

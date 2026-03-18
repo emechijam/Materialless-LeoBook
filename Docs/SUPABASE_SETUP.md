@@ -1,6 +1,6 @@
 # Supabase Setup Guide
 
-> **Version**: 9.2 · **Last Updated**: 2026-03-17
+> **Version**: 9.3 · **Last Updated**: 2026-03-18
 > **One-stop reference** — everything needed to provision a fresh Supabase database for LeoBook from scratch.
 
 ---
@@ -68,7 +68,8 @@ The script is safe to re-run at any time — all statements use `CREATE TABLE IF
 -- This file must stay in sync with sync_schema.py.
 -- Column names, types, and PRIMARY KEY definitions here must exactly match
 -- the DDL strings in that dict — they control what _ALLOWED_COLS accepts.
--- v9.2 additions: STEP 9 Team Matching Engine v1.2 (2026-03-17)
+-- v9.3 additions: fb_matches simplified, computed_standings uses real season,
+--   STEP 9 matching engine REMOVED (now inline Python).
 -- =============================================================================
 
 -- =============================================================================
@@ -206,26 +207,16 @@ CREATE TABLE IF NOT EXISTS public.predictions (
 
 CREATE TABLE IF NOT EXISTS public.fb_matches (
     site_match_id TEXT PRIMARY KEY,
+    league_id TEXT,
     date TEXT,
-    match_time TEXT,  -- v9.2: renamed from 'time' (reserved keyword); sync via _COL_REMAP
+    match_time TEXT,
     home_team TEXT,
     away_team TEXT,
-    league TEXT,
     url TEXT,
-    last_extracted TEXT,
     fixture_id TEXT,
     matched TEXT,
-    odds TEXT,
-    booking_status TEXT,
-    booking_details TEXT,
-    booking_code TEXT,
-    booking_url TEXT,
-    status TEXT,
     last_updated TIMESTAMPTZ DEFAULT now()
 );
-
--- If upgrading from v9.1, run this once to rename the column:
--- ALTER TABLE public.fb_matches RENAME COLUMN time TO match_time;
 
 CREATE TABLE IF NOT EXISTS public.match_odds (
     fixture_id TEXT NOT NULL,
@@ -473,18 +464,14 @@ BEGIN
 END $$;
 
 -- =============================================================================
--- STEP 9: Team Matching Engine v1.2  (2026-03-17)
--- Deterministic SQL-first fb_matches → schedules link.
--- Replaces cold-start LLM matching for all cases where team names
--- are close enough for normalized fuzzy matching.
--- Python route: SQL → if confidence < 88 → fall back to Grok/Gemini.
--- Safe to re-run — all functions/views/triggers use CREATE OR REPLACE / IF NOT EXISTS.
+-- STEP 9: Utilities (v9.3)
+-- normalize_team_name() kept for search/display use.
+-- fb_match_candidates VIEW, match_fb_to_schedule() RPC, auto_match_fb_matches()
+-- RPC, and trg_auto_match_fb trigger have been REMOVED.
+-- Match resolution is now inline Python: Modules/FootballCom/match_resolver.py v2.0
+-- Logic: league_id + date + normalized home + away (exact match against schedules).
 -- =============================================================================
 
--- ── 9a: Name normalizer ──────────────────────────────────────────────────────
--- Strips punctuation, FC/United/City suffixes, lowercases.
--- Used in both the candidate view and the match function for apples-to-apples
--- comparisons regardless of spelling variant.
 CREATE OR REPLACE FUNCTION public.normalize_team_name(raw TEXT)
 RETURNS TEXT
 LANGUAGE sql
@@ -504,196 +491,13 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.normalize_team_name(TEXT) TO service_role, anon, authenticated;
 
--- ── 9b: Candidate view ───────────────────────────────────────────────────────
--- JOIN-ready view matching fb_matches (unresolved) to schedules candidates
--- within ±1 day on the same date, with normalized team name similarity score.
-CREATE OR REPLACE VIEW public.fb_match_candidates AS
-SELECT
-    fb.site_match_id,
-    fb.date         AS fb_date,
-    fb.match_time   AS fb_time,
-    fb.home_team    AS fb_home,
-    fb.away_team    AS fb_away,
-    fb.league       AS fb_league,
-    fb.url          AS fb_url,
-    s.fixture_id,
-    s.date          AS s_date,
-    s.match_time    AS s_time,
-    s.home_team     AS s_home,
-    s.away_team     AS s_away,
-    s.home_team_id,
-    s.away_team_id,
-    s.league_id,
-    s.region_league,
-    -- Confidence: normalized home+away name overlap (0–100)
-    -- Uses equality first (100), then length-weighted partial overlap.
-    CASE
-        WHEN public.normalize_team_name(fb.home_team) = public.normalize_team_name(s.home_team)
-         AND public.normalize_team_name(fb.away_team) = public.normalize_team_name(s.away_team)
-        THEN 100
-        WHEN (
-            public.normalize_team_name(fb.home_team) LIKE '%' || public.normalize_team_name(s.home_team) || '%'
-            OR public.normalize_team_name(s.home_team) LIKE '%' || public.normalize_team_name(fb.home_team) || '%'
-        ) AND (
-            public.normalize_team_name(fb.away_team) LIKE '%' || public.normalize_team_name(s.away_team) || '%'
-            OR public.normalize_team_name(s.away_team) LIKE '%' || public.normalize_team_name(fb.away_team) || '%'
-        )
-        THEN 88
-        ELSE 0
-    END AS confidence
-FROM public.fb_matches fb
-CROSS JOIN public.schedules s
-WHERE
-    -- Date window: same day ±1
-    fb.date IS NOT NULL
-    AND s.date IS NOT NULL
-    AND ABS(
-        EXTRACT(EPOCH FROM (fb.date::DATE - s.date::DATE)) / 86400
-    ) <= 1
-    -- Only unresolved fb_matches (or forced re-resolution)
-    AND (fb.fixture_id IS NULL OR fb.matched IS NULL OR fb.matched = 'false')
-    -- Minimum name overlap (both teams)
-    AND (
-        public.normalize_team_name(fb.home_team) LIKE '%' || public.normalize_team_name(s.home_team) || '%'
-        OR public.normalize_team_name(s.home_team) LIKE '%' || public.normalize_team_name(fb.home_team) || '%'
-    );
-
-GRANT SELECT ON public.fb_match_candidates TO anon, authenticated, service_role;
-
--- ── 9c: match_fb_to_schedule() ───────────────────────────────────────────────
--- Called per site_match_id; returns best schedules match + confidence score.
--- Python-callable via supabase.rpc('match_fb_to_schedule', {...}).
-CREATE OR REPLACE FUNCTION public.match_fb_to_schedule(
-    p_site_match_id TEXT
-)
-RETURNS TABLE(
-    fixture_id      TEXT,
-    confidence      INTEGER,
-    home_team_id    TEXT,
-    away_team_id    TEXT,
-    s_home          TEXT,
-    s_away          TEXT,
-    s_date          TEXT,
-    s_time          TEXT
-)
-LANGUAGE sql
-STABLE
-AS $$
-    SELECT
-        c.fixture_id,
-        c.confidence,
-        c.home_team_id,
-        c.away_team_id,
-        c.s_home,
-        c.s_away,
-        c.s_date,
-        c.s_time
-    FROM public.fb_match_candidates c
-    WHERE c.site_match_id = p_site_match_id
-      AND c.confidence > 0
-    ORDER BY c.confidence DESC, c.s_date ASC
-    LIMIT 1;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.match_fb_to_schedule(TEXT) TO service_role, anon, authenticated;
-
--- ── 9d: auto_match_fb_matches() ─────────────────────────────────────────────
--- Batch resolver: processes all unmatched fb_matches and writes fixture_id
--- back into fb_matches for all rows where confidence >= 88.
--- Call manually: SELECT public.auto_match_fb_matches();
--- Also called automatically by trigger (see 9e).
-CREATE OR REPLACE FUNCTION public.auto_match_fb_matches()
-RETURNS INTEGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    matched_count INTEGER := 0;
-    rec RECORD;
-BEGIN
-    FOR rec IN
-        SELECT DISTINCT ON (site_match_id)
-            site_match_id,
-            fixture_id    AS resolved_fixture_id,
-            confidence
-        FROM public.fb_match_candidates
-        WHERE confidence >= 88
-        ORDER BY site_match_id, confidence DESC
-    LOOP
-        UPDATE public.fb_matches
-        SET
-            fixture_id = rec.resolved_fixture_id,
-            matched    = 'sql_v1.2',
-            last_updated = NOW()
-        WHERE site_match_id = rec.site_match_id
-          AND (fixture_id IS NULL OR fixture_id = '');
-
-        IF FOUND THEN
-            matched_count := matched_count + 1;
-        END IF;
-    END LOOP;
-
-    RETURN matched_count;
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.auto_match_fb_matches() TO service_role;
-
--- ── 9e: Auto-match trigger on fb_matches ─────────────────────────────────────
--- Fires after each INSERT or UPDATE on fb_matches.
--- Enqueues a per-row resolution so new harvested matches are linked immediately.
-CREATE OR REPLACE FUNCTION public.trg_fn_auto_match_fb()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    best RECORD;
-BEGIN
-    -- Only attempt if not already matched
-    IF NEW.fixture_id IS NOT NULL AND NEW.fixture_id <> '' THEN
-        RETURN NEW;
-    END IF;
-
-    SELECT fixture_id, confidence
-    INTO best
-    FROM public.match_fb_to_schedule(NEW.site_match_id)
-    LIMIT 1;
-
-    IF FOUND AND best.confidence >= 88 THEN
-        NEW.fixture_id   := best.fixture_id;
-        NEW.matched      := 'sql_v1.2';
-        NEW.last_updated := NOW();
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_auto_match_fb_matches ON public.fb_matches;
-CREATE TRIGGER trg_auto_match_fb_matches
-    BEFORE INSERT OR UPDATE OF home_team, away_team, date
-    ON public.fb_matches
-    FOR EACH ROW
-    EXECUTE FUNCTION public.trg_fn_auto_match_fb();
-
--- ── 9f: Index for matching performance ───────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_fb_matches_unresolved
-    ON public.fb_matches (date)
-    WHERE fixture_id IS NULL OR fixture_id = '';
-
-CREATE INDEX IF NOT EXISTS idx_schedules_date_home_away
-    ON public.schedules (date, home_team, away_team);
-
-CREATE INDEX IF NOT EXISTS idx_schedules_date
-    ON public.schedules (date);
+CREATE INDEX IF NOT EXISTS idx_schedules_league_date ON public.schedules (league_id, date);
+CREATE INDEX IF NOT EXISTS idx_schedules_date ON public.schedules (date);
 
 -- =============================================================================
--- Bootstrap complete (v9.2).
+-- Bootstrap complete (v9.3).
 -- Run: python Leo.py --sync
--- STEP 9 adds: normalize_team_name(), fb_match_candidates view,
--- match_fb_to_schedule(), auto_match_fb_matches(), trg_auto_match_fb_matches.
--- Test: SELECT public.auto_match_fb_matches();  -- returns count of newly linked rows
+-- Match resolution: Python-side (match_resolver.py v2.0 — exact matching)
 -- =============================================================================
 ```
 
