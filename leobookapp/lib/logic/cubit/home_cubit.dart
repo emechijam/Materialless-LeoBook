@@ -69,6 +69,8 @@ class HomeCubit extends Cubit<HomeState> {
   StreamSubscription? _predictionsSub;
   StreamSubscription? _schedulesSub;
   StreamSubscription? _teamCrestsSub;
+  Timer? _refreshTimer;
+  bool _isRefreshing = false;
 
   HomeCubit(this._dataRepository, this._newsRepository) : super(HomeInitial());
 
@@ -177,12 +179,92 @@ class HomeCubit extends Cubit<HomeState> {
       }, onError: (e) {
         debugPrint("TeamCrests Stream Error: $e");
       });
+
+      // --- Start 30-second periodic refresh (upsert-only, skips if no changes) ---
+      _refreshTimer?.cancel();
+      _refreshTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _periodicRefresh(),
+      );
     } catch (e) {
       emit(HomeError("Failed to load dashboard: $e"));
     }
   }
 
   StreamSubscription? _liveScoresSub;
+
+  /// Periodic background refresh — fetches latest data and upserts only changed matches.
+  Future<void> _periodicRefresh() async {
+    if (isClosed || _isRefreshing || state is! HomeLoaded) return;
+    _isRefreshing = true;
+    try {
+      final currentState = state as HomeLoaded;
+      final freshMatches = await _dataRepository.fetchMatches(date: currentState.selectedDate);
+      if (freshMatches.isEmpty || isClosed) return;
+
+      // Upsert: only merge if data actually changed
+      final Map<String, MatchModel> matchMap = {
+        for (var m in currentState.allMatches) m.fixtureId: m,
+      };
+
+      bool anyChanged = false;
+      for (var fresh in freshMatches) {
+        final existing = matchMap[fresh.fixtureId];
+        if (existing == null) {
+          matchMap[fresh.fixtureId] = fresh;
+          anyChanged = true;
+        } else {
+          // Compare key volatile fields
+          if (existing.status != fresh.status ||
+              existing.homeScore != fresh.homeScore ||
+              existing.awayScore != fresh.awayScore ||
+              existing.liveMinute != fresh.liveMinute ||
+              existing.odds != fresh.odds ||
+              existing.prediction != fresh.prediction) {
+            matchMap[fresh.fixtureId] = existing.mergeWith(fresh);
+            anyChanged = true;
+          }
+        }
+      }
+
+      if (!anyChanged || isClosed) return;
+
+      final mergedMatches = matchMap.values.toList();
+      final filteredMatches = _filterMatches(
+        mergedMatches,
+        currentState.selectedDate,
+        currentState.selectedSport,
+        leagues: currentState.selectedLeagues,
+        types: currentState.selectedPredictionTypes,
+        minO: currentState.minOdds,
+        maxO: currentState.maxOdds,
+      );
+
+      emit(HomeLoaded(
+        allMatches: mergedMatches,
+        filteredMatches: filteredMatches,
+        featuredMatches: mergedMatches
+            .where((m) => m.confidence != null && m.confidence!.contains('High'))
+            .toList(),
+        liveMatches: mergedMatches.where((m) => m.isLive).toList(),
+        news: currentState.news,
+        allRecommendations: currentState.allRecommendations,
+        filteredRecommendations: currentState.filteredRecommendations,
+        selectedDate: currentState.selectedDate,
+        selectedSport: currentState.selectedSport,
+        availableSports: currentState.availableSports,
+        isAllMatchesExpanded: currentState.isAllMatchesExpanded,
+        selectedLeagues: currentState.selectedLeagues,
+        selectedPredictionTypes: currentState.selectedPredictionTypes,
+        minOdds: currentState.minOdds,
+        maxOdds: currentState.maxOdds,
+      ));
+    } catch (e) {
+      debugPrint('Periodic refresh error: $e');
+    } finally {
+      _isRefreshing = false;
+    }
+  }
 
   void _handleRealtimeUpdate(List<MatchModel> updatedMatches) {
     if (state is HomeLoaded) {
@@ -596,6 +678,8 @@ class HomeCubit extends Cubit<HomeState> {
 
   @override
   Future<void> close() async {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
     for (final sub in [
       _predictionsSub,
       _liveScoresSub,

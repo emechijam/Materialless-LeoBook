@@ -53,7 +53,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
     // Fetch Standings
     List<StandingModel> sTable = [];
     if (match.league != null) {
-      sTable = await repository.getStandings(match.league!);
+      sTable = await repository.fetchStandings(leagueId: match.league!);
     }
 
     // Past matches only

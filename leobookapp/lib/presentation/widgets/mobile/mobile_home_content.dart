@@ -77,210 +77,214 @@ class _MobileHomeContentState extends State<MobileHomeContent>
         onRefresh: () async {
           context.read<HomeCubit>().loadDashboard();
         },
-        child: CustomScrollView(
-          physics: liquidScrollPhysics,
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              floating: false,
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              toolbarHeight: 0, // No main toolbar needed here anymore
-              bottom: PreferredSize(
-                preferredSize: Size.fromHeight(Responsive.sp(context, 44)),
-                child: const CategoryBar(),
-              ),
-              flexibleSpace: ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: LiquidGlassTheme.blurRadiusMedium,
-                    sigmaY: LiquidGlassTheme.blurRadiusMedium,
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: (isDark
-                              ? AppColors.backgroundDark
-                              : AppColors.backgroundLight)
-                          .withValues(alpha: 0.35),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: isDark
-                              ? Colors.white10
-                              : Colors.black.withValues(alpha: 0.04),
-                          width: 1.0,
+        child: MediaQuery.removePadding(
+          context: context,
+          removeTop: true,
+          child: CustomScrollView(
+            physics: liquidScrollPhysics,
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                floating: false,
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                toolbarHeight: 0, // No main toolbar needed here anymore
+                bottom: PreferredSize(
+                  preferredSize: Size.fromHeight(Responsive.sp(context, 44)),
+                  child: const CategoryBar(),
+                ),
+                flexibleSpace: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: LiquidGlassTheme.blurRadiusMedium,
+                      sigmaY: LiquidGlassTheme.blurRadiusMedium,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: (isDark
+                                ? AppColors.backgroundDark
+                                : AppColors.backgroundLight)
+                            .withValues(alpha: 0.35),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: isDark
+                                ? Colors.white10
+                                : Colors.black.withValues(alpha: 0.04),
+                            width: 1.0,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: hp),
-              sliver: SliverToBoxAdapter(
-                child: FeaturedCarousel(
-                  matches: widget.state.featuredMatches,
-                  recommendations: widget.state.filteredRecommendations,
-                  allMatches: widget.state.allMatches,
-                  onViewAll: widget.onViewAllPredictions,
+              SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: hp),
+                sliver: SliverToBoxAdapter(
+                  child: FeaturedCarousel(
+                    matches: widget.state.featuredMatches,
+                    recommendations: widget.state.filteredRecommendations,
+                    allMatches: widget.state.allMatches,
+                    onViewAll: widget.onViewAllPredictions,
+                  ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: hp),
-              sliver: SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    SizedBox(height: Responsive.sp(context, 10)),
-                    AccuracyReportCard(matches: widget.state.allMatches),
-                    SizedBox(height: Responsive.sp(context, 10)),
-                  ],
+              SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: hp),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      SizedBox(height: Responsive.sp(context, 10)),
+                      AccuracyReportCard(matches: widget.state.allMatches),
+                      SizedBox(height: Responsive.sp(context, 10)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(child: NewsFeed(news: widget.state.news)),
-            SliverToBoxAdapter(
-                child: SizedBox(height: Responsive.sp(context, 6))),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _StickyTabBarDelegate(
-                AnimatedBuilder(
-                  animation: _tabController,
-                  builder: (context, _) {
-                    return TabBar(
-                      controller: _tabController,
-                      indicatorColor: AppColors.primary,
-                      indicatorWeight: 2,
-                      labelColor: AppColors.primary,
-                      unselectedLabelColor:
-                          isDark ? Colors.white60 : AppColors.textGrey,
-                      labelStyle: TextStyle(
-                        fontSize: Responsive.sp(context, 10),
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
+              SliverToBoxAdapter(child: NewsFeed(news: widget.state.news)),
+              SliverToBoxAdapter(
+                  child: SizedBox(height: Responsive.sp(context, 6))),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StickyTabBarDelegate(
+                  AnimatedBuilder(
+                    animation: _tabController,
+                    builder: (context, _) {
+                      return TabBar(
+                        controller: _tabController,
+                        indicatorColor: AppColors.primary,
+                        indicatorWeight: 2,
+                        labelColor: AppColors.primary,
+                        unselectedLabelColor:
+                            isDark ? Colors.white60 : AppColors.textGrey,
+                        labelStyle: TextStyle(
+                          fontSize: Responsive.sp(context, 10),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                        unselectedLabelStyle: TextStyle(
+                          fontSize: Responsive.sp(context, 8),
+                          fontWeight: FontWeight.w700,
+                        ),
+                        dividerColor: Colors.transparent,
+                        labelPadding: EdgeInsets.symmetric(
+                            horizontal: Responsive.sp(context, 4)),
+                        tabs: [
+                          Tab(
+                            child: LeoTab(
+                              text:
+                                  "ALL (${widget.state.filteredMatches.length})",
+                              isSelected: _tabController.index == 0,
+                            ),
+                          ),
+                          Tab(
+                            child: LeoTab(
+                              text:
+                                  "LIVE (${widget.state.filteredMatches.where((m) => m.isLive).length})",
+                              isSelected: _tabController.index == 1,
+                            ),
+                          ),
+                          Tab(
+                            child: LeoTab(
+                              text:
+                                  "FINISHED (${widget.state.filteredMatches.where((m) => m.isFinished).length})",
+                              isSelected: _tabController.index == 2,
+                            ),
+                          ),
+                          Tab(
+                            child: LeoTab(
+                              text:
+                                  "SCHEDULED (${widget.state.filteredMatches.where((m) => !m.isLive && !m.isFinished).length})",
+                              isSelected: _tabController.index == 3,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  isDark,
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: hp,
+                  vertical: Responsive.sp(context, 8),
+                ),
+                sliver: Builder(
+                  builder: (context) {
+                    final index = _tabController.index;
+                    MatchTabType type;
+                    bool hideLeague = false;
+                    switch (index) {
+                      case 1:
+                        type = MatchTabType.live;
+                        hideLeague = true;
+                        break;
+                      case 2:
+                        type = MatchTabType.finished;
+                        break;
+                      case 3:
+                        type = MatchTabType.scheduled;
+                        break;
+                      default:
+                        type = MatchTabType.all;
+                        hideLeague = true;
+                    }
+
+                    final sortedItems = MatchSorter.getSortedMatches(
+                        widget.state.filteredMatches.cast(), type);
+
+                    if (sortedItems.isEmpty) {
+                      return SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              vertical: Responsive.sp(context, 40)),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.sports_soccer_rounded,
+                                  size: Responsive.sp(context, 28),
+                                  color: isDark ? Colors.white24 : Colors.black12,
+                                ),
+                                SizedBox(height: Responsive.sp(context, 8)),
+                                Text(
+                                  "No matches found",
+                                  style: TextStyle(
+                                    fontSize: Responsive.sp(context, 10),
+                                    color:
+                                        isDark ? Colors.white38 : Colors.black38,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) {
+                          return _buildItem(sortedItems[i], isDark,
+                              hideLeagueInfo: hideLeague);
+                        },
+                        childCount: sortedItems.length,
                       ),
-                      unselectedLabelStyle: TextStyle(
-                        fontSize: Responsive.sp(context, 8),
-                        fontWeight: FontWeight.w700,
-                      ),
-                      dividerColor: Colors.transparent,
-                      labelPadding: EdgeInsets.symmetric(
-                          horizontal: Responsive.sp(context, 4)),
-                      tabs: [
-                        Tab(
-                          child: LeoTab(
-                            text:
-                                "ALL (${widget.state.filteredMatches.length})",
-                            isSelected: _tabController.index == 0,
-                          ),
-                        ),
-                        Tab(
-                          child: LeoTab(
-                            text:
-                                "LIVE (${widget.state.filteredMatches.where((m) => m.isLive).length})",
-                            isSelected: _tabController.index == 1,
-                          ),
-                        ),
-                        Tab(
-                          child: LeoTab(
-                            text:
-                                "FINISHED (${widget.state.filteredMatches.where((m) => m.isFinished).length})",
-                            isSelected: _tabController.index == 2,
-                          ),
-                        ),
-                        Tab(
-                          child: LeoTab(
-                            text:
-                                "SCHEDULED (${widget.state.filteredMatches.where((m) => !m.isLive && !m.isFinished).length})",
-                            isSelected: _tabController.index == 3,
-                          ),
-                        ),
-                      ],
                     );
                   },
                 ),
-                isDark,
               ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.symmetric(
-                horizontal: hp,
-                vertical: Responsive.sp(context, 8),
+              SliverToBoxAdapter(
+                child: SizedBox(height: Responsive.sp(context, 20)),
               ),
-              sliver: Builder(
-                builder: (context) {
-                  final index = _tabController.index;
-                  MatchTabType type;
-                  bool hideLeague = false;
-                  switch (index) {
-                    case 1:
-                      type = MatchTabType.live;
-                      hideLeague = true;
-                      break;
-                    case 2:
-                      type = MatchTabType.finished;
-                      break;
-                    case 3:
-                      type = MatchTabType.scheduled;
-                      break;
-                    default:
-                      type = MatchTabType.all;
-                      hideLeague = true;
-                  }
-
-                  final sortedItems = MatchSorter.getSortedMatches(
-                      widget.state.filteredMatches.cast(), type);
-
-                  if (sortedItems.isEmpty) {
-                    return SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                            vertical: Responsive.sp(context, 40)),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.sports_soccer_rounded,
-                                size: Responsive.sp(context, 28),
-                                color: isDark ? Colors.white24 : Colors.black12,
-                              ),
-                              SizedBox(height: Responsive.sp(context, 8)),
-                              Text(
-                                "No matches found",
-                                style: TextStyle(
-                                  fontSize: Responsive.sp(context, 10),
-                                  color:
-                                      isDark ? Colors.white38 : Colors.black38,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-
-                  return SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) {
-                        return _buildItem(sortedItems[i], isDark,
-                            hideLeagueInfo: hideLeague);
-                      },
-                      childCount: sortedItems.length,
-                    ),
-                  );
-                },
+              const SliverToBoxAdapter(
+                child: FootnoteSection(),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(height: Responsive.sp(context, 20)),
-            ),
-            const SliverToBoxAdapter(
-              child: FootnoteSection(),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

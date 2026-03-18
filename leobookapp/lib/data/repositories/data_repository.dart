@@ -182,23 +182,20 @@ class DataRepository {
     }
   }
 
-  Future<List<StandingModel>> getStandings(String leagueName) async {
+  Future<List<StandingModel>> fetchStandings({required String leagueId, String? season}) async {
     try {
-      // Try exact match first
-      var response = await _supabase
+      var query = _supabase
           .from('computed_standings')
           .select()
-          .eq('league', leagueName)
-          .order('position', ascending: true);
-
-      // Fallback: ILIKE if exact match returns empty (handles format variations)
-      if ((response as List).isEmpty && leagueName.isNotEmpty) {
-        response = await _supabase
-            .from('computed_standings')
-            .select()
-            .ilike('league', '%$leagueName%')
-            .order('position', ascending: true);
+          .eq('league_id', leagueId);
+      
+      if (season != null) {
+        query = query.eq('season', season);
       }
+
+      final response = await query
+          .order('points', ascending: false)
+          .order('goal_difference', ascending: false);
 
       // Enrich standings with team crests from teams table
       final standings =
@@ -345,15 +342,42 @@ class DataRepository {
     });
   }
 
-  Stream<List<StandingModel>> watchStandings(String leagueName) {
-    // Note: Views are not natively supported by realtime unless specific triggers are set.
-    // However, the base tables (schedules) are streamed, so changes will be reflected.
-    // If realtime postgres_changes fails on this view, the app relies on schedule stream updates to refresh anyway.
-    return _supabase
-        .from('computed_standings')
-        .stream(primaryKey: ['league_id', 'team_id']) // Views don't have PKs natively in stream(), but we must provide unique keys
-        .eq('league', leagueName)
-        .map((rows) => rows.map((row) => StandingModel.fromJson(row)).toList());
+  Stream<List<StandingModel>> watchStandings({required String leagueId, String? season}) {
+    final controller = StreamController<List<StandingModel>>.broadcast();
+
+    void fetchAndEmit() async {
+      try {
+        final data = await fetchStandings(leagueId: leagueId, season: season);
+        if (!controller.isClosed) controller.add(data);
+      } catch (e) {
+        debugPrint('Error fetching standings view: $e');
+      }
+    }
+
+    // Initial fetch
+    fetchAndEmit();
+
+    // Listen to underlying schedules table for changes since computed_standings view doesn't emit realtime events natively
+    final channel = _supabase.channel('schedules:standings-$leagueId');
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'schedules',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'league_id',
+        value: leagueId,
+      ),
+      callback: (payload) {
+        fetchAndEmit();
+      },
+    ).subscribe();
+
+    controller.onCancel = () {
+      _supabase.removeChannel(channel);
+    };
+
+    return controller.stream;
   }
 
 
@@ -369,13 +393,31 @@ class DataRepository {
     });
   }
 
+  final Map<String, List<Map<String, dynamic>>> _oddsCache = {};
+
+  Future<List<Map<String, dynamic>>> getMatchOdds(String fixtureId) async {
+    if (_oddsCache.containsKey(fixtureId)) return _oddsCache[fixtureId]!;
+    try {
+      final response = await _supabase
+          .from('match_odds')
+          .select()
+          .eq('fixture_id', fixtureId);
+      final list = List<Map<String, dynamic>>.from(response);
+      _oddsCache[fixtureId] = list;
+      return list;
+    } catch (e) {
+      debugPrint('Error fetching odds for $fixtureId: $e');
+      return [];
+    }
+  }
+
   /// Watch match_odds table for realtime odds updates
   Stream<List<Map<String, dynamic>>> watchMatchOdds(String fixtureId) {
     return _supabase
         .from('match_odds')
-        .stream(primaryKey: ['fixture_id', 'market_id', 'exact_outcome', 'line'])
+        .stream(primaryKey: ['fixture_id', 'market_id', 'exact_outcome'])
         .eq('fixture_id', fixtureId)
-        .map((rows) => rows);
+        .map((rows) => List<Map<String, dynamic>>.from(rows));
   }
 
   // --- League Data ---

@@ -283,36 +283,7 @@ class _MatchCardState extends State<MatchCard> {
                           ),
                         ),
                         SizedBox(width: Responsive.sp(context, 4)),
-                        if (match.odds != null)
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: Responsive.sp(context, 8),
-                              vertical: Responsive.sp(context, 3),
-                            ),
-                            decoration: BoxDecoration(
-                              color: isFinished
-                                  ? Colors.white.withValues(alpha: 0.06)
-                                  : AppColors.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(
-                                  Responsive.sp(context, 6)),
-                              border: Border.all(
-                                color: isFinished
-                                    ? Colors.white.withValues(alpha: 0.08)
-                                    : AppColors.primary.withValues(alpha: 0.25),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              match.odds!,
-                              style: TextStyle(
-                                fontSize: Responsive.sp(context, 10),
-                                fontWeight: FontWeight.w900,
-                                color: isFinished
-                                    ? AppColors.textGrey
-                                    : AppColors.primary,
-                              ),
-                            ),
-                          ),
+                        _OddsBox(match: match, isFinished: isFinished),
                       ],
                     ),
                   ),
@@ -560,12 +531,14 @@ class _MatchCardState extends State<MatchCard> {
           Container(
             width: logoSize,
             height: logoSize,
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : AppColors.backgroundLight,
-              shape: BoxShape.circle,
-            ),
+            decoration: (crestUrl != null && crestUrl.isNotEmpty)
+                ? null
+                : BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : AppColors.backgroundLight,
+                    shape: BoxShape.circle,
+                  ),
             child: ClipOval(
               child: crestUrl != null && crestUrl.isNotEmpty
                   ? CachedNetworkImage(
@@ -664,21 +637,24 @@ class _MatchCardState extends State<MatchCard> {
   Widget _buildTeamLogo(
       BuildContext context, String teamName, bool isDark, String? crestUrl) {
     final logoSize = Responsive.sp(context, 28);
+    final hasCrest = crestUrl != null && crestUrl.isNotEmpty;
     return Container(
       width: logoSize,
       height: logoSize,
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.05)
-            : Colors.black.withValues(alpha: 0.03),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.04),
-          width: 0.5,
-        ),
-      ),
+      decoration: hasCrest
+          ? null
+          : BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.03),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.black.withValues(alpha: 0.04),
+                width: 0.5,
+              ),
+            ),
       child: ClipOval(
         child: crestUrl != null && crestUrl.isNotEmpty
             ? CachedNetworkImage(
@@ -721,3 +697,74 @@ class _MatchCardState extends State<MatchCard> {
 }
 
 // _LiveBadge removed — replaced by LeoBadge(variant: LeoBadgeVariant.live / scheduled)
+
+class _OddsBox extends StatelessWidget {
+  final MatchModel match;
+  final bool isFinished;
+
+  const _OddsBox({required this.match, required this.isFinished});
+
+  String _formatOdds(List<Map<String, dynamic>> oddsList) {
+    if (oddsList.isEmpty) return "N/A";
+
+    var home = oddsList.where((o) => o['market_id'].toString() == '1' && (o['exact_outcome'] == '1' || o['exact_outcome'] == 'Home')).firstOrNull;
+    var draw = oddsList.where((o) => o['market_id'].toString() == '1' && (o['exact_outcome'] == 'X' || o['exact_outcome'] == 'Draw')).firstOrNull;
+    var away = oddsList.where((o) => o['market_id'].toString() == '1' && (o['exact_outcome'] == '2' || o['exact_outcome'] == 'Away')).firstOrNull;
+
+    if (home != null && draw != null && away != null) {
+      return "${home['line']} | ${draw['line']} | ${away['line']}";
+    }
+
+    final first = oddsList.first;
+    return "${first['exact_outcome']}: ${first['line']}";
+  }
+
+  Widget _buildContainer(BuildContext context, String text) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: Responsive.sp(context, 8),
+        vertical: Responsive.sp(context, 3),
+      ),
+      decoration: BoxDecoration(
+        color: isFinished
+            ? Colors.white.withValues(alpha: 0.06)
+            : AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(Responsive.sp(context, 6)),
+        border: Border.all(
+          color: isFinished
+              ? Colors.white.withValues(alpha: 0.08)
+              : AppColors.primary.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        text.startsWith('Odds:') ? text : "Odds: $text",
+        style: TextStyle(
+          fontSize: Responsive.sp(context, 8),
+          fontWeight: FontWeight.w900,
+          color: isFinished ? AppColors.textGrey : AppColors.primary,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (match.odds != null && match.odds!.isNotEmpty) {
+      return _buildContainer(context, match.odds!);
+    }
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: context.read<DataRepository>().getMatchOdds(match.fixtureId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return _buildContainer(context, "...");
+        }
+        if (snapshot.data!.isEmpty) {
+          return _buildContainer(context, "N/A");
+        }
+        return _buildContainer(context, _formatOdds(snapshot.data!));
+      },
+    );
+  }
+}

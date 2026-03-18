@@ -840,8 +840,9 @@ Leo.py startup
 | All others | 2,000 rows | Standard |
 
 ### Computed Standings
-
-`standings` is **not** a synced table — it is a PostgreSQL `VIEW` computed on-the-fly from `schedules`. The Flutter app and Python backend query `computed_standings` directly. This means standings are always accurate without any sync overhead.
+`standings` is **not** a synced table — it is a PostgreSQL `VIEW` computed on-the-fly from `schedules`. The Flutter app and Python backend query `computed_standings` directly. This means standings are always accurate without any sync overhead. 
+> [!NOTE]
+> `computed_standings` VIEW is now actively used by Flutter (v9.3) via a reactive `watchSchedules` trigger mechanism.
 
 ### Storage Buckets
 

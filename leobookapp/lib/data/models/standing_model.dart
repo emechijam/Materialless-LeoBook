@@ -49,13 +49,13 @@ class StandingModel {
       teamCrestUrl: (json['team_crest'] ?? json['crest'])?.toString(),
       position: (json['position'] as num?)?.toInt() ?? 0,
       played: (json['played'] as num?)?.toInt() ?? 0,
-      wins: (json['wins'] as num?)?.toInt() ?? 0,
-      draws: (json['draws'] as num?)?.toInt() ?? 0,
-      losses: (json['losses'] as num?)?.toInt() ?? 0,
+      wins: (json['won'] ?? json['wins'] as num?)?.toInt() ?? 0,
+      draws: (json['drawn'] ?? json['draws'] as num?)?.toInt() ?? 0,
+      losses: (json['lost'] ?? json['losses'] as num?)?.toInt() ?? 0,
       goalsFor: (json['goals_for'] as num?)?.toInt() ?? 0,
       goalsAgainst: (json['goals_against'] as num?)?.toInt() ?? 0,
       points: (json['points'] as num?)?.toInt() ?? 0,
-      leagueName: _clean(json['region_league']?.toString() ?? ''),
+      leagueName: _clean((json['league_id'] ?? json['region_league'])?.toString() ?? ''), // league_id now used directly from view
     );
   }
 
