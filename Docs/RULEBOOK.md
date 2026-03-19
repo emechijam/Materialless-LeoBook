@@ -287,6 +287,13 @@ Screens are pure dispatchers (`LayoutBuilder` / `Responsive.isDesktop()`). They 
 - Use `flutter_bloc` / `Cubit` exclusively.
 - **NO RIVERPOD, NO GETX.**
 
+### 3.4 App Versioning (Aligned with Leo.py)
+
+- The Flutter app version in `leobookapp/pubspec.yaml` MUST match `LEOBOOK_VERSION` in `Core/Utils/constants.py`.
+- Format: `version: X.Y.Z+N` where `X.Y` matches `LEOBOOK_VERSION` (e.g., `9.3` → `9.3.0+N`).
+- The `+N` build number is Android's `versionCode` / iOS's `buildNumber` — it **MUST always increment** on every build. This is what enables upgrade installs without uninstalling the previous version.
+- Example progression: `9.3.0+2` → `9.4.0+3` → `9.5.0+4` → `10.0.0+5`.
+
 ---
 
 ## 4. Maintenance & Verification
