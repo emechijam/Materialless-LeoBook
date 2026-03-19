@@ -82,8 +82,8 @@ def calculate_market_reliability(predictions):
     seven_days_ago = now - timedelta(days=7)
     
     for p in predictions:
-        outcome = p.get('outcome_correct')
-        if outcome not in ['True', 'False']:
+        outcome = str(p.get('outcome_correct', ''))
+        if outcome not in ['True', 'False', '1', '0']:
             continue
             
         try:
