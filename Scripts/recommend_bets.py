@@ -87,7 +87,11 @@ def calculate_market_reliability(predictions):
             continue
             
         try:
-            p_date = datetime.strptime(p.get('date', ''), "%d.%m.%Y")
+            p_date_str = p.get('date', '')
+            if '-' in p_date_str:
+                p_date = datetime.strptime(p_date_str, "%Y-%m-%d")
+            else:
+                p_date = datetime.strptime(p_date_str, "%d.%m.%Y")
         except:
             continue
 
@@ -139,12 +143,14 @@ def get_recommendations(target_date=None, show_all_upcoming=False, **kwargs):
             continue
             
         try:
+            # Flexible date/time parsing
             p_date_str = p.get('date')
             p_time_str = p.get('match_time')
             if not p_date_str or not p_time_str or p_time_str == 'N/A':
                 continue
                 
-            p_dt = datetime.strptime(f"{p_date_str} {p_time_str}", "%d.%m.%Y %H:%M")
+            fmt = "%Y-%m-%d" if '-' in p_date_str else "%d.%m.%Y"
+            p_dt = datetime.strptime(f"{p_date_str} {p_time_str}", f"{fmt} %H:%M")
             
             # Date Filtering
             if target_date:

@@ -543,6 +543,7 @@ class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
         CLI flag: --train-season (see lifecycle.py parse_args)
         """
         from Data.Access.db_helpers import _get_conn
+        from Data.Access.league_db import get_connection
 
         conn = _get_conn()
         os.makedirs(MODELS_DIR, exist_ok=True)
@@ -688,8 +689,8 @@ class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
 
             def _prepare_fixture(fix):
                 fixture_id, league_id, home_tid, h_name, away_tid, a_name, h_score, a_score, season = fix
-                # Thread-local connection for safe concurrent DB access
-                t_conn = _get_conn()
+                # Use a fresh, thread-unique connection to avoid shared-handle closing race conditions
+                t_conn = get_connection()
                 try:
                     outcome = {
                         "result": "home_win" if h_score > a_score else "away_win" if a_score > h_score else "draw",
