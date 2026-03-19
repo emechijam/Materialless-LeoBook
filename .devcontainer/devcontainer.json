@@ -2,6 +2,9 @@
   "name": "LeoBook + Flutter Development",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"
     },
@@ -13,8 +16,7 @@
   "remoteUser": "vscode",
   "remoteEnv": {
     "PYTHONDONTWRITEBYTECODE": "1",
-    "PYTHONUNBUFFERED": "1",
-    "CHROME_EXECUTABLE": "/usr/bin/chromium"
+    "PYTHONUNBUFFERED": "1"
   },
   "customizations": {
     "vscode": {
@@ -35,5 +37,6 @@
     }
   },
   "forwardPorts": [8000, 8080, 3000, 5000],
-  "postCreateCommand": "bash .devcontainer/setup.sh"
-}
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "source /etc/profile.d/leobook-env.sh 2>/dev/null || true"
+}
