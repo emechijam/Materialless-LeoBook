@@ -439,8 +439,10 @@ def sync_country_flags(conn, client, uploaded_cache: set):
                 urls[f"flag_{ratio}"] = _build_public_url(supabase_url, "flags", remote_name)
         
         if urls:
+            urls['last_updated'] = datetime.now(timezone.utc).isoformat()
             set_clause = ", ".join([f"{k} = ?" for k in urls.keys()])
             params = list(urls.values()) + [row["code"]]
+            print(f"DEBUG: Updating {row['code']} with {urls}")
             conn.execute(f"UPDATE countries SET {set_clause} WHERE code = ?", params)
             updated_count += 1
             

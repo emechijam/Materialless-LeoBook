@@ -40,9 +40,9 @@ Leo.py (Entry Point — 473 lines)
 │   └── Chapter 2 (Betting Automation):
 │       ├── Ch2 P1: Automated Booking
 │       └── Ch2 P2: Funds & Withdrawal Check
-└── Live Streamer: **Independent OS process** — spawned via `subprocess.Popen(start_new_session=True)`
-                   Cannot be stopped by Leo.py. Kill: `pkill -f fs_live_streamer` (Linux/Mac)
-                   or `taskkill /F /PID <PID>` (Windows)
+└── Live Streamer: **Independent OS process** — spawned with **Watchdog** (PID + Heartbeat)
+                   Automatically monitored and respawned by Supervisor if dead/stale.
+                   Manual stopping: kill using CLI or process manager.
 ```
 
 ### Key Subsystems

@@ -15,6 +15,7 @@ class MatchModel {
   final String? odds; // e.g. "1.68"
   final String? confidence; // High/Medium/Low
   final String? league; // e.g. "ENGLAND: Premier League"
+  final String? leagueId; // Internal ID (e.g. 1_100_KEUqwJAr)
   final String sport;
 
   final String fixtureId; // Key for merging
@@ -57,6 +58,7 @@ class MatchModel {
     required this.status,
     required this.sport,
     this.league,
+    this.leagueId,
     this.prediction,
     this.odds,
     this.confidence,
@@ -81,6 +83,125 @@ class MatchModel {
     this.pureModelSuggestion,
     this.outcomeCorrect,
   });
+
+  Map<String, dynamic> toJson() => {
+        "fixture_id": fixtureId,
+        "date": date,
+        "time": time,
+        "home_team": homeTeam,
+        "away_team": awayTeam,
+        "home_team_id": homeTeamId,
+        "away_team_id": awayTeamId,
+        "home_score": homeScore,
+        "away_score": awayScore,
+        "status": status,
+        "sport": sport,
+        "region_league": league,
+        "league_id": leagueId,
+        "prediction": prediction,
+        "odds": odds,
+        "confidence": confidence,
+        "live_minute": liveMinute,
+        "is_featured": isFeatured,
+        "value_tag": valueTag,
+        "home_crest_url": homeCrestUrl,
+        "away_crest_url": awayCrestUrl,
+        "region_flag_url": regionFlagUrl,
+        "league_crest_url": leagueCrestUrl,
+        "market_reliability_score": marketReliability,
+        "xg_home": xgHome,
+        "xg_away": xgAway,
+        "reason": reasonTags,
+        "home_form_n": homeFormN,
+        "away_form_n": awayFormN,
+        "chosen_market": chosenMarket,
+        "market_id": marketId,
+        "rule_explanation": ruleExplanation,
+        "override_reason": overrideReason,
+        "statistical_edge": statisticalEdge,
+        "pure_model_suggestion": pureModelSuggestion,
+        "outcome_correct": outcomeCorrect,
+      };
+
+  factory MatchModel.fromJson(Map<String, dynamic> json) => MatchModel.fromCsv(json, json);
+
+  MatchModel copyWith({
+    String? fixtureId,
+    String? date,
+    String? time,
+    String? homeTeam,
+    String? awayTeam,
+    String? homeTeamId,
+    String? awayTeamId,
+    String? homeScore,
+    String? awayScore,
+    String? status,
+    String? sport,
+    String? league,
+    String? leagueId,
+    String? prediction,
+    String? odds,
+    String? confidence,
+    String? liveMinute,
+    bool? isFeatured,
+    String? valueTag,
+    String? homeCrestUrl,
+    String? awayCrestUrl,
+    String? regionFlagUrl,
+    String? leagueCrestUrl,
+    String? marketReliability,
+    double? xgHome,
+    double? xgAway,
+    String? reasonTags,
+    int? homeFormN,
+    int? awayFormN,
+    String? chosenMarket,
+    String? marketId,
+    String? ruleExplanation,
+    String? overrideReason,
+    double? statisticalEdge,
+    String? pureModelSuggestion,
+    String? outcomeCorrect,
+  }) {
+    return MatchModel(
+      fixtureId: fixtureId ?? this.fixtureId,
+      date: date ?? this.date,
+      time: time ?? this.time,
+      homeTeam: homeTeam ?? this.homeTeam,
+      awayTeam: awayTeam ?? this.awayTeam,
+      homeTeamId: homeTeamId ?? this.homeTeamId,
+      awayTeamId: awayTeamId ?? this.awayTeamId,
+      homeScore: homeScore ?? this.homeScore,
+      awayScore: awayScore ?? this.awayScore,
+      status: status ?? this.status,
+      sport: sport ?? this.sport,
+      league: league ?? this.league,
+      leagueId: leagueId ?? this.leagueId,
+      prediction: prediction ?? this.prediction,
+      odds: odds ?? this.odds,
+      confidence: confidence ?? this.confidence,
+      liveMinute: liveMinute ?? this.liveMinute,
+      isFeatured: isFeatured ?? this.isFeatured,
+      valueTag: valueTag ?? this.valueTag,
+      homeCrestUrl: homeCrestUrl ?? this.homeCrestUrl,
+      awayCrestUrl: awayCrestUrl ?? this.awayCrestUrl,
+      regionFlagUrl: regionFlagUrl ?? this.regionFlagUrl,
+      leagueCrestUrl: leagueCrestUrl ?? this.leagueCrestUrl,
+      marketReliability: marketReliability ?? this.marketReliability,
+      xgHome: xgHome ?? this.xgHome,
+      xgAway: xgAway ?? this.xgAway,
+      reasonTags: reasonTags ?? this.reasonTags,
+      homeFormN: homeFormN ?? this.homeFormN,
+      awayFormN: awayFormN ?? this.awayFormN,
+      chosenMarket: chosenMarket ?? this.chosenMarket,
+      marketId: marketId ?? this.marketId,
+      ruleExplanation: ruleExplanation ?? this.ruleExplanation,
+      overrideReason: overrideReason ?? this.overrideReason,
+      statisticalEdge: statisticalEdge ?? this.statisticalEdge,
+      pureModelSuggestion: pureModelSuggestion ?? this.pureModelSuggestion,
+      outcomeCorrect: outcomeCorrect ?? this.outcomeCorrect,
+    );
+  }
 
   Map<String, dynamic> get ruleOutput => {
         "chosen_market": chosenMarket ?? prediction ?? "Unknown",
@@ -462,6 +583,7 @@ class MatchModel {
       awayScore: aScore,
       status: (row['status'] ?? row['match_status'] ?? 'Scheduled').toString(),
       league: _clean(row['region_league']?.toString() ?? ''),
+      leagueId: row['league_id']?.toString(),
       sport: sport,
       prediction: _clean(prediction),
       confidence: confidence,
@@ -503,6 +625,7 @@ class MatchModel {
       status: other.status,
       sport: other.sport.isNotEmpty ? other.sport : sport,
       league: other.league ?? league,
+      leagueId: other.leagueId ?? leagueId,
       prediction: prediction, // Preserve existing
       odds: odds, // Preserve existing
       confidence: confidence, // Preserve existing
@@ -529,3 +652,4 @@ class MatchModel {
     );
   }
 }
+

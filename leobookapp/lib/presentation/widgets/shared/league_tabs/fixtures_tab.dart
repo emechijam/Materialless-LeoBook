@@ -13,8 +13,13 @@ import 'package:leobookapp/core/widgets/leo_shimmer.dart';
 import '../match_card.dart';
 
 class LeagueFixturesTab extends StatefulWidget {
+  final String leagueId;
   final String leagueName;
-  const LeagueFixturesTab({super.key, required this.leagueName});
+  const LeagueFixturesTab({
+    super.key,
+    required this.leagueId,
+    required this.leagueName,
+  });
 
   @override
   State<LeagueFixturesTab> createState() => _LeagueFixturesTabState();
@@ -44,7 +49,7 @@ class _LeagueFixturesTabState extends State<LeagueFixturesTab> {
 
         final allMatches = snapshot.data ?? [];
         final matches = allMatches
-            .where((m) => m.league == widget.leagueName)
+            .where((m) => m.leagueId == widget.leagueId || m.league == widget.leagueName)
             .toList();
 
         if (matches.isEmpty) {

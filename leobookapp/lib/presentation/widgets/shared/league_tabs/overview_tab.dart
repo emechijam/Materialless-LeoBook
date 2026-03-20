@@ -10,8 +10,13 @@ import 'package:leobookapp/data/models/standing_model.dart';
 import 'package:leobookapp/data/repositories/data_repository.dart';
 
 class LeagueOverviewTab extends StatefulWidget {
+  final String leagueId;
   final String leagueName;
-  const LeagueOverviewTab({super.key, required this.leagueName});
+  const LeagueOverviewTab({
+    super.key,
+    required this.leagueId,
+    required this.leagueName,
+  });
 
   @override
   State<LeagueOverviewTab> createState() => _LeagueOverviewTabState();
@@ -30,7 +35,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
 
   Future<void> _loadData() async {
     final repo = context.read<DataRepository>();
-    final standings = await repo.fetchStandings(leagueId: widget.leagueName);
+    final standings = await repo.fetchStandings(leagueId: widget.leagueId);
 
     // Trust the DB position — no custom re-sort.
     // Only sort as a safety fallback if positions are all 0 (unset).
@@ -45,9 +50,9 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
     }
 
     // For featured matches in this league, we'll fetch predictions for today
-    final allPredictions = await repo.fetchMatches(date: DateTime.now());
-    final leaguePredictions = allPredictions
-        .where((m) => m.league == widget.leagueName && m.isFeatured)
+    final allMatches = await repo.fetchMatches(date: DateTime.now());
+    final leaguePredictions = allMatches
+        .where((m) => m.leagueId == widget.leagueId && m.isFeatured)
         .toList();
 
     if (mounted) {

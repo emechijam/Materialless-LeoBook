@@ -40,7 +40,7 @@ class _LeagueResultsTabState extends State<LeagueResultsTab> {
     final allMatches = await repo.fetchMatches();
     return allMatches
         .where((m) =>
-            m.league == widget.leagueName &&
+            (m.leagueId == widget.leagueId || m.league == widget.leagueName) &&
             (m.status == 'Finished' ||
                 m.displayStatus == 'FINISHED' ||
                 m.isFinished))

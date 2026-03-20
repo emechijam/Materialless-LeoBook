@@ -53,8 +53,10 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
 
     // Fetch Standings
     List<StandingModel> sTable = [];
-    if (match.league != null) {
-      sTable = await repository.fetchStandings(leagueId: match.league!);
+    if (match.leagueId != null || match.league != null) {
+      sTable = await repository.fetchStandings(
+        leagueId: match.leagueId ?? match.league!,
+      );
     }
 
     // Past matches only
@@ -263,7 +265,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                       onTap: () {
                         Navigator.push(context, MaterialPageRoute(
                           builder: (context) => LeagueScreen(
-                            leagueId: match.league ?? '',
+                            leagueId: match.leagueId ?? match.league ?? '',
                             leagueName: match.league ?? '',
                           ),
                         ));

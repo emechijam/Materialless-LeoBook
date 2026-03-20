@@ -346,48 +346,43 @@ async def enrich_single_league(
 
         total_matches = 0
 
-        if seasons_with_gaps:
-            current_is_gap = season and season in seasons_with_gaps
-            past_gap_seasons = [s for s in seasons_with_gaps if s != season]
-            if current_is_gap or needs_full_re_enrich:
-                f_c = await extract_tab(page, url, "fixtures", conn, league_id, season, country_code,
-                                        region_league=region_league, gap_columns=gap_columns)
-                r_c = await extract_tab(page, url, "results", conn, league_id, season, country_code,
-                                        region_league=region_league, gap_columns=gap_columns)
-                total_matches += f_c + r_c
-            if past_gap_seasons:
-                archive = await get_archive_seasons(page, url, selector_mgr, CONTEXT_LEAGUE)
-                for s_meta in _select_seasons_from_archive(
-                    archive, None, 0, False, target_season_labels=past_gap_seasons
-                ):
-                    r_c = await extract_tab(page, s_meta["url"], "results", conn,
-                                            league_id, s_meta["label"], country_code,
-                                            region_league=region_league, gap_columns=gap_columns)
-                    f_c = await extract_tab(page, s_meta["url"], "fixtures", conn,
-                                            league_id, s_meta["label"], country_code,
-                                            region_league=region_league, gap_columns=gap_columns)
-                    total_matches += r_c + f_c
-        else:
+        # Always process the current season if it's a gap or if we are in a normal run
+        current_is_gap = season and seasons_with_gaps and (season in seasons_with_gaps)
+        if current_is_gap or needs_full_re_enrich or not seasons_with_gaps:
             f_c = await extract_tab(page, url, "fixtures", conn, league_id, season, country_code,
-                                    region_league=region_league)
+                                    region_league=region_league, gap_columns=gap_columns)
             r_c = await extract_tab(page, url, "results", conn, league_id, season, country_code,
-                                    region_league=region_league)
+                                    region_league=region_league, gap_columns=gap_columns)
             total_matches += f_c + r_c
-            need_past = (target_season is not None and target_season >= 1) or num_seasons > 0 or all_seasons
-            if need_past:
-                archive = await get_archive_seasons(page, url, selector_mgr, CONTEXT_LEAGUE)
-                for s_idx, s_meta in enumerate(_select_seasons_from_archive(
-                    archive, target_season, num_seasons, all_seasons
-                ), 1):
-                    print(f"\n    [Season {s_idx}] "
-                          f"{s_meta['label']} ({'split' if s_meta.get('is_split') else 'calendar'})")
-                    r_c = await extract_tab(page, s_meta["url"], "results", conn,
-                                            league_id, s_meta["label"], country_code,
-                                            region_league=region_league)
-                    f_c = await extract_tab(page, s_meta["url"], "fixtures", conn,
-                                            league_id, s_meta["label"], country_code,
-                                            region_league=region_league)
-                    total_matches += r_c + f_c
+
+        # Handle past seasons (from gaps or from manual request)
+        need_past = (target_season is not None and target_season >= 1) or num_seasons > 0 or all_seasons or (seasons_with_gaps and len(seasons_with_gaps) > (1 if current_is_gap else 0))
+        
+        if need_past:
+            archive = await get_archive_seasons(page, url, selector_mgr, CONTEXT_LEAGUE)
+            
+            # Extract labels for seasons with gaps (excluding current)
+            past_gap_labels = [s for s in (seasons_with_gaps or []) if s != season]
+            
+            selected_past = _select_seasons_from_archive(
+                archive, target_season, num_seasons, all_seasons, 
+                target_season_labels=past_gap_labels if past_gap_labels else None
+            )
+
+            for s_idx, s_meta in enumerate(selected_past, 1):
+                label = s_meta['label']
+                print(f"\n    [Season {s_idx}] {label} ({'split' if s_meta.get('is_split') else 'calendar'})")
+                
+                # If this season was in gaps, pass gap_columns to extract_tab for efficiency
+                s_gap_cols = gap_columns if (seasons_with_gaps and label in seasons_with_gaps) else None
+                
+                r_c = await extract_tab(page, s_meta["url"], "results", conn,
+                                        league_id, label, country_code,
+                                        region_league=region_league, gap_columns=s_gap_cols)
+                f_c = await extract_tab(page, s_meta["url"], "fixtures", conn,
+                                        league_id, label, country_code,
+                                        region_league=region_league, gap_columns=s_gap_cols)
+                total_matches += r_c + f_c
 
         mark_league_processed(conn, league_id)
         print(f"\n  [{idx}/{total}] [OK] {name} — {total_matches} matches total")

@@ -1,6 +1,10 @@
-# league_db_schema.py: SQLite DDL, migration definitions, and CSV import map.
-# Part of LeoBook Data — Access Layer
-# Imported by league_db.py only. All callers should use league_db.py.
+# MIGRATION REQUIRED (Supabase):
+# ALTER TABLE leagues ADD COLUMN IF NOT EXISTS region TEXT DEFAULT '';
+
+# league_db_schema.py: Table definitions for LeoBook SQLite.
+# Part of LeoBook Data — Access
+#
+# Called by: league_db.py (init_db)ly. All callers should use league_db.py.
 
 # ── SQLite schema ─────────────────────────────────────────────────────────────
 

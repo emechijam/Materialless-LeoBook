@@ -65,21 +65,40 @@ class DataRepository {
 
   Future<List<MatchModel>> getTeamMatches(String teamName) async {
     try {
-      // Fetch from predictions
-      final predResponse = await _supabase
+      // First try exact match
+      final List<dynamic> predRows = await _supabase
           .from('predictions')
           .select()
-          .or('home_team.eq.$teamName,away_team.eq.$teamName')
+          .or('home_team.eq."$teamName",away_team.eq."$teamName"')
           .order('date', ascending: false)
-          .limit(40);
+          .limit(10);
 
-      // Fetch from schedules (where historical H2H data is stored)
-      final schedResponse = await _supabase
+      final List<dynamic> schedRows = await _supabase
           .from('schedules')
           .select()
-          .or('home_team.eq.$teamName,away_team.eq.$teamName')
+          .or('home_team.eq."$teamName",away_team.eq."$teamName"')
           .order('date', ascending: false)
-          .limit(40);
+          .limit(10);
+
+      // Fallback to fuzzy match if both are empty
+      List<dynamic> predList = predRows;
+      List<dynamic> schedList = schedRows;
+
+      if (predList.isEmpty && schedList.isEmpty) {
+        predList = await _supabase
+            .from('predictions')
+            .select()
+            .or('home_team.ilike."%$teamName%",away_team.ilike."%$teamName%"')
+            .order('date', ascending: false)
+            .limit(10);
+        
+        schedList = await _supabase
+            .from('schedules')
+            .select()
+            .or('home_team.ilike."%$teamName%",away_team.ilike."%$teamName%"')
+            .order('date', ascending: false)
+            .limit(10);
+      }
 
       final List<MatchModel> matches = [];
       final Set<String> seenIds = {};
@@ -98,10 +117,10 @@ class DataRepository {
         }
       }
 
-      addMatches(predResponse as List, true);
-      addMatches(schedResponse as List, false);
+      addMatches(predList, true);
+      addMatches(schedList, false);
 
-      // Enrich matches with crests if missing (schedules table doesn't have them)
+      // Enrich matches with crests if missing
       if (matches.isNotEmpty) {
         final crests = await fetchTeamCrests();
         for (int i = 0; i < matches.length; i++) {
@@ -125,7 +144,6 @@ class DataRepository {
         }
       }
 
-      // Sort by date descending
       matches.sort((a, b) {
         try {
           return DateTime.parse(b.date).compareTo(DateTime.parse(a.date));
@@ -184,10 +202,17 @@ class DataRepository {
 
   Future<List<StandingModel>> fetchStandings({required String leagueId, String? season}) async {
     try {
+      // Safety net: if leagueId is a composite string (e.g. "REGION: League Name"), strip the region.
+      // Primary fix is in UI passing leagueId, but this handles legacy or mixed cases.
+      String cleanId = leagueId;
+      if (cleanId.contains(': ')) {
+        cleanId = cleanId.split(': ').last.trim();
+      }
+
       var query = _supabase
           .from('computed_standings')
           .select()
-          .eq('league_id', leagueId);
+          .eq('league_id', cleanId);
       
       if (season != null) {
         query = query.eq('season', season);
@@ -448,7 +473,12 @@ class DataRepository {
           .maybeSingle();
 
       if (response != null) {
-        return LeagueModel.fromJson(response);
+        // Null-safe accessor for 'region' to handle Supabase schema drift (missing column)
+        final data = Map<String, dynamic>.from(response);
+        if (!data.containsKey('region')) {
+          data['region'] = '';
+        }
+        return LeagueModel.fromJson(data);
       }
       return null;
     } catch (e) {

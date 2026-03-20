@@ -21,10 +21,11 @@ class PrologueWorker(BaseWorker):
     def __init__(self):
         super().__init__("Prologue")
         
-    async def execute(self):
+    async def execute(self, **kwargs):
+        args = kwargs.get('args')
         from Leo import run_prologue_p1, run_prologue_p2, run_prologue_p3
-        await run_prologue_p1()
-        await run_prologue_p2()
+        await run_prologue_p1(args=args)
+        await run_prologue_p2(args=args)
         await run_prologue_p3()
         return True
 

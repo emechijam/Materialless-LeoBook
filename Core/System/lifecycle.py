@@ -136,52 +136,27 @@ Examples:
   python Leo.py --prologue                 All prologue pages (P1+P2)
   python Leo.py --prologue --page 1        Prologue P1: Cloud Handshake & Review
   python Leo.py --prologue --page 2        Prologue P2: Accuracy & Sync
-  python Leo.py --chapter 1                Full Chapter 1 (Extraction → Odds → Sync)
-  python Leo.py --chapter 1 --page 1       Ch1 P1: URL Resolution & Odds Harvesting
-  python Leo.py --chapter 1 --page 2       Ch1 P2: Predictions (Rule Engine + RL Ensemble)
-  python Leo.py --chapter 1 --page 3       Ch1 P3: Final Sync & Recommendations
-  python Leo.py --chapter 2                Full Chapter 2 (Booking & Withdrawal)
-  python Leo.py --chapter 2 --page 1       Ch2 P1: Automated Booking
-  python Leo.py --chapter 2 --page 2       Ch2 P2: Funds & Withdrawal Check
-  python Leo.py --sync                     Force watermark-based cloud sync
-  python Leo.py --recommend                Generate and display recommendations only
-  python Leo.py --accuracy                 Print accuracy report only
-  python Leo.py --search-dict              Rebuild the search dictionary from SQLite
-  python Leo.py --review                   Run outcome review process only
-  python Leo.py --rule-engine              Show default rule engine info (combine with --list, --set-default, --backtest)
-  python Leo.py --rule-engine --list       List all saved rule engines
-  python Leo.py --rule-engine --backtest   Progressive backtest default engine
-  python Leo.py --rule-engine --backtest --id ENGINE_ID   Backtest a specific engine
-  python Leo.py --rule-engine --backtest --from-date 2025-08-01   Set start date
-  python Leo.py --rule-engine --set-default "James' Law"   Set engine as default
-  python Leo.py --assets                   Sync all team and league assets
-  python Leo.py --assets --limit 10         Sync assets with a limit
-  python Leo.py --logos                     Download all football team logo packs
-  python Leo.py --logos --limit 5           Download first 5 league logo packs
-  python Leo.py --enrich-leagues            Extract Flashscore league pages -> SQLite
-  python Leo.py --enrich-leagues --limit 5  Extract first 5 unprocessed leagues
-  python Leo.py --enrich-leagues --limit 501-1000  Extract leagues 501 through 1000
-  python Leo.py --enrich-leagues --reset    Reset and extract all leagues
-  python Leo.py --enrich-leagues --seasons 2 Extract last 2 seasons per league
-  python Leo.py --enrich-leagues --season 1  Extract only the most recent past season
-  python Leo.py --enrich-leagues --all-seasons Extract all available seasons
-  python Leo.py --train-rl               Train RL model (current season, default)
-  python Leo.py --train-rl --resume      Resume from latest checkpoint (current season)
-  python Leo.py --train-rl --train-season all --cold   Full cold retrain, all seasons oldest→newest
-  python Leo.py --train-rl --train-season 1            Most recent past season only
-  python Leo.py --train-rl --train-season 2            Two seasons ago
-  python Leo.py --train-rl --train-season 2024/2025    Explicit season label
-  python Leo.py --train-rl --phase 1     Phase 1: Imitation Learning (Warm-Start)
-  python Leo.py --train-rl --phase 2     Phase 2: PPO Fine-tuning with KL Penalty
-  python Leo.py --train-rl --phase 3     Phase 3: Adapter Fine-tuning (Frozen Trunk)
-  python Leo.py --train-rl --cold        Skip Phase 1 (Control Group)
-  python Leo.py --train-rl --league ID   Fine-tune a specific league adapter
-  python Leo.py --data-quality           Run diagnostics and immediate gap fixes
-  python Leo.py --season-completeness    Refresh and print match coverage report
-  python Leo.py --diagnose-rl            Inspect RL decisions for next 5 upcoming fixtures
-  python Leo.py --diagnose-rl --all-played --top 3   Last 3 completed matches
-  python Leo.py --diagnose-rl --fixture FIXTURE_ID   Deep-dive on a specific match
-  python Leo.py --diagnose-rl --checkpoint Data/Store/models/checkpoints/phase1_day038.pth
+Usage Examples:
+  # --- Standard Operations ---
+  python Leo.py --sync                   Startup sync: Pulls changes from Supabase, then pushes local updates.
+  python Leo.py --push                   Progress push: Upserts local delta to Supabase (uses watermarks).
+  python Leo.py --pull                   Bootstrap pull: Resets local DB with all data from Supabase.
+  
+  # --- League Enrichment (Flashscore) ---
+  python Leo.py --enrich-leagues            Enrich unprocessed leagues via gap scan.
+  python Leo.py --enrich-leagues --limit 10  Process specific number of leagues.
+  python Leo.py --enrich-leagues --seasons 2 Process current + last 2 historical seasons.
+  python Leo.py --enrich-leagues --reset     Force re-process all leagues from zero.
+
+  # --- Intelligence & Execution ---
+  python Leo.py --chapter 1 --page 1       Run URL resolution and odds harvesting.
+  python Leo.py --chapter 3                Run the full autonomous cycle (Supervisor).
+  python Leo.py --recommend                Show high-confidence betting recommendations.
+  python Leo.py --streamer                 Run the live score streamer (watchdog enabled).
+
+  # --- Maintenance ---
+  python Leo.py --data-quality           Deep-scan DB for gaps and fix immediate issues.
+  python Leo.py --assets                 Sync team crests and league flags to cloud storage.
         """
     )
     # --- Granular Chapter / Page Selection ---

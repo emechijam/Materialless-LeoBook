@@ -84,16 +84,16 @@ class _LeagueScreenState extends State<LeagueScreen>
     if (_isArchiveView) {
       return [
         LeagueResultsTab(leagueId: widget.leagueId, leagueName: widget.leagueName, season: widget.season),
-        LeagueStatsTab(leagueName: widget.leagueName),
-        LeaguePredictionsTab(leagueName: widget.leagueName),
+        LeagueStatsTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
+        LeaguePredictionsTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
       ];
     }
     return [
-      LeagueOverviewTab(leagueName: widget.leagueName),
-      LeagueFixturesTab(leagueName: widget.leagueName),
+      LeagueOverviewTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
+      LeagueFixturesTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
       LeagueResultsTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
-      LeaguePredictionsTab(leagueName: widget.leagueName),
-      LeagueStatsTab(leagueName: widget.leagueName),
+      LeaguePredictionsTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
+      LeagueStatsTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
       LeagueArchiveTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
     ];
   }

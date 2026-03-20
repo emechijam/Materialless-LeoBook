@@ -15,7 +15,7 @@ from Modules.Flashscore.fs_live_streamer import live_score_streamer
 from Modules.FootballCom.fb_manager import run_odds_harvesting, run_automated_booking
 from Scripts.recommend_bets import get_recommendations
 from Core.Intelligence.prediction_pipeline import run_predictions
-from Scripts.enrich_leagues import main as run_league_enricher
+from Modules.Flashscore.fs_league_enricher import main as run_league_enricher
 from Data.Access.asset_manager import sync_team_assets, sync_league_assets, sync_region_flags
 
 
@@ -59,12 +59,18 @@ async def run_startup_sync():
 # AUTO-REMEDIATION
 # ============================================================
 
-async def auto_remediate(target: str):
+async def auto_remediate(target: str, args=None):
     """Auto-triggers the correct enrichment or training path to fix readiness gaps."""
     print(f"\n  [AUTO] Triggering auto-remediation for: {target}")
+    
+    # Use limit from CLI if available
+    limit = 100
+    if args and getattr(args, '_limit_count', None):
+        limit = args._limit_count
+        
     try:
         if target == "leagues":
-            await run_league_enricher(limit=100)
+            await run_league_enricher(limit=limit)
         elif target == "seasons":
             await run_league_enricher(num_seasons=2)
         elif target == "rl":
@@ -80,17 +86,17 @@ async def auto_remediate(target: str):
 # PROLOGUE — Data Readiness Gates
 # ============================================================
 
-async def run_prologue_p1():
+async def run_prologue_p1(args=None):
     """Prologue P1: Verify leagues >= 90% of leagues.json AND teams >= 5 per league."""
     log_state(chapter="Prologue P1", action="Data Readiness: Leagues & Teams")
     try:
         print("\n" + "=" * 60)
         print("  PROLOGUE P1: Data Readiness - Leagues & Teams")
         print("=" * 60)
-
+ 
         ready, stats = check_leagues_ready()
         if not ready:
-            await auto_remediate("leagues")
+            await auto_remediate("leagues", args=args)
             ready, stats = check_leagues_ready()
 
         log_audit_event("PROLOGUE_P1",
@@ -102,24 +108,29 @@ async def run_prologue_p1():
         log_audit_event("PROLOGUE_P1", f"Failed: {e}", status="failed")
 
 
-async def run_prologue_p2():
-    """Prologue P2: Verify >= 2 seasons of historical fixtures per league."""
-    log_state(chapter="Prologue P2", action="Data Readiness: Historical Seasons")
+async def run_prologue_p2(args=None):
+    """Prologue P2: Verify history/quality (Job A) and RL tier (Job B)."""
+    log_state(chapter="Prologue P2", action="Data Readiness: History & Quality")
     try:
         print("\n" + "=" * 60)
-        print("  PROLOGUE P2: Data Readiness - Historical Seasons")
+        print("  PROLOGUE P2: Data Readiness - History & Quality")
         print("=" * 60)
-
-        ready, stats = check_seasons_ready()
+ 
+        ready, reports = check_seasons_ready()
         if not ready:
-            await auto_remediate("seasons")
-            ready, stats = check_seasons_ready()
+            await auto_remediate("seasons", args=args)
+            ready, reports = check_seasons_ready()
+
+        # Extract relevant stats from reports for logging
+        total_seasons = sum(1 for r in reports if r.get('status') == 'ready')
+        rl_tier = reports[0].get('rl_tier', 'UNKNOWN') if reports else 'UNKNOWN'
+        critical_gaps = sum(r.get('critical_gaps', 0) for r in reports)
 
         log_audit_event(
             "PROLOGUE_P2",
-            f"Seasons: {stats.get('total_seasons', 0)} computed | "
-            f"RL tier: {stats.get('rl_tier', 'UNKNOWN')} | "
-            f"Gaps: {stats.get('critical_gaps', 0)} critical",
+            f"Seasons Ready: {ready}, Count: {total_seasons} | "
+            f"RL tier: {rl_tier} | "
+            f"Gaps: {critical_gaps} critical",
             status="success" if ready else "partial_failure"
         )
     except Exception as e:

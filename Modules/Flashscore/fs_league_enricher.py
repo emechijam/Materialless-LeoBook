@@ -62,6 +62,15 @@ async def main(
         conn.execute("UPDATE leagues SET processed = 0")
         conn.commit()
         print("  [DB] Reset all leagues to unprocessed")
+        
+        # Clear batch checkpoint on reset
+        checkpoint_path = os.path.join(BASE_DIR, "Data", "Logs", "batch_checkpoint.json")
+        if os.path.exists(checkpoint_path):
+            try:
+                os.remove(checkpoint_path)
+                print(f"  [Reset] Cleared checkpoint: {checkpoint_path}")
+            except Exception as e:
+                print(f"  [Reset] Warning: Could not clear checkpoint: {e}")
 
     seed_leagues_from_json(conn, LEAGUES_JSON)
 

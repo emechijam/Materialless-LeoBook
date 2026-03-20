@@ -8,8 +8,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:leobookapp/core/constants/app_colors.dart';
 
 class LeaguePredictionsTab extends StatelessWidget {
+  final String leagueId;
   final String leagueName;
-  const LeaguePredictionsTab({super.key, required this.leagueName});
+  const LeaguePredictionsTab({
+    super.key,
+    required this.leagueId,
+    required this.leagueName,
+  });
 
   @override
   Widget build(BuildContext context) {

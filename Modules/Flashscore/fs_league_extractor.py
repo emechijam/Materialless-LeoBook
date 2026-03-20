@@ -197,22 +197,26 @@ EXTRACT_ARCHIVE_JS = r"""(selectors) => {
         if (!sel) continue;
         for (const a of document.querySelectorAll(sel)) {
             const href = a.getAttribute('href') || '';
-            const splitM = href.match(/\/football\/([^/]+)\/([^/]+-(\\d{4})-(\\d{4}))\/?/);
+            // Refined regex: allow any prefix, capture country and slug. 
+            // Matches: /football/england/premier-league-2023-2024/ or premier-league-2023-2024/
+            const splitM = href.match(/\/football\/([^/]+)\/([^/]+-(\d{4})-(\d{4}))\/?/i) 
+                        || href.match(/\/([^/]+)\/([^/]+-(\d{4})-(\d{4}))\/?/i);
             if (splitM && !seen.has(splitM[2])) {
                 seen.add(splitM[2]);
                 seasons.push({ slug: splitM[2], country: splitM[1],
                     start_year: parseInt(splitM[3]), end_year: parseInt(splitM[4]),
                     is_split: true, label: `${splitM[3]}/${splitM[4]}`,
-                    url: href.startsWith('http') ? href : 'https://www.flashscore.com' + href });
+                    url: href.startsWith('http') ? href : (href.startsWith('/') ? 'https://www.flashscore.com' + href : 'https://www.flashscore.com/' + href) });
             }
-            const calM = href.match(/\/football\/([^/]+)\/([^/]+-(\\d{4}))\/?$/);
+            const calM = href.match(/\/football\/([^/]+)\/([^/]+-(\d{4}))\/?$/i)
+                      || href.match(/\/([^/]+)\/([^/]+-(\d{4}))\/?$/i);
             if (calM && !seen.has(calM[2])) {
                 if (![...seen].some(s => s.startsWith(calM[2] + '-'))) {
                     seen.add(calM[2]);
                     seasons.push({ slug: calM[2], country: calM[1],
                         start_year: parseInt(calM[3]), end_year: parseInt(calM[3]),
                         is_split: false, label: calM[3],
-                        url: href.startsWith('http') ? href : 'https://www.flashscore.com' + href });
+                        url: href.startsWith('http') ? href : (href.startsWith('/') ? 'https://www.flashscore.com' + href : 'https://www.flashscore.com/' + href) });
                 }
             }
         }
@@ -277,37 +281,51 @@ def _select_seasons_from_archive(
     target_season_labels: Optional[List[str]] = None,
 ) -> List[Dict]:
     """Select seasons from the archive list.
-
-    Args:
-        target_season_labels: If provided (from gap scanner), select only these
-                              specific season strings (e.g. ["2022/2023", "2023/2024"]).
-                              Takes precedence over num_seasons / all_seasons.
+    
+    Logic:
+    1. If target_season_labels (gaps) exist, include them.
+    2. If num_seasons or all_seasons requested, also include those.
+    3. Return a deduplicated list of unique seasons.
     """
     if not archive_seasons:
         return []
 
+    selected: List[Dict] = []
+    seen_labels = set()
+
+    # 1. Add specific gap seasons
     if target_season_labels:
         label_set = set(target_season_labels)
-        matched = [s for s in archive_seasons if s["label"] in label_set]
-        if matched:
-            return matched
-        print(f"    [Archive] WARNING: none of the target seasons {label_set} matched "
-              f"archive labels {[s['label'] for s in archive_seasons[:5]]}. "
-              f"Falling back to first {len(label_set)} seasons.")
-        return archive_seasons[:max(1, len(label_set))]
+        for s in archive_seasons:
+            if s["label"] in label_set:
+                selected.append(s)
+                seen_labels.add(s["label"])
 
-    if all_seasons:
-        return archive_seasons
+    # 2. Add by target relative index (1-indexed for CLI, 0-indexed for internal)
     if target_season is not None and target_season >= 1:
         idx = target_season - 1
         if idx < len(archive_seasons):
-            return [archive_seasons[idx]]
-        print(f"    [Archive] Offset {target_season} out of range — "
-              f"only {len(archive_seasons)} past seasons found")
-        return []
-    if num_seasons > 0:
-        return archive_seasons[:num_seasons]
-    return []
+            s = archive_seasons[idx]
+            if s["label"] not in seen_labels:
+                selected.append(s)
+                seen_labels.add(s["label"])
+
+    # 3. Add by count or "all"
+    if all_seasons:
+        for s in archive_seasons:
+            if s["label"] not in seen_labels:
+                selected.append(s)
+                seen_labels.add(s["label"])
+    elif num_seasons > 0:
+        # Take first N from archive (usually most recent first)
+        for s in archive_seasons[:num_seasons]:
+            if s["label"] not in seen_labels:
+                selected.append(s)
+                seen_labels.add(s["label"])
+
+    # Sort final selection by start_year desc (most recent first)
+    selected.sort(key=lambda x: (x.get('start_year', 0), x.get('end_year', 0)), reverse=True)
+    return selected
 
 
 def seed_leagues_from_json(conn, leagues_json_path: str) -> None:

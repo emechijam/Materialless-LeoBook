@@ -11,7 +11,8 @@ import asyncio
 import subprocess
 import sys
 import uuid
-from datetime import datetime
+import time
+from datetime import datetime as dt
 from typing import Type, Dict, Any, Optional
 
 from Core.Utils.constants import now_ng
@@ -26,10 +27,12 @@ class Supervisor:
     Handles timeout, retries, and state persistence.
     """
     
-    def __init__(self):
+    def __init__(self, args=None):
         self.conn = init_db()
         self._ensure_table()
+        self.args = args
         self.run_id = str(uuid.uuid4())[:8]
+        self.last_streamer_spawn = 0 # Cooldown tracker
         self.state = {
             "cycle_count": 0,
             "error_log": [],
@@ -82,6 +85,9 @@ class Supervisor:
             try:
                 logger.info(f"[Supervisor] Dispatching {worker.name} (Attempt {attempt+1}/{max_retries+1})")
                 async with asyncio.timeout(timeout):
+                    # Inject args if not already present
+                    if 'args' not in kwargs:
+                        kwargs['args'] = self.args
                     success = await worker.execute(*args, **kwargs)
                     if success:
                         return True
@@ -152,26 +158,42 @@ class Supervisor:
 
         try:
             async with async_playwright() as p:
-                # Spawn the streamer as a fully independent subprocess.
-                # The supervisor does NOT wait for it. Only manual kill stops it.
-                from Modules.Flashscore.fs_live_streamer import _is_streamer_alive
-                if _is_streamer_alive():
-                    logger.info("[Supervisor] Streamer already running (heartbeat alive). Skipping spawn.")
-                else:
-                    proc = subprocess.Popen(
-                        [sys.executable, "-m", "Modules.Flashscore.fs_live_streamer"],
-                        stdout=None,
-                        stderr=None,
-                        stdin=subprocess.DEVNULL,
-                        start_new_session=True,  # detach from supervisor's process group
-                    )
-                    logger.info(f"[Supervisor] Streamer spawned as independent process (PID: {proc.pid}).")
-
                 while True:
                     self.state["cycle_count"] += 1
                     cycle_num = self.state["cycle_count"]
                     log_state(chapter="Cycle Start", action=f"Initiating Cycle #{cycle_num}")
                     log_audit_event("CYCLE_START", f"Cycle #{cycle_num} initiated.")
+
+                    # --- Live Streamer Watchdog ---
+                    # STREAMER WATCHDOG: Check liveness and respawn if needed
+                    # Heartbeat check (using Modules.Flashscore.fs_live_streamer util)
+                    from Modules.Flashscore.fs_live_streamer import is_streamer_alive
+                    if not is_streamer_alive():
+                        now_ts = time.time()
+                        if now_ts - self.last_streamer_spawn < 60:
+                            logger.warning(f"[Supervisor] Streamer is down but in 60s cooldown ({(60 - (now_ts - self.last_streamer_spawn)):.0f}s left).")
+                        else:
+                            logger.info("[Supervisor] Streamer dead/stale. Respawning...")
+                            try:
+                                proc = subprocess.Popen(
+                                    [sys.executable, "-m", "Modules.Flashscore.fs_live_streamer"],
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    stdin=subprocess.DEVNULL,
+                                    start_new_session=True,
+                                    text=True
+                                )
+                                self.last_streamer_spawn = time.time()
+                                
+                                # Startup check: wait 5s to see if it crashes immediately
+                                await asyncio.sleep(5)
+                                if proc.poll() is not None:
+                                    _, stderr = proc.communicate()
+                                    logger.error(f"[Supervisor] STREAMER_STARTUP_FAILURE: Streamer died within 5s. Stderr: {stderr}")
+                                else:
+                                    logger.info(f"[Supervisor] Streamer respawned successfully (PID: {proc.pid}).")
+                            except Exception as e:
+                                logger.error(f"[Supervisor] Failed to spawn streamer: {e}")
 
                     try:
                         # Maintenance

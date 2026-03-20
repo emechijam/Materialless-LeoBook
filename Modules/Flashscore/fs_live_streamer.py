@@ -24,6 +24,8 @@ import subprocess
 import sys
 from datetime import datetime as dt, date, timedelta
 from playwright.async_api import Playwright, Page
+import psutil
+import json
 
 from Data.Access.db_helpers import (
     save_live_score_entry, log_audit_event, evaluate_market_outcome,
@@ -55,22 +57,44 @@ EXPAND_DROPDOWN_JS = """
 
 
 def _is_streamer_alive() -> bool:
-    """Check if the streamer process is alive via heartbeat file."""
+    """Check if the streamer process is alive via PID existence + heartbeat age."""
     try:
         if os.path.exists(_STREAMER_HEARTBEAT_FILE):
-            mtime = dt.fromtimestamp(os.path.getmtime(_STREAMER_HEARTBEAT_FILE))
-            now = now_ng().replace(tzinfo=None)   # naive for comparison with os.path.getmtime
-            return (now - mtime) < timedelta(minutes=30)
+            with open(_STREAMER_HEARTBEAT_FILE, 'r') as f:
+                data = json.load(f)
+            
+            pid = data.get("pid")
+            timestamp_str = data.get("timestamp")
+            
+            if not pid or not timestamp_str:
+                return False
+                
+            # 1. Check if PID exists and is a python process (basic check)
+            if not psutil.pid_exists(pid):
+                return False
+            
+            # 2. Check heartbeat age
+            mtime = dt.fromisoformat(timestamp_str)
+            now = now_ng().replace(tzinfo=None)
+            if (now - mtime) > timedelta(minutes=15): # More aggressive: 15 mins
+                return False
+                
+            return True
     except Exception:
         pass
     return False
 
 
 def _touch_heartbeat():
+    """Write PID and current timestamp to heartbeat file."""
     try:
         os.makedirs(os.path.dirname(_STREAMER_HEARTBEAT_FILE), exist_ok=True)
+        data = {
+            "pid": os.getpid(),
+            "timestamp": now_ng().isoformat()
+        }
         with open(_STREAMER_HEARTBEAT_FILE, 'w') as f:
-            f.write(now_ng().isoformat())
+            json.dump(data, f)
     except Exception:
         pass
 
