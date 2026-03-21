@@ -647,7 +647,7 @@ async def run_automated_booking(playwright: Playwright):
 
             for target_date, harvested in booking_queue.items():
                 print(f"\n--- Booking Date: {target_date} ---")
-                await place_stairway_accumulator(page, harvested, current_balance)
+                await place_stairway_accumulator(page, current_balance)
                 log_state(chapter="Chapter 2A", action="Booking Complete",
                           next_step=f"Processed {target_date}")
 

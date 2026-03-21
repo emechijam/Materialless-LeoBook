@@ -374,6 +374,13 @@ async def place_stairway_accumulator(
     print(f"    [Stairway] ✓ Placed! New balance: "
           f"{CURRENCY_SYMBOL}{new_balance:,.2f}")
 
+    # ── Verify on open_bets page ─────────────────────────────────────────
+    from .open_bets_verifier import verify_bet_on_open_bets
+    verified = await verify_bet_on_open_bets(page, accumulator, float(stairway_stake))
+    if not verified:
+        print("    [WARNING] Bet not confirmed on open_bets page — manual check needed")
+        log_audit_event("STAIRWAY_VERIFY_FAIL", "Bet not visible on open_bets page", status="unverified")
+
     # ── Update statuses ───────────────────────────────────────────────────
     for m in accumulator:
         update_prediction_status(m["fixture_id"], m["date"], "booked")
@@ -381,7 +388,8 @@ async def place_stairway_accumulator(
     log_audit_event(
         "STAIRWAY_PLACED",
         f"Accumulator placed: {len(accumulator)} bets, "
-        f"total odds {total_odds:.2f}, stake {CURRENCY_SYMBOL}{stairway_stake}",
+        f"total odds {total_odds:.2f}, stake {CURRENCY_SYMBOL}{stairway_stake}"
+        f"{' (verified on open_bets)' if verified else ' (UNVERIFIED)'}",
         current_balance,
         new_balance,
         float(stairway_stake),
