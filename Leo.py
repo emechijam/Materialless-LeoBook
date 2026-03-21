@@ -66,7 +66,7 @@ from Core.System.data_readiness import (
 from Data.Access.db_helpers import init_csvs, log_audit_event
 from Data.Access.sync_manager import SyncManager, run_full_sync
 from Data.Access.league_db import init_db
-from Modules.Flashscore.fs_live_streamer import live_score_streamer, _is_streamer_alive
+from Modules.Flashscore.fs_live_streamer import live_score_streamer, is_streamer_alive
 from Modules.FootballCom.fb_manager import run_odds_harvesting, run_automated_booking
 from Scripts.recommend_bets import get_recommendations
 from Core.Intelligence.prediction_pipeline import run_predictions, get_weekly_fixtures
@@ -167,7 +167,7 @@ async def run_utility(args):
         print("\n  --- LEO: Live Score Streamer ---")
 
         # Check if streamer is already running via heartbeat
-        if _is_streamer_alive():
+        if is_streamer_alive():
             print("  [Streamer] Already running (heartbeat alive). Skipping spawn.")
             return
 
