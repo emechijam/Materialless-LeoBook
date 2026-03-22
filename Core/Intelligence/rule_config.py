@@ -54,12 +54,12 @@ class RuleConfig:
         filtered = {k: v for k, v in data.items() if k in known_fields}
         return RuleConfig(**filtered)
 
-    def matches_scope(self, region_league: str = "", home_team: str = "", away_team: str = "") -> bool:
+    def matches_scope(self, country_league: str = "", home_team: str = "", away_team: str = "") -> bool:
         """Check if a match falls within this engine's scope."""
         if self.scope_type == "global":
             return True
         if self.scope_type == "league" and self.scope_leagues:
-            return any(sl.lower() in region_league.lower() for sl in self.scope_leagues)
+            return any(sl.lower() in country_league.lower() for sl in self.scope_leagues)
         if self.scope_type == "team" and self.scope_teams:
             teams_lower = [t.lower() for t in self.scope_teams]
             return home_team.lower() in teams_lower or away_team.lower() in teams_lower

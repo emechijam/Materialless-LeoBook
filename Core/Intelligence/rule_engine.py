@@ -33,13 +33,13 @@ class RuleEngine:
         standings = vision_data.get("standings", [])
         home_team = h2h_data.get("home_team")
         away_team = h2h_data.get("away_team")
-        region_league = h2h_data.get("region_league", "GLOBAL")
+        country_league = h2h_data.get("country_league", "GLOBAL")
 
         if not home_team or not away_team:
             return {"type": "SKIP", "confidence": "Low", "reason": "Missing teams"}
 
         # Scope filtering: skip matches outside this engine's scope
-        if not config.matches_scope(region_league, home_team, away_team):
+        if not config.matches_scope(country_league, home_team, away_team):
             return {"type": "SKIP", "confidence": "Low", "reason": "Outside engine scope"}
 
         home_form = [m for m in h2h_data.get("home_last_10_matches", []) if m][:10]
@@ -85,7 +85,7 @@ class RuleEngine:
         ml_prediction = {"confidence": 0.5, "prediction": "UNKNOWN"}
 
         # --- LOAD REGION-SPECIFIC LEARNED WEIGHTS ---
-        weights = LearningEngine.load_weights(region_league)
+        weights = LearningEngine.load_weights(country_league)
 
         # Weighted rule voting using config
         home_score = away_score = draw_score = over25_score = 0

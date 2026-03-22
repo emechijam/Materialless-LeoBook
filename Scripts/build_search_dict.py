@@ -11,7 +11,7 @@ from Core.Intelligence.aigo_suite import AIGOSuite
 from Core.Intelligence.llm_health_manager import health_manager
 from supabase import create_client
 from dotenv import load_dotenv
-from Data.Access.db_helpers import _get_conn, save_team_entry, save_region_league_entry
+from Data.Access.db_helpers import _get_conn, save_team_entry, save_country_league_entry
 from Data.Access.league_db import query_all
 
 # FIX: CSV_LOCK is never referenced anywhere — removed dead code
@@ -107,7 +107,7 @@ def update_db_under_lock(data_map, key_field, table_type="team"):
         if table_type == "team":
             save_team_entry(serialized)
         else:
-            save_region_league_entry(serialized)
+            save_country_league_entry(serialized)
         count += 1
     print(f"Upserted {count} {table_type} rows into SQLite")
 
@@ -180,7 +180,7 @@ async def main():
         return
 
     for row in fixtures:
-        rl = (row.get("region_league") or "Unknown").strip()
+        rl = (row.get("country_league") or "Unknown").strip()
         leagues_raw.add(rl)
         for prefix in ["home_team", "away_team"]:
             # fixtures table uses home_team_name/away_team_name or home_team/away_team

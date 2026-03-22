@@ -58,7 +58,7 @@ class LearningEngine:
     }
 
     @staticmethod
-    def load_weights(region_league: str = "GLOBAL") -> Dict[str, Any]:
+    def load_weights(country_league: str = "GLOBAL") -> Dict[str, Any]:
         """
         Load learned weights for a specific region/league.
         Falls back to GLOBAL if specific weights don't exist.
@@ -76,15 +76,15 @@ class LearningEngine:
             all_weights = {"GLOBAL": all_weights}
 
         # 1. Try exact match
-        if region_league in all_weights:
-            return LearningEngine._merge_defaults(all_weights[region_league])
+        if country_league in all_weights:
+            return LearningEngine._merge_defaults(all_weights[country_league])
 
         # 2. Try Region match (if "Region - League" format)
-        if " - " in region_league:
-            region = region_league.split(" - ")[0]
+        if " - " in country_league:
+            region = country_league.split(" - ")[0]
             # Check for partial matches (same league, different round)
             for key in all_weights:
-                if key.startswith(region_league.rsplit(" - ", 1)[0]):
+                if key.startswith(country_league.rsplit(" - ", 1)[0]):
                     return LearningEngine._merge_defaults(all_weights[key])
 
         # 3. Fallback to GLOBAL
@@ -132,22 +132,22 @@ class LearningEngine:
                     continue
 
                 is_correct = row.get('outcome_correct') in ('True', '1')
-                region_league = row.get('region_league', 'Unknown')
+                country_league = row.get('country_league', 'Unknown')
                 prediction_conf = row.get('confidence', 'Medium')
                 reasoning_text = row.get('reason', '') or ''
 
-                conf_performance[region_league][prediction_conf]["total"] += 1
+                conf_performance[country_league][prediction_conf]["total"] += 1
                 conf_performance["GLOBAL"][prediction_conf]["total"] += 1
                 if is_correct:
-                    conf_performance[region_league][prediction_conf]["correct"] += 1
+                    conf_performance[country_league][prediction_conf]["correct"] += 1
                     conf_performance["GLOBAL"][prediction_conf]["correct"] += 1
 
                 for phrase, rule_key in LearningEngine.REASON_TO_RULE_MAP.items():
                     if phrase in reasoning_text:
-                        performance[region_league][rule_key]["total"] += 1
+                        performance[country_league][rule_key]["total"] += 1
                         performance["GLOBAL"][rule_key]["total"] += 1
                         if is_correct:
-                            performance[region_league][rule_key]["correct"] += 1
+                            performance[country_league][rule_key]["correct"] += 1
                             performance["GLOBAL"][rule_key]["correct"] += 1
 
         except Exception as e:
@@ -234,7 +234,7 @@ class LearningEngine:
             for league, w in all_weights.items():
                 conf_cal = w.pop('confidence_calibration', {})
                 rows.append({
-                    'region_league': league,
+                    'country_league': league,
                     'weights': w,
                     'confidence_calibration': conf_cal,
                     'predictions_analyzed': sum(

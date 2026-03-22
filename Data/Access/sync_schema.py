@@ -29,7 +29,7 @@ SUPABASE_SCHEMA = {
     'predictions': """
         CREATE TABLE IF NOT EXISTS public.predictions (
             fixture_id TEXT PRIMARY KEY,
-            date TEXT, match_time TEXT, region_league TEXT,
+            date TEXT, match_time TEXT, country_league TEXT,
             home_team TEXT, away_team TEXT, home_team_id TEXT, away_team_id TEXT,
             prediction TEXT, confidence TEXT, reason TEXT,
             xg_home REAL, xg_away REAL, btts TEXT, over_2_5 TEXT,
@@ -53,7 +53,7 @@ SUPABASE_SCHEMA = {
             home_score INTEGER, away_score INTEGER, extra JSONB,
             league_stage TEXT, match_status TEXT, season TEXT,
             home_crest TEXT, away_crest TEXT, match_link TEXT,
-            region_league TEXT,
+            country_league TEXT,
             last_updated TIMESTAMPTZ DEFAULT now()
         );""",
     'teams': """
@@ -102,7 +102,7 @@ SUPABASE_SCHEMA = {
             fixture_id TEXT PRIMARY KEY,
             home_team TEXT, away_team TEXT,
             home_score TEXT, away_score TEXT, minute TEXT,
-            status TEXT, region_league TEXT, match_link TEXT, timestamp TEXT,
+            status TEXT, country_league TEXT, match_link TEXT, timestamp TEXT,
             last_updated TIMESTAMPTZ DEFAULT now()
         );""",
     'accuracy_reports': """
@@ -179,6 +179,7 @@ _COL_REMAP = {
     'team_name':      'name',
     'home_team_name': 'home_team',
     'away_team_name': 'away_team',
+    'country_league':  'region_league',   # local renamed; Supabase column stays region_league until ALTER
 }
 
 # ── Per-table batch sizes ─────────────────────────────────────────────────────

@@ -226,7 +226,7 @@ async def extract_all_matches(page: Page, label: str = "Extractor") -> list:
                 minute: minute,
                 status: status,
                 stage_detail: stageDetail,
-                region_league: regionLeague,
+                country_league: regionLeague,
                 league_stage: leagueStage,
                 league_url: cleanLeagueUrl,
                 region_flag: currentRegionFlag,

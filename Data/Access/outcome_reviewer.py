@@ -36,7 +36,7 @@ COMPATIBLE_MODELS = ["2.5", "2.6"]
 
 # --- IMPORTS ---
 from .db_helpers import (
-    save_team_entry, save_region_league_entry,
+    save_team_entry, save_country_league_entry,
     evaluate_market_outcome, log_audit_event,
     get_all_schedules, update_prediction_status, _get_conn,
 )
@@ -204,7 +204,7 @@ def sync_schedules_to_predictions():
                 'fixture_id': fid,
                 'date': s.get('date'),
                 'match_time': s.get('time', s.get('match_time')),
-                'region_league': s.get('region_league'),
+                'country_league': s.get('country_league'),
                 'home_team': s.get('home_team_name', s.get('home_team')),
                 'away_team': s.get('away_team_name', s.get('away_team')),
                 'home_team_id': s.get('home_team_id'),
@@ -401,17 +401,17 @@ async def get_final_score(page):
         return "Error"
 
 
-def update_region_league_url(region_league: str, url: str):
-    """Updates the url for a region_league."""
-    if not region_league or not url or " - " not in region_league:
+def update_country_league_url(country_league: str, url: str):
+    """Updates the url for a country_league."""
+    if not country_league or not url or " - " not in country_league:
         return
 
     if url.startswith('/'):
         url = f"https://www.flashscore.com{url}"
 
-    region, league_name = region_league.split(" - ", 1)
+    region, league_name = country_league.split(" - ", 1)
 
-    save_region_league_entry({
+    save_country_league_entry({
         'league_id': f"{region}_{league_name}".replace(' ', '_').replace('-', '_').upper(),
         'region': region.strip(),
         'league': league_name.strip(),

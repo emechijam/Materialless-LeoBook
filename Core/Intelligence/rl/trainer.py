@@ -819,7 +819,7 @@ class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
                     "SELECT name, region FROM leagues WHERE league_id = ?",
                     (league_id,)
                 ).fetchone()
-                region_league = f"{league_row['region']} - {league_row['name']}" if league_row else 'Unknown'
+                country_league = f"{league_row['region']} - {league_row['name']}" if league_row else 'Unknown'
 
                 day_rec_candidates.append({
                     'fixture_id': fixture_id,
@@ -827,7 +827,7 @@ class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
                     'away_team': a_name,
                     'market': pred_str,
                     'prediction': pred_str,
-                    'region_league': region_league,
+                    'country_league': country_league,
                     'confidence': 'High' if metrics.get('max_prob', 0) > 0.6 else 'Medium' if metrics.get('max_prob', 0) > 0.3 else 'Low',
                     'is_correct': is_pred_correct,
                 })

@@ -674,13 +674,13 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any]) -> int:
                home_team_id, home_team_name, away_team_id, away_team_name,
                home_score, away_score, extra, league_stage,
                match_status, season, home_crest, away_crest, url,
-               region_league, match_link, last_updated
+               country_league, match_link, last_updated
            ) VALUES (
                :fixture_id, :date, :time, :league_id,
                :home_team_id, :home_team_name, :away_team_id, :away_team_name,
                :home_score, :away_score, :extra, :league_stage,
                :match_status, :season, :home_crest, :away_crest, :url,
-               :region_league, :match_link, :last_updated
+               :country_league, :match_link, :last_updated
            )
            ON CONFLICT(fixture_id) DO UPDATE SET
                date           = COALESCE(excluded.date, schedules.date),
@@ -695,7 +695,7 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any]) -> int:
                match_status   = COALESCE(excluded.match_status, schedules.match_status),
                home_crest     = COALESCE(excluded.home_crest, schedules.home_crest),
                away_crest     = COALESCE(excluded.away_crest, schedules.away_crest),
-               region_league  = COALESCE(excluded.region_league, schedules.region_league),
+               country_league  = COALESCE(excluded.country_league, schedules.country_league),
                match_link     = COALESCE(excluded.match_link, schedules.match_link),
                last_updated   = excluded.last_updated
         """,
@@ -717,7 +717,7 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any]) -> int:
             "home_crest": data.get("home_crest"),
             "away_crest": data.get("away_crest"),
             "url": data.get("url"),
-            "region_league": data.get("region_league"),
+            "country_league": data.get("country_league"),
             "match_link": data.get("match_link"),
             "last_updated": now,
         },
@@ -741,7 +741,7 @@ def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]
             extra_json, f.get("league_stage"),
             f.get("match_status"), f.get("season"),
             f.get("home_crest"), f.get("away_crest"),
-            f.get("url"), f.get("region_league"), f.get("match_link"), now,
+            f.get("url"), f.get("country_league"), f.get("match_link"), now,
         ))
     conn.executemany(
         """INSERT INTO schedules (
@@ -749,7 +749,7 @@ def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]
                home_team_id, home_team_name, away_team_id, away_team_name,
                home_score, away_score, extra, league_stage,
                match_status, season, home_crest, away_crest, url,
-               region_league, match_link, last_updated
+               country_league, match_link, last_updated
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(fixture_id) DO UPDATE SET
                date           = COALESCE(excluded.date, schedules.date),
@@ -768,7 +768,7 @@ def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]
                home_crest     = COALESCE(excluded.home_crest, schedules.home_crest),
                away_crest     = COALESCE(excluded.away_crest, schedules.away_crest),
                url            = COALESCE(excluded.url, schedules.url),
-               region_league  = COALESCE(excluded.region_league, schedules.region_league),
+               country_league  = COALESCE(excluded.country_league, schedules.country_league),
                match_link     = COALESCE(excluded.match_link, schedules.match_link),
                last_updated   = excluded.last_updated
         """,
@@ -789,7 +789,7 @@ def upsert_prediction(conn: sqlite3.Connection, data: Dict[str, Any]):
         data["over_2_5"] = data.pop("over_2.5")
 
     cols = [
-        "fixture_id", "date", "match_time", "region_league",
+        "fixture_id", "date", "match_time", "country_league",
         "home_team", "away_team", "home_team_id", "away_team_id",
         "prediction", "confidence", "reason",
         "xg_home", "xg_away", "btts", "over_2_5",
@@ -855,11 +855,11 @@ def upsert_standing(conn: sqlite3.Connection, data: Dict[str, Any]):
         """INSERT INTO standings (standings_key, league_id, team_id, team_name,
                position, played, wins, draws, losses,
                goals_for, goals_against, goal_difference, points,
-               region_league, last_updated)
+               country_league, last_updated)
            VALUES (:standings_key, :league_id, :team_id, :team_name,
                :position, :played, :wins, :draws, :losses,
                :goals_for, :goals_against, :goal_difference, :points,
-               :region_league, :last_updated)
+               :country_league, :last_updated)
            ON CONFLICT(standings_key) DO UPDATE SET
                position       = excluded.position,
                played         = excluded.played,
@@ -886,22 +886,22 @@ def upsert_standing(conn: sqlite3.Connection, data: Dict[str, Any]):
             "goals_against": data.get("goals_against"),
             "goal_difference": data.get("goal_difference"),
             "points": data.get("points"),
-            "region_league": data.get("region_league"),
+            "country_league": data.get("country_league"),
             "last_updated": now,
         },
     )
     conn.commit()
 
 
-def get_standings(conn: sqlite3.Connection, region_league: str = None) -> List[Dict[str, Any]]:
-    """Get standings, optionally filtered by region_league."""
-    if region_league:
+def get_standings(conn: sqlite3.Connection, country_league: str = None) -> List[Dict[str, Any]]:
+    """Get standings, optionally filtered by country_league."""
+    if country_league:
         rows = conn.execute(
-            "SELECT * FROM standings WHERE region_league = ? ORDER BY position",
-            (region_league,),
+            "SELECT * FROM standings WHERE country_league = ? ORDER BY position",
+            (country_league,),
         ).fetchall()
     else:
-        rows = conn.execute("SELECT * FROM standings ORDER BY region_league, position").fetchall()
+        rows = conn.execute("SELECT * FROM standings ORDER BY country_league, position").fetchall()
     return [dict(r) for r in rows]
 
 
@@ -943,10 +943,10 @@ def upsert_live_score(conn: sqlite3.Connection, data: Dict[str, Any]):
     conn.execute(
         """INSERT INTO live_scores (fixture_id, home_team, away_team,
                home_score, away_score, minute, status,
-               region_league, match_link, timestamp, last_updated)
+               country_league, match_link, timestamp, last_updated)
            VALUES (:fixture_id, :home_team, :away_team,
                :home_score, :away_score, :minute, :status,
-               :region_league, :match_link, :timestamp, :last_updated)
+               :country_league, :match_link, :timestamp, :last_updated)
            ON CONFLICT(fixture_id) DO UPDATE SET
                home_score     = excluded.home_score,
                away_score     = excluded.away_score,
@@ -963,7 +963,7 @@ def upsert_live_score(conn: sqlite3.Connection, data: Dict[str, Any]):
             "away_score": data.get("away_score"),
             "minute": data.get("minute"),
             "status": data.get("status"),
-            "region_league": data.get("region_league"),
+            "country_league": data.get("country_league"),
             "match_link": data.get("match_link"),
             "timestamp": data.get("timestamp", now),
             "last_updated": now,

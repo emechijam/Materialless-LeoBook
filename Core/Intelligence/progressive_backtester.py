@@ -35,7 +35,7 @@ def _build_vision_data(
     """Build the vision_data dict for RuleEngine.analyze() from historical data."""
     home_team = match.get("home_team", "")
     away_team = match.get("away_team", "")
-    region_league = match.get("region_league", "Unknown")
+    country_league = match.get("country_league", "Unknown")
 
     home_last_10, away_last_10, h2h_list = [], [], []
 
@@ -68,8 +68,8 @@ def _build_vision_data(
             h2h_list.append(mapped)
 
     # Standings
-    if region_league not in standings_cache:
-        raw = get_standings(region_league)
+    if country_league not in standings_cache:
+        raw = get_standings(country_league)
         parsed = []
         for s in raw:
             try:
@@ -82,7 +82,7 @@ def _build_vision_data(
                 })
             except (ValueError, TypeError):
                 continue
-        standings_cache[region_league] = parsed
+        standings_cache[country_league] = parsed
 
     return {
         "h2h_data": {
@@ -91,9 +91,9 @@ def _build_vision_data(
             "home_last_10_matches": home_last_10,
             "away_last_10_matches": away_last_10,
             "head_to_head": h2h_list,
-            "region_league": region_league,
+            "country_league": country_league,
         },
-        "standings": standings_cache[region_league],
+        "standings": standings_cache[country_league],
     }
 
 
@@ -167,7 +167,7 @@ async def run_progressive_backtest(
     # Set up output CSV
     backtest_csv = DATA_DIR / f"backtest_{engine_id}.csv"
     csv_headers = [
-        "date", "home_team", "away_team", "region_league",
+        "date", "home_team", "away_team", "country_league",
         "prediction", "confidence", "actual_score", "outcome_correct",
         "xg_home", "xg_away",
     ]
@@ -245,7 +245,7 @@ async def run_progressive_backtest(
                     "date": day_str,
                     "home_team": home,
                     "away_team": away,
-                    "region_league": match.get("region_league", ""),
+                    "country_league": match.get("country_league", ""),
                     "prediction": pred_text,
                     "confidence": prediction.get("confidence", ""),
                     "actual_score": actual_score,

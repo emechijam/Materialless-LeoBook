@@ -55,7 +55,7 @@ class StandingModel {
       goalsFor: (json['goals_for'] as num?)?.toInt() ?? 0,
       goalsAgainst: (json['goals_against'] as num?)?.toInt() ?? 0,
       points: (json['points'] as num?)?.toInt() ?? 0,
-      leagueName: _clean((json['league_id'] ?? json['region_league'])?.toString() ?? ''), // league_id now used directly from view
+      leagueName: _clean((json['league_id'] ?? json['country_league'] ?? json['region_league'])?.toString() ?? ''), // league_id now used directly from view
     );
   }
 

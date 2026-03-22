@@ -49,7 +49,7 @@ class TrainerIOMixin:
                 "home_last_10_matches": home_form,
                 "away_last_10_matches": away_form,
                 "head_to_head": h2h,
-                "region_league": league_id,
+                "country_league": league_id,
             },
             "standings": standings,
         }
@@ -148,14 +148,14 @@ class TrainerIOMixin:
                     "home_last_10_matches": [],
                     "away_last_10_matches": [],
                     "head_to_head": [],
-                    "region_league": pred.get("region_league", "GLOBAL"),
+                    "country_league": pred.get("country_league", "GLOBAL"),
                 },
                 "standings": [],
             }
 
             features = FeatureEncoder.encode(vision_data)
 
-            league_id = pred.get("region_league", "GLOBAL")
+            league_id = pred.get("country_league", "GLOBAL")
             home_tid = pred.get("home_team_id", "GLOBAL")
             away_tid = pred.get("away_team_id", "GLOBAL")
 

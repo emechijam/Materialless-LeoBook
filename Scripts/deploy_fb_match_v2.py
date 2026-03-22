@@ -18,7 +18,7 @@ SELECT
     s.fixture_id,
     s.date AS s_date, s.match_time AS s_time,
     s.home_team AS s_home, s.away_team AS s_away,
-    s.home_team_id, s.away_team_id, s.league_id, s.region_league,
+    s.home_team_id, s.away_team_id, s.league_id, s.country_league,
     CASE
         WHEN fb.date::DATE = s.date::DATE THEN 100
         WHEN ABS(EXTRACT(EPOCH FROM (fb.date::DATE - s.date::DATE)) / 86400) <= 1 THEN 90

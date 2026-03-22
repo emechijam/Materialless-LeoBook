@@ -87,7 +87,7 @@ class RecommendationModel {
 
   factory RecommendationModel.fromJson(Map<String, dynamic> json) {
     // Standardize column mapping for Supabase 'predictions' table
-    final league = json['region_league'] ?? json['league'] ?? '';
+    final league = json['country_league'] ?? json['region_league'] ?? json['league'] ?? '';
 
     // Create match string if missing (Supabase has home_team, away_team)
     String match = json['match'] ?? '';

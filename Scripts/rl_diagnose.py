@@ -195,7 +195,7 @@ def display(fixture, vision_data, result):
     h2h_data = vision_data.get("h2h_data", {})
     home = h2h_data.get("home_team", "?")
     away = h2h_data.get("away_team", "?")
-    league = h2h_data.get("region_league", "?")
+    league = h2h_data.get("country_league", "?")
     home_form = [m for m in h2h_data.get("home_last_10_matches", []) if m][:10]
     away_form = [m for m in h2h_data.get("away_last_10_matches", []) if m][:10]
     h2h = [m for m in h2h_data.get("head_to_head", []) if m]

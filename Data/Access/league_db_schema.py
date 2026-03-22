@@ -67,7 +67,7 @@ _SCHEMA_SQL = """
         home_crest          TEXT,
         away_crest          TEXT,
         url                 TEXT,
-        region_league       TEXT,
+        country_league      TEXT,
         match_link          TEXT,
         last_updated        TEXT DEFAULT (datetime('now'))
     );
@@ -76,7 +76,7 @@ _SCHEMA_SQL = """
         fixture_id          TEXT PRIMARY KEY,
         date                TEXT,
         match_time          TEXT,
-        region_league       TEXT,
+        country_league      TEXT,
         home_team           TEXT,
         away_team           TEXT,
         home_team_id        TEXT,
@@ -166,7 +166,7 @@ _SCHEMA_SQL = """
         away_score          TEXT,
         minute              TEXT,
         status              TEXT,
-        region_league       TEXT,
+        country_league      TEXT,
         match_link          TEXT,
         timestamp           TEXT,
         last_updated        TEXT DEFAULT (datetime('now'))
@@ -288,7 +288,7 @@ _ALTER_MIGRATIONS = [
     ("teams", "abbreviations", "TEXT"),
     ("teams", "search_terms", "TEXT"),
     ("teams", "hq_crest", "INTEGER DEFAULT 0"),
-    ("schedules", "region_league", "TEXT"),
+    ("schedules", "country_league", "TEXT"),
     ("schedules", "match_link", "TEXT"),
     ("predictions", "chosen_market", "TEXT"),
     ("predictions", "market_id", "TEXT"),

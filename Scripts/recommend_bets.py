@@ -118,7 +118,7 @@ class AdaptiveRecommender:
             market = get_market_option(
                 p.get('prediction', ''), p.get('home_team', ''), p.get('away_team', '')
             )
-            league = p.get('region_league', 'Unknown')
+            league = p.get('country_league', 'Unknown')
             conf = p.get('confidence', 'Medium')
 
             # EMA update: new_ema = alpha * observation + (1 - alpha) * old_ema
@@ -145,7 +145,7 @@ class AdaptiveRecommender:
 
         Each item in day_predictions must have:
             - 'market': str (e.g. 'Over/Under - Over 2.5')
-            - 'region_league': str
+            - 'country_league': str
             - 'confidence': str
             - 'is_correct': bool
         """
@@ -156,7 +156,7 @@ class AdaptiveRecommender:
         for p in day_predictions:
             is_correct = 1.0 if p.get('is_correct') else 0.0
             market = p.get('market', 'Unknown')
-            league = p.get('region_league', 'Unknown')
+            league = p.get('country_league', 'Unknown')
             conf = p.get('confidence', 'Medium')
 
             for bucket, key in [(mw, market), (lw, league), (cw, conf)]:
@@ -213,7 +213,7 @@ class AdaptiveRecommender:
         mw = self.weights.get("market_weights", {})
         lw = self.weights.get("league_weights", {})
 
-        league = prediction.get('region_league', 'Unknown')
+        league = prediction.get('country_league', 'Unknown')
 
         market_entry = mw.get(market, {})
         league_entry = lw.get(league, {})
@@ -469,7 +469,7 @@ def get_recommendations(target_date=None, show_all_upcoming=False, **kwargs):
                 'recent_acc': f"{rel_info['recent']:.1%}",
                 'trend': trend_icon,
                 'score': adaptive_score,
-                'league': p.get('region_league', 'Unknown'),
+                'league': p.get('country_league', 'Unknown'),
                 'tier': tier,
                 'tier_label': tier_labels.get(tier, ""),
                 'likelihood': likelihood,

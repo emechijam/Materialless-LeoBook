@@ -7,7 +7,7 @@ url = os.getenv('SUPABASE_URL')
 key = os.getenv('SUPABASE_SERVICE_KEY')
 supabase = create_client(url, key)
 
-tables = ['predictions', 'schedules', 'live_scores', 'match_odds', 'teams', 'region_league']
+tables = ['predictions', 'schedules', 'live_scores', 'match_odds', 'teams', 'country_league']
 for t in tables:
     sql = f"""
     ALTER TABLE public.{t} ENABLE ROW LEVEL SECURITY;

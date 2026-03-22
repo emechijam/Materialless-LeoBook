@@ -156,7 +156,7 @@ def build_rule_engine_input(conn, fixture) -> Dict[str, Any]:
     home_team = fixture.get("home_team_name", "")
     away_team = fixture.get("away_team_name", "")
     league_id = fixture.get("league_id", "")
-    region_league = fixture.get("region_league", "")
+    country_league = fixture.get("country_league", "")
     season = fixture.get("season", "")
 
     # 1. Team form (last 10 completed matches per team)
@@ -221,7 +221,7 @@ def build_rule_engine_input(conn, fixture) -> Dict[str, Any]:
     h2h_data = {
         "home_team": home_team,
         "away_team": away_team,
-        "region_league": region_league or "GLOBAL",
+        "country_league": country_league or "GLOBAL",
         "home_last_10_matches": home_form,
         "away_last_10_matches": away_form,
         "head_to_head": h2h,
@@ -423,7 +423,7 @@ async def run_predictions(conn=None, fixtures: List[Dict] = None, scheduler=None
                 "fixture_id": fixture_id,
                 "date": fixture.get("date", ""),
                 "match_time": fixture.get("time", ""),
-                "region_league": fixture.get("region_league", ""),
+                "country_league": fixture.get("country_league", ""),
                 "home_team": home,
                 "away_team": away,
                 "home_team_id": fixture.get("home_team_id", ""),

@@ -88,7 +88,7 @@ FB_SCHEDULE_KEYS = {
     "league_row": "Single league row containing header and matches",
     "match_card": "Individual match card selector",
     "match_card_link": "Link to match detail page",
-    "match_region_league_name": "Text for region and league name",
+    "match_country_league_name": "Text for region and league name",
     "match_card_home_team": "Home team name text",
     "match_card_away_team": "Away team name text",
     "match_card_date": "Match date text",

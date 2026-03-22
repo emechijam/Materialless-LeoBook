@@ -94,7 +94,7 @@ def save_prediction(match_data: Dict[str, Any], prediction_result: Dict[str, Any
         'fixture_id': fixture_id,
         'date': date,
         'match_time': match_data.get('match_time') or match_data.get('time', '00:00'),
-        'region_league': match_data.get('region_league', 'Unknown'),
+        'country_league': match_data.get('country_league', 'Unknown'),
         'home_team': match_data.get('home_team', 'Unknown'),
         'away_team': match_data.get('away_team', 'Unknown'),
         'home_team_id': match_data.get('home_team_id', 'unknown'),
@@ -219,7 +219,7 @@ def save_schedule_entry(match_info: Dict[str, Any]):
         'home_score': match_info.get('home_score'),
         'away_score': match_info.get('away_score'),
         'match_status': match_info.get('match_status'),
-        'region_league': match_info.get('region_league'),
+        'country_league': match_info.get('country_league'),
         'match_link': match_info.get('match_link'),
         'league_stage': match_info.get('league_stage'),
     }
@@ -242,14 +242,14 @@ def transform_streamer_match_to_schedule(m: Dict[str, Any]) -> Dict[str, Any]:
             date_str = now.strftime("%Y-%m-%d")
 
     league_id = m.get('league_id', '')
-    if not league_id and m.get('region_league'):
-        league_id = m['region_league'].replace(' - ', '_').replace(' ', '_').upper()
+    if not league_id and m.get('country_league'):
+        league_id = m['country_league'].replace(' - ', '_').replace(' ', '_').upper()
 
     return {
         'fixture_id': m.get('fixture_id'),
         'date': date_str,
         'match_time': m.get('match_time', '00:00'),
-        'region_league': m.get('region_league', 'Unknown'),
+        'country_league': m.get('country_league', 'Unknown'),
         'league_id': league_id,
         'home_team': m.get('home_team', 'Unknown'),
         'away_team': m.get('away_team', 'Unknown'),
@@ -282,7 +282,7 @@ def save_schedule_batch(entries: List[Dict[str, Any]]):
             'home_score': e.get('home_score'),
             'away_score': e.get('away_score'),
             'match_status': e.get('match_status'),
-            'region_league': e.get('region_league'),
+            'country_league': e.get('country_league'),
             'match_link': e.get('match_link'),
             'league_stage': e.get('league_stage'),
         })
@@ -304,7 +304,7 @@ def save_live_score_entry(match_info: Dict[str, Any]):
 
 # ─── Standings ───
 
-def save_standings(standings_data: List[Dict[str, Any]], region_league: str, league_id: str = ""):
+def save_standings(standings_data: List[Dict[str, Any]], country_league: str, league_id: str = ""):
     """UPSERTs standings data for a specific league."""
     if not standings_data:
         return
@@ -313,13 +313,13 @@ def save_standings(standings_data: List[Dict[str, Any]], region_league: str, lea
     updated_count = 0
 
     for row in standings_data:
-        row['region_league'] = region_league or row.get('region_league', 'Unknown')
+        row['country_league'] = country_league or row.get('country_league', 'Unknown')
         row['last_updated'] = last_updated
 
         t_id = row.get('team_id', '')
         l_id = league_id or row.get('league_id', '')
-        if not l_id and region_league and " - " in region_league:
-            l_id = region_league.split(" - ")[1].replace(' ', '_').upper()
+        if not l_id and country_league and " - " in country_league:
+            l_id = country_league.split(" - ")[1].replace(' ', '_').upper()
         row['league_id'] = l_id
 
         if t_id and l_id:
@@ -328,12 +328,12 @@ def save_standings(standings_data: List[Dict[str, Any]], region_league: str, lea
             updated_count += 1
 
     if updated_count > 0:
-        print(f"      [DB] UPSERTed {updated_count} standings entries for {region_league or league_id}")
+        print(f"      [DB] UPSERTed {updated_count} standings entries for {country_league or league_id}")
 
 
-def get_standings(region_league: str) -> List[Dict[str, Any]]:
+def get_standings(country_league: str) -> List[Dict[str, Any]]:
     """Loads standings for a specific league."""
-    return _get_standings_db(_get_conn(), region_league)
+    return _get_standings_db(_get_conn(), country_league)
 
 
 # ─── URL standardization ───
@@ -361,7 +361,7 @@ def _standardize_url(url: str, base_type: str = "flashscore") -> str:
 
 # ─── Region / League ───
 
-def save_region_league_entry(info: Dict[str, Any]):
+def save_country_league_entry(info: Dict[str, Any]):
     """Saves or updates a single region-league entry."""
     league_id = info.get('league_id')
     region = info.get('region', 'Unknown')
@@ -392,7 +392,7 @@ def save_team_entry(team_info: Dict[str, Any]):
     conn = _get_conn()
 
     # Check for existing entry to merge league_ids
-    new_league_id = team_info.get('league_ids', team_info.get('region_league', ''))
+    new_league_id = team_info.get('league_ids', team_info.get('country_league', ''))
     merged_league_ids = new_league_id
 
     row = conn.execute("SELECT league_ids FROM teams WHERE team_id = ?", (team_id,)).fetchone()
@@ -719,7 +719,7 @@ def _read_csv(filepath: str) -> List[Dict[str, str]]:
         SCHEDULES_CSV: 'schedules',
         STANDINGS_CSV: 'standings',
         TEAMS_CSV: 'teams',
-        REGION_LEAGUE_CSV: 'leagues',
+        country_league_CSV: 'leagues',
         FB_MATCHES_CSV: 'fb_matches',
         AUDIT_LOG_CSV: 'audit_log',
         LIVE_SCORES_CSV: 'live_scores',

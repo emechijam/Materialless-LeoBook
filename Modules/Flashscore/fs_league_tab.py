@@ -47,7 +47,7 @@ MAX_SHOW_MORE = 50
 async def extract_tab(
     page, league_url: str, tab: str, conn,
     league_id: str, season: str, country_code: str,
-    region_league: str = "",
+    country_league: str = "",
     gap_columns: Optional[Set[str]] = None,
 ) -> int:
     """Navigate to a league tab, load all rows, extract and persist."""
@@ -174,7 +174,7 @@ async def extract_tab(
             "home_crest":     "",
             "away_crest":     "",
             "url":            f"https://www.flashscore.com/match/{m.get('fixture_id', '')}/#/match-summary",
-            "region_league":  region_league,
+            "country_league":  country_league,
             "match_link":     m.get("match_link", ""),
         })
 
@@ -329,7 +329,7 @@ async def enrich_single_league(
         season = await page.evaluate(EXTRACT_SEASON_JS, selectors)
         print(f"    [Season] {season or '(not found)'}")
         country = region_name or continent
-        region_league = f"{country}: {name}" if country else name
+        country_league = f"{country}: {name}" if country else name
 
         upsert_league(conn, {
             "league_id":      league_id,
@@ -351,9 +351,9 @@ async def enrich_single_league(
         current_is_gap = season and seasons_with_gaps and (season in seasons_with_gaps)
         if current_is_gap or needs_full_re_enrich or not seasons_with_gaps:
             f_c = await extract_tab(page, url, "fixtures", conn, league_id, season, country_code,
-                                    region_league=region_league, gap_columns=gap_columns)
+                                    country_league=country_league, gap_columns=gap_columns)
             r_c = await extract_tab(page, url, "results", conn, league_id, season, country_code,
-                                    region_league=region_league, gap_columns=gap_columns)
+                                    country_league=country_league, gap_columns=gap_columns)
             total_matches += f_c + r_c
 
         # Handle past seasons (from gaps or from manual request)
@@ -379,10 +379,10 @@ async def enrich_single_league(
                 
                 r_c = await extract_tab(page, s_meta["url"], "results", conn,
                                         league_id, label, country_code,
-                                        region_league=region_league, gap_columns=s_gap_cols)
+                                        country_league=country_league, gap_columns=s_gap_cols)
                 f_c = await extract_tab(page, s_meta["url"], "fixtures", conn,
                                         league_id, label, country_code,
-                                        region_league=region_league, gap_columns=s_gap_cols)
+                                        country_league=country_league, gap_columns=s_gap_cols)
                 total_matches += r_c + f_c
 
         mark_league_processed(conn, league_id)
