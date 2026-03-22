@@ -186,9 +186,9 @@ class _BacktestDashboardState extends State<BacktestDashboard> {
                 const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
             ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 16.0),
+        padding: const EdgeInsets.only(bottom: 80.0),
         child: FloatingActionButton.extended(
           onPressed: _runBacktest,
           backgroundColor: AppColors.primary,

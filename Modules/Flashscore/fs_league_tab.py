@@ -328,7 +328,8 @@ async def enrich_single_league(
 
         season = await page.evaluate(EXTRACT_SEASON_JS, selectors)
         print(f"    [Season] {season or '(not found)'}")
-        region_league = f"{continent}: {name}" if continent else name
+        country = region_name or continent
+        region_league = f"{country}: {name}" if country else name
 
         upsert_league(conn, {
             "league_id":      league_id,

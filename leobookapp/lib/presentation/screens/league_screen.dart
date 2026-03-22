@@ -89,9 +89,9 @@ class _LeagueScreenState extends State<LeagueScreen>
       ];
     }
     return [
-      LeagueOverviewTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
-      LeagueFixturesTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
-      LeagueResultsTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
+      LeagueOverviewTab(leagueId: widget.leagueId, leagueName: widget.leagueName, season: _league?.currentSeason),
+      LeagueFixturesTab(leagueId: widget.leagueId, leagueName: widget.leagueName, season: _league?.currentSeason),
+      LeagueResultsTab(leagueId: widget.leagueId, leagueName: widget.leagueName, season: _league?.currentSeason),
       LeaguePredictionsTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
       LeagueStatsTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
       LeagueArchiveTab(leagueId: widget.leagueId, leagueName: widget.leagueName),
@@ -102,8 +102,8 @@ class _LeagueScreenState extends State<LeagueScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final displayTitle = _isArchiveView
-        ? '${widget.leagueName} • ${widget.season}'
-        : widget.leagueName;
+        ? '${_league?.regionLeague ?? widget.leagueName} • ${widget.season}'
+        : (_league?.regionLeague ?? widget.leagueName);
 
     return Scaffold(
       backgroundColor:

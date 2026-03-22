@@ -90,14 +90,54 @@ class _LeagueResultsTabState extends State<LeagueResultsTab> {
           );
         }
 
+        // Group matches by month for stage-like display
+        final Map<String, List<MatchModel>> grouped = {};
+        for (final m in matches) {
+          String monthKey;
+          try {
+            final dt = DateTime.parse(m.date);
+            const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+                            'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+            monthKey = '${months[dt.month - 1]} ${dt.year}';
+          } catch (_) {
+            monthKey = 'UNKNOWN';
+          }
+          grouped.putIfAbsent(monthKey, () => []).add(m);
+        }
+        final sections = grouped.entries.toList();
+
         return ListView.builder(
-          padding: const EdgeInsets.only(top: 16, bottom: 32),
-          itemCount: matches.length,
+          padding: const EdgeInsets.only(top: 16, bottom: 100),
+          itemCount: sections.fold<int>(0, (sum, e) => sum + 1 + e.value.length),
           itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: MatchCard(match: matches[index]),
-            );
+            int cursor = 0;
+            for (final section in sections) {
+              if (index == cursor) {
+                // Section header
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    section.key,
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                );
+              }
+              cursor++; // header
+              if (index < cursor + section.value.length) {
+                final match = section.value[index - cursor];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: MatchCard(match: match),
+                );
+              }
+              cursor += section.value.length;
+            }
+            return const SizedBox.shrink();
           },
         );
       },

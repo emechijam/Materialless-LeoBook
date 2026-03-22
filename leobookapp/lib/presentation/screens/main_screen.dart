@@ -123,20 +123,9 @@ class _MainScreenState extends State<MainScreen> {
           filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
           child: Container(
             decoration: BoxDecoration(
-              gradient: isDark
-                  ? const LinearGradient(
-                      colors: [Color(0xFF0D1B2A), Color(0xFF1B2838)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : LinearGradient(
-                      colors: [
-                        Colors.white.withValues(alpha: 0.92),
-                        Colors.white.withValues(alpha: 0.85),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+              color: isDark
+                  ? AppColors.neutral800.withValues(alpha: 0.95)
+                  : Colors.white.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(Responsive.sp(context, 28)),
               border: Border.all(
                 color: isDark

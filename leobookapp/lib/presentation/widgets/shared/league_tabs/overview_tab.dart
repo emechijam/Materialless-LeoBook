@@ -12,10 +12,12 @@ import 'package:leobookapp/data/repositories/data_repository.dart';
 class LeagueOverviewTab extends StatefulWidget {
   final String leagueId;
   final String leagueName;
+  final String? season;
   const LeagueOverviewTab({
     super.key,
     required this.leagueId,
     required this.leagueName,
+    this.season,
   });
 
   @override
@@ -38,7 +40,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
 
     // Fetch league info first to get the current season
     final league = await repo.fetchLeagueById(widget.leagueId);
-    final currentSeason = league?.currentSeason;
+    final currentSeason = league?.currentSeason ?? widget.season;
 
     final standings = await repo.fetchStandings(
       leagueId: widget.leagueId,
