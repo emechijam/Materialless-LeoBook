@@ -174,37 +174,35 @@ class HomeCubit extends Cubit<HomeState> {
       _schedulesSub = null;
       _teamCrestsSub = null;
 
-      if (!kIsWeb) {
-        _predictionsSub = _dataRepository
-            .watchPredictions(date: selectionDate)
-            .listen((updatedMatches) {
-          _handleRealtimeUpdate(updatedMatches);
-        }, onError: (e) {
-          debugPrint("Predictions Stream Error: $e");
-        });
+      _predictionsSub = _dataRepository
+          .watchPredictions(date: selectionDate)
+          .listen((updatedMatches) {
+        _handleRealtimeUpdate(updatedMatches);
+      }, onError: (e) {
+        debugPrint("Predictions Stream Error: $e");
+      });
 
-        _liveScoresSub =
-            _dataRepository.watchLiveScores().listen((liveUpdates) {
-          _handleRealtimeUpdate(liveUpdates);
-        }, onError: (e) {
-          debugPrint("LiveScores Stream Error: $e");
-        });
+      _liveScoresSub =
+          _dataRepository.watchLiveScores().listen((liveUpdates) {
+        _handleRealtimeUpdate(liveUpdates);
+      }, onError: (e) {
+        debugPrint("LiveScores Stream Error: $e");
+      });
 
-        _schedulesSub = _dataRepository
-            .watchSchedules(date: selectionDate)
-            .listen((scheduleUpdates) {
-          _handleRealtimeUpdate(scheduleUpdates);
-        }, onError: (e) {
-          debugPrint("Schedules Stream Error: $e");
-        });
+      _schedulesSub = _dataRepository
+          .watchSchedules(date: selectionDate)
+          .listen((scheduleUpdates) {
+        _handleRealtimeUpdate(scheduleUpdates);
+      }, onError: (e) {
+        debugPrint("Schedules Stream Error: $e");
+      });
 
-        _teamCrestsSub =
-            _dataRepository.watchTeamCrestUpdates().listen((crestMap) {
-          _handleCrestUpdate(crestMap);
-        }, onError: (e) {
-          debugPrint("TeamCrests Stream Error: $e");
-        });
-      }
+      _teamCrestsSub =
+          _dataRepository.watchTeamCrestUpdates().listen((crestMap) {
+        _handleCrestUpdate(crestMap);
+      }, onError: (e) {
+        debugPrint("TeamCrests Stream Error: $e");
+      });
 
       // --- Start 15-second periodic refresh (upsert-only, skips if no changes) ---
       _refreshTimer?.cancel();
@@ -456,34 +454,32 @@ class HomeCubit extends Cubit<HomeState> {
         ),
       );
 
-      // Re-subscribe for the new date (skip on Web)
-      if (!kIsWeb) {
-        _predictionsSub?.cancel();
-        _schedulesSub?.cancel();
-        _predictionsSub = null;
-        _schedulesSub = null;
+      // Re-subscribe for the new date
+      _predictionsSub?.cancel();
+      _schedulesSub?.cancel();
+      _predictionsSub = null;
+      _schedulesSub = null;
 
-        // Delay slightly to allow the previous channel to leave cleanly
-        await Future.delayed(const Duration(milliseconds: 300));
+      // Delay slightly to allow the previous channel to leave cleanly
+      await Future.delayed(const Duration(milliseconds: 300));
 
-        if (isClosed) return;
+      if (isClosed) return;
 
-        _predictionsSub = _dataRepository
-            .watchPredictions(date: date)
-            .listen((updatedMatches) {
-          _handleRealtimeUpdate(updatedMatches);
-        }, onError: (e) {
-          debugPrint("Predictions Stream (Update) Error: $e");
-        });
+      _predictionsSub = _dataRepository
+          .watchPredictions(date: date)
+          .listen((updatedMatches) {
+        _handleRealtimeUpdate(updatedMatches);
+      }, onError: (e) {
+        debugPrint("Predictions Stream (Update) Error: $e");
+      });
 
-        _schedulesSub = _dataRepository
-            .watchSchedules(date: date)
-            .listen((scheduleUpdates) {
-          _handleRealtimeUpdate(scheduleUpdates);
-        }, onError: (e) {
-          debugPrint("Schedules Stream (Update) Error: $e");
-        });
-      }
+      _schedulesSub = _dataRepository
+          .watchSchedules(date: date)
+          .listen((scheduleUpdates) {
+        _handleRealtimeUpdate(scheduleUpdates);
+      }, onError: (e) {
+        debugPrint("Schedules Stream (Update) Error: $e");
+      });
     }
   }
 
