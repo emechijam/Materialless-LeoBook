@@ -102,5 +102,4 @@ class AIGOSuite:
             return wrapper
         return decorator
 
-from Core.Intelligence.dynamic_concurrency import DynamicConcurrencyEngine
-max_workers = DynamicConcurrencyEngine.get_for_rl(10)
+

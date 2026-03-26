@@ -245,8 +245,8 @@ def run_all_pre_bet_checks(conn=None, balance: float = 0.0) -> tuple:
     if check_kill_switch():
         return False, "KILL_SWITCH: STOP_BETTING file detected"
 
-    # 3. Balance sanity
-    if not check_balance_sanity(balance):
+    # 3. Balance sanity (skip if balance not yet fetched — will be checked later)
+    if balance is not None and not check_balance_sanity(balance):
         return False, f"LOW_BALANCE: Balance ₦{balance:,.0f} below minimum ₦{MIN_BALANCE:,.0f}"
 
     # 4. Daily loss limit

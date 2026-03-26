@@ -1,4 +1,4 @@
-# withdrawal_checker.py: withdrawal_checker.py: Logic for managing automated withdrawal proposals.
+# withdrawal_checker.py: Logic for managing automated withdrawal proposals.
 # Part of LeoBook Core — System
 #
 # Functions: calculate_proposed_amount(), get_latest_win(), check_triggers(), propose_withdrawal(), check_withdrawal_approval(), execute_withdrawal()
@@ -9,7 +9,7 @@ from pathlib import Path
 from Core.System.lifecycle import state, log_audit_state, log_state
 from Data.Access.db_helpers import log_audit_event
 from Core.Intelligence.aigo_suite import AIGOSuite
-from Core.Utils.constants import DEFAULT_STAKE, CURRENCY_SYMBOL
+from Core.Utils.constants import DEFAULT_STAKE, CURRENCY_SYMBOL, now_ng
 
 # Scalable Thresholds (relative to DEFAULT_STAKE)
 MIN_BALANCE_RESERVE = DEFAULT_STAKE * 5000 # Keep 5,000 units by default
@@ -53,8 +53,8 @@ async def propose_withdrawal(amount: float):
     pending_withdrawal.update({
         "active": True,
         "amount": amount,
-        "proposed_at": dt.now(),
-        "expiry": dt.now() + timedelta(hours=2),
+        "proposed_at": now_ng(),
+        "expiry": now_ng() + timedelta(hours=2),
         "approved": False
     })
 
@@ -75,7 +75,7 @@ async def check_withdrawal_approval() -> bool:
         return False
 
     # Check expiration
-    if pending_withdrawal["expiry"] and dt.now() > pending_withdrawal["expiry"]:
+    if pending_withdrawal["expiry"] and now_ng() > pending_withdrawal["expiry"]:
         print("   [Withdrawal] Proposal expired (Time-to-Live exceeded). Resetting.")
         log_audit_event("WITHDRAWAL_EXPIRED", f"Expired proposal: ₦{pending_withdrawal['amount']}", status="reset")
         pending_withdrawal.update({"active": False, "amount": 0.0, "expiry": None})
@@ -120,7 +120,7 @@ async def execute_withdrawal(amount: float):
             if success:
                 log_state("Withdrawal", f"Executed {CURRENCY_SYMBOL}{amount:,.2f}", "Web/App Approval")
                 log_audit_event("WITHDRAWAL_EXECUTED", f"Executed: {CURRENCY_SYMBOL}{amount}", state["current_balance"], state["current_balance"]-amount, amount)
-                state["last_withdrawal_time"] = dt.now()
+                state["last_withdrawal_time"] = now_ng()
                 # Reset pending state
                 pending_withdrawal.update({"active": False, "amount": 0.0, "proposed_at": None, "expiry": None, "approved": False})
             else:

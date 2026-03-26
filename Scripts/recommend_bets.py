@@ -13,6 +13,7 @@ import sys
 import argparse
 import json
 from datetime import datetime, timedelta
+from Core.Utils.constants import now_ng
 from collections import defaultdict
 from pathlib import Path
 from dotenv import load_dotenv
@@ -133,7 +134,7 @@ class AdaptiveRecommender:
 
             learned += 1
 
-        self.weights["meta"]["last_learn"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.weights["meta"]["last_learn"] = now_ng().strftime("%Y-%m-%d %H:%M")
         self.weights["meta"]["total_learned"] = learned
         self._save()
         return learned
@@ -391,7 +392,7 @@ def get_recommendations(target_date=None, show_all_upcoming=False, **kwargs):
     print(f"[ALGO] Found {len(available_fids)} matches available in bookie (Football.com).")
 
     # ── Step 2: Filter for future matches ──
-    now = datetime.now()
+    now = now_ng()
     candidates = []
 
     for p in all_predictions:

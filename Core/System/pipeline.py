@@ -353,24 +353,23 @@ async def dispatch(args):
             if args.page == 1:
                 await run_chapter_1_p1(p)
             elif args.page == 2:
-                await run_chapter_1_p2(p,
-                    refresh=getattr(args, 'refresh', False) or getattr(args, 'all', False),
-                    target_dates=getattr(args, 'date', None))
+                await run_chapter_1_p2(p)  # ISSUE 1 FIX: removed dead refresh/target_dates params
             elif args.page == 3:
-                await run_chapter_1_p3()
+                await run_chapter_1_p3(p)  # ISSUE 4 FIX: pass p so booking harvest works standalone
             else:
                 await run_chapter_1_p1(p)
-                await run_chapter_1_p2(p,
-                    refresh=getattr(args, 'refresh', False) or getattr(args, 'all', False),
-                    target_dates=getattr(args, 'date', None))
-                await run_chapter_1_p3()
+                await run_chapter_1_p2(p)
+                await run_chapter_1_p3(p)  # ISSUE 4 FIX: pass p for booking harvest
             return
 
         if args.chapter == 2:
             from Core.System.guardrails import run_all_pre_bet_checks, is_dry_run
             from Data.Access.league_db import get_connection
             conn = get_connection()
-            ok, reason = run_all_pre_bet_checks(conn, state.get("current_balance", 0))
+            # ISSUE 5 FIX: pass None when balance not yet fetched so balance_sanity
+            # check is skipped — actual balance is checked inside run_automated_booking
+            balance = state.get("current_balance") or None
+            ok, reason = run_all_pre_bet_checks(conn, balance)
             if not ok:
                 print(f"  [GUARDRAIL] Chapter 2 BLOCKED: {reason}")
                 log_audit_event("GUARDRAIL_BLOCK", reason, status="blocked")

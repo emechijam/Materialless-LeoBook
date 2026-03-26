@@ -113,6 +113,7 @@ async def run_league_calendar_fixtures_sync(playwright: Playwright, league_ids: 
 
             matches = []
             source = "none"
+            was_crash = False  # BUG 7 FIX: track crash vs genuinely empty
 
             # ── Primary: extract_league_matches (fast schedule extractor) ──
             if fb_url:
@@ -128,7 +129,17 @@ async def run_league_calendar_fixtures_sync(playwright: Playwright, league_ids: 
                         matches = raw
                         source = "schedule"
                 except Exception as e:
-                    print(f"    [Primary] {league_name}: extract failed: {e}")
+                    err_lower = str(e).lower()
+                    was_crash = "crashed" in err_lower or "target closed" in err_lower
+                    if was_crash:
+                        print(f"    [Primary] {league_name}: browser crashed — recreating page...")
+                        try:
+                            await page.close()
+                        except Exception:
+                            pass
+                        page = await context.new_page()
+                    else:
+                        print(f"    [Primary] {league_name}: extract failed: {e}")
 
             # ── Save results ──
             if matches:
@@ -148,7 +159,9 @@ async def run_league_calendar_fixtures_sync(playwright: Playwright, league_ids: 
                 print(f"    ✓ {league_name}: {len(normalized)} fixtures saved (via {source}).")
             else:
                 print(f"    ! {league_name}: No fixtures found.")
-                if fb_url:
+                # BUG 7 FIX: Only mark as empty if NOT a crash — crashed leagues
+                # may have fixtures but the page died before we could check.
+                if fb_url and not was_crash:
                     empty_urls.add(fb_url)
 
         await context.close()

@@ -1,4 +1,4 @@
-# withdrawal.py: withdrawal.py: Automated withdrawal orchestration for Football.com.
+# withdrawal.py: Automated withdrawal orchestration for Football.com.
 # Part of LeoBook Modules — Football.com Booking
 #
 # Functions: check_and_perform_withdrawal(), _execute_withdrawal_flow()
@@ -6,6 +6,7 @@
 import csv
 import asyncio
 from datetime import datetime
+from Core.Utils.constants import now_ng
 from pathlib import Path
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
@@ -36,7 +37,7 @@ async def check_and_perform_withdrawal(page: Page, current_balance: float, last_
                     last_record = lines[-1].split(',')
                     last_ts_str = last_record[0].strip() # Assuming timestamp is first col
                     last_ts = datetime.strptime(last_ts_str, "%Y-%m-%d %H:%M:%S")
-                    hours_passed = (datetime.now() - last_ts).total_seconds() / 3600
+                    hours_passed = (now_ng() - last_ts).total_seconds() / 3600
                     if hours_passed < 48:
                         print(f"    [Withdrawal] Cooldown active. Last withdrawal was {hours_passed:.1f}h ago (Wait 48h).")
                         return False
@@ -175,7 +176,7 @@ async def _execute_withdrawal_flow(page: Page, amount: str = "100", pin: str = "
 
     # --- Save successful withdrawal to CSV ---
     record = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now_ng().strftime("%Y-%m-%d %H:%M:%S"),
         "amount": amount_confirmed,
         "bank": bank_confirmed,
         "account_number": account_confirmed,
