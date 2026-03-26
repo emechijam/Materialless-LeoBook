@@ -206,10 +206,10 @@ class HomeCubit extends Cubit<HomeState> {
         });
       }
 
-      // --- Start 3-second periodic refresh (upsert-only, skips if no changes) ---
+      // --- Start 15-second periodic refresh (upsert-only, skips if no changes) ---
       _refreshTimer?.cancel();
       _refreshTimer = Timer.periodic(
-        const Duration(seconds: 3),
+        const Duration(seconds: 15),
         (_) => _periodicRefresh(),
       );
     } catch (e) {

@@ -19,14 +19,72 @@ class DataRepository {
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  /// Batch-fetch predictions for a list of fixture IDs and return a lookup map.
+  /// This is the single source of truth for prediction enrichment.
+  Future<Map<String, Map<String, dynamic>>> _fetchPredictionMap({
+    String? dateStr,
+    List<String>? fixtureIds,
+  }) async {
+    final Map<String, Map<String, dynamic>> predMap = {};
+    try {
+      List<dynamic> predRows;
+      if (dateStr != null) {
+        // Date-based: fetch all predictions for that day
+        predRows = await _supabase
+            .from('predictions')
+            .select()
+            .eq('date', dateStr) as List;
+      } else if (fixtureIds != null && fixtureIds.isNotEmpty) {
+        // ID-based: fetch predictions matching specific fixture IDs
+        // Supabase inFilter has a practical limit; batch in chunks of 200
+        predRows = [];
+        for (int i = 0; i < fixtureIds.length; i += 200) {
+          final chunk = fixtureIds.sublist(
+            i,
+            i + 200 > fixtureIds.length ? fixtureIds.length : i + 200,
+          );
+          final res = await _supabase
+              .from('predictions')
+              .select()
+              .inFilter('fixture_id', chunk) as List;
+          predRows.addAll(res);
+        }
+      } else {
+        return predMap;
+      }
+      for (var p in predRows) {
+        final fid = p['fixture_id']?.toString();
+        if (fid != null) predMap[fid] = p;
+      }
+    } catch (_) {
+      // predictions table empty or query failed — return empty map
+    }
+    return predMap;
+  }
+
+  /// Merge schedule rows with prediction data.
+  /// Predictions overlay schedule fields (prediction data wins on conflict).
+  List<MatchModel> _mergeSchedulesWithPredictions(
+    List<dynamic> scheduleRows,
+    Map<String, Map<String, dynamic>> predMap,
+  ) {
+    return scheduleRows.map((row) {
+      final fid = row['fixture_id']?.toString() ?? '';
+      final pred = predMap[fid];
+      final merged = pred != null ? {...row, ...pred} : row;
+      return MatchModel.fromCsv(merged, pred != null ? merged : null);
+    }).toList();
+  }
+
   Future<List<MatchModel>> fetchMatches({DateTime? date}) async {
     try {
       // Primary source: schedules (always populated).
-      // Predictions table may be empty — treat as optional enrichment.
+      // Predictions table is optional enrichment.
       var query = _supabase.from('schedules').select();
 
+      String? dateStr;
       if (date != null) {
-        final dateStr =
+        dateStr =
             "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
         query = query.eq('date', dateStr);
       }
@@ -38,33 +96,17 @@ class DataRepository {
 
       final scheduleRows = response as List;
 
-      // Try to enrich with predictions (fire-and-forget; don't block if empty)
-      Map<String, Map<String, dynamic>> predMap = {};
-      try {
-        if (date != null) {
-          final dateStr =
-              "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-          final predRes = await _supabase
-              .from('predictions')
-              .select()
-              .eq('date', dateStr);
-          for (var p in (predRes as List)) {
-            final fid = p['fixture_id']?.toString();
-            if (fid != null) predMap[fid] = p;
-          }
-        }
-      } catch (_) {
-        // predictions table empty or failed — proceed with schedules only
-      }
+      // Always enrich with predictions
+      final predMap = dateStr != null
+          ? await _fetchPredictionMap(dateStr: dateStr)
+          : await _fetchPredictionMap(
+              fixtureIds: scheduleRows
+                  .map((r) => r['fixture_id']?.toString() ?? '')
+                  .where((id) => id.isNotEmpty)
+                  .toList(),
+            );
 
-      // Merge: schedule row + prediction overlay
-      final matches = scheduleRows.map((row) {
-        final fid = row['fixture_id']?.toString() ?? '';
-        final pred = predMap[fid];
-        // Overlay prediction fields onto schedule row
-        final merged = pred != null ? {...row, ...pred} : row;
-        return MatchModel.fromCsv(merged, merged);
-      }).toList();
+      final matches = _mergeSchedulesWithPredictions(scheduleRows, predMap);
 
       // Cache a small subset locally
       try {
@@ -99,7 +141,6 @@ class DataRepository {
 
   Future<List<MatchModel>> getTeamMatches(String teamName) async {
     try {
-      // Query schedules only (predictions table may be empty)
       var schedList = await _supabase
           .from('schedules')
           .select()
@@ -120,7 +161,13 @@ class DataRepository {
         rows = fuzzy as List<dynamic>;
       }
 
-      final matches = rows.map((row) => MatchModel.fromCsv(row)).toList();
+      // Enrich with predictions
+      final fixtureIds = rows
+          .map((r) => r['fixture_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList();
+      final predMap = await _fetchPredictionMap(fixtureIds: fixtureIds);
+      final matches = _mergeSchedulesWithPredictions(rows, predMap);
 
       matches.sort((a, b) {
         try {
@@ -282,27 +329,10 @@ class DataRepository {
     }
   }
 
+  /// Fetch all schedules, enriched with predictions when available.
   Future<List<MatchModel>> fetchAllSchedules({DateTime? date}) async {
-    try {
-      // Schedules are stored in the fixtures table (not a separate table)
-      var query = _supabase.from('schedules').select();
-
-      if (date != null) {
-        final dateStr =
-            "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-        query = query.eq('date', dateStr);
-      }
-
-      final ordered = query.order('date', ascending: false);
-      final response = date != null
-          ? await ordered
-          : await ordered.limit(300);
-
-      return (response as List).map((row) => MatchModel.fromCsv(row)).toList();
-    } catch (e) {
-      debugPrint("DataRepository Error (Fixtures/Schedules): $e");
-      return [];
-    }
+    // Delegate to fetchMatches which already merges predictions
+    return fetchMatches(date: date);
   }
 
   Future<StandingModel?> getTeamStanding(String teamName) async {
@@ -491,8 +521,16 @@ class DataRepository {
       }
 
       final response = await query.order('date', ascending: false).limit(500);
+      final rows = response as List;
 
-      return (response as List).map((row) => MatchModel.fromCsv(row)).toList();
+      // Enrich with predictions
+      final fixtureIds = rows
+          .map((r) => r['fixture_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList();
+      final predMap = await _fetchPredictionMap(fixtureIds: fixtureIds);
+
+      return _mergeSchedulesWithPredictions(rows, predMap);
     } catch (e) {
       debugPrint("DataRepository Error (Fixtures by League): $e");
       return [];
