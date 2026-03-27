@@ -14,158 +14,170 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:leobookapp/core/constants/app_colors.dart';
 import 'package:leobookapp/core/services/update_service.dart';
 import 'package:leobookapp/logic/cubit/user_cubit.dart';
+import 'package:leobookapp/presentation/screens/login_screen.dart';
+import 'package:leobookapp/presentation/screens/super_leobook_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.neutral900,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ──────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).maybePop(),
-                    child: const Icon(Icons.close, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Settings',
-                    style: GoogleFonts.lexend(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Scrollable body ──────────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return BlocListener<UserCubit, UserState>(
+      listener: (context, state) {
+        // If user logs out, go back to login screen
+        if (state is UserInitial && state.user.isGuest) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (_) => false,
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.neutral900,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // ── Header ────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
                   children: [
-                    const SizedBox(height: 8),
-                    // ── Profile Card ─────────────────────────────
-                    _buildProfileCard(context),
-                    const SizedBox(height: 28),
-
-                    // ── General ──────────────────────────────────
-                    _sectionLabel('General'),
-                    const SizedBox(height: 8),
-                    _glassGroup([
-                      _settingsTile(
-                        icon: Icons.brightness_6_outlined,
-                        title: 'Appearance',
-                        subtitle: 'Dark',
-                        onTap: () {},
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).maybePop(),
+                      child: const Icon(Icons.close, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Settings',
+                      style: GoogleFonts.lexend(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
-                      _settingsTile(
-                        icon: Icons.notifications_outlined,
-                        title: 'Notifications',
-                        onTap: () {},
-                      ),
-                      _settingsTile(
-                        icon: Icons.language,
-                        title: 'Language',
-                        subtitle: 'English',
-                        onTap: () {},
-                      ),
-                      _settingsTile(
-                        icon: Icons.tune_rounded,
-                        title: 'Advanced',
-                        onTap: () {},
-                      ),
-                    ]),
-                    const SizedBox(height: 28),
-
-                    // ── Data & Information ───────────────────────
-                    _sectionLabel('Data & Information'),
-                    const SizedBox(height: 8),
-                    _glassGroup([
-                      _settingsTile(
-                        icon: Icons.shield_outlined,
-                        title: 'Data Controls',
-                        onTap: () {},
-                      ),
-                      _settingsTile(
-                        icon: Icons.storage_outlined,
-                        title: 'Cached Data',
-                        onTap: () {},
-                      ),
-                    ]),
-                    const SizedBox(height: 28),
-
-                    // ── Legal ────────────────────────────────────
-                    _glassGroup([
-                      _settingsTile(
-                        icon: Icons.description_outlined,
-                        title: 'Open Source Licenses',
-                        onTap: () => showLicensePage(
-                          context: context,
-                          applicationName: 'LeoBook',
-                          applicationVersion: UpdateService.appVersion,
-                        ),
-                      ),
-                      _settingsTile(
-                        icon: Icons.article_outlined,
-                        title: 'Terms of Use',
-                        onTap: () {},
-                      ),
-                      _settingsTile(
-                        icon: Icons.lock_outline,
-                        title: 'Privacy Policy',
-                        onTap: () {},
-                      ),
-                    ]),
-                    const SizedBox(height: 28),
-
-                    // ── Actions ──────────────────────────────────
-                    _glassGroup([
-                      _settingsTile(
-                        icon: Icons.bug_report_outlined,
-                        title: 'Report a Problem',
-                        onTap: () {},
-                      ),
-                      _settingsTile(
-                        icon: Icons.logout_rounded,
-                        title: 'Sign out',
-                        titleColor: AppColors.liveRed,
-                        onTap: () {
-                          context.read<UserCubit>().logout();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Signed out')),
-                          );
-                        },
-                      ),
-                    ]),
-                    const SizedBox(height: 32),
-
-                    // ── Version Footer ───────────────────────────
-                    _buildVersionFooter(context),
-                    const SizedBox(height: 32),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              // ── Scrollable body ────────────────────────────────
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      // ── Profile Card ───────────────────────────
+                      _buildProfileCard(context),
+                      const SizedBox(height: 16),
+
+                      // ── Super LeoBook Upsell ──────────────────
+                      _buildSuperUpsell(context),
+                      const SizedBox(height: 28),
+
+                      // ── General ────────────────────────────────
+                      _sectionLabel('General'),
+                      const SizedBox(height: 8),
+                      _glassGroup([
+                        _settingsTile(
+                          icon: Icons.brightness_6_outlined,
+                          title: 'Appearance',
+                          subtitle: 'Dark',
+                          onTap: () {},
+                        ),
+                        _settingsTile(
+                          icon: Icons.notifications_outlined,
+                          title: 'Notifications',
+                          onTap: () {},
+                        ),
+                        _settingsTile(
+                          icon: Icons.language,
+                          title: 'Language',
+                          subtitle: 'English',
+                          onTap: () {},
+                        ),
+                        _settingsTile(
+                          icon: Icons.tune_rounded,
+                          title: 'Advanced',
+                          onTap: () {},
+                        ),
+                      ]),
+                      const SizedBox(height: 28),
+
+                      // ── Data & Information ─────────────────────
+                      _sectionLabel('Data & Information'),
+                      const SizedBox(height: 8),
+                      _glassGroup([
+                        _settingsTile(
+                          icon: Icons.shield_outlined,
+                          title: 'Data Controls',
+                          onTap: () {},
+                        ),
+                        _settingsTile(
+                          icon: Icons.storage_outlined,
+                          title: 'Cached Data',
+                          onTap: () {},
+                        ),
+                      ]),
+                      const SizedBox(height: 28),
+
+                      // ── Legal ──────────────────────────────────
+                      _glassGroup([
+                        _settingsTile(
+                          icon: Icons.description_outlined,
+                          title: 'Open Source Licenses',
+                          onTap: () => showLicensePage(
+                            context: context,
+                            applicationName: 'LeoBook',
+                            applicationVersion: UpdateService.appVersion,
+                          ),
+                        ),
+                        _settingsTile(
+                          icon: Icons.article_outlined,
+                          title: 'Terms of Use',
+                          onTap: () {},
+                        ),
+                        _settingsTile(
+                          icon: Icons.lock_outline,
+                          title: 'Privacy Policy',
+                          onTap: () {},
+                        ),
+                      ]),
+                      const SizedBox(height: 28),
+
+                      // ── Actions ────────────────────────────────
+                      _glassGroup([
+                        _settingsTile(
+                          icon: Icons.bug_report_outlined,
+                          title: 'Report a Problem',
+                          onTap: () {},
+                        ),
+                        _settingsTile(
+                          icon: Icons.logout_rounded,
+                          title: 'Sign out',
+                          titleColor: AppColors.liveRed,
+                          onTap: () => context.read<UserCubit>().logout(),
+                        ),
+                      ]),
+                      const SizedBox(height: 32),
+
+                      // ── Version Footer ─────────────────────────
+                      _buildVersionFooter(context),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
   // Profile Card
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
 
   Widget _buildProfileCard(BuildContext context) {
     return BlocBuilder<UserCubit, UserState>(
@@ -182,14 +194,13 @@ class AccountScreen extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Avatar
               CircleAvatar(
                 radius: 24,
                 backgroundColor: AppColors.primary.withValues(alpha: 0.15),
                 child: Text(
-                  user.id.length >= 2
-                      ? user.id.substring(0, 2).toUpperCase()
-                      : user.id.toUpperCase(),
+                  (user.displayName ?? user.id)
+                      .substring(0, (user.displayName ?? user.id).length >= 2 ? 2 : 1)
+                      .toUpperCase(),
                   style: GoogleFonts.lexend(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -198,13 +209,12 @@ class AccountScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              // Name & email
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user.isPro ? 'Pro Member' : 'LeoBook User',
+                      user.displayName ?? (user.isGuest ? 'Guest' : 'LeoBook User'),
                       style: GoogleFonts.lexend(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -213,7 +223,7 @@ class AccountScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      user.email ?? user.id,
+                      user.email ?? user.phone ?? user.id,
                       style: GoogleFonts.lexend(
                         fontSize: 12,
                         color: AppColors.textTertiary,
@@ -222,39 +232,21 @@ class AccountScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              // Pro badge or upgrade button
-              if (user.isPro)
+              if (user.isSuperLeoBook)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryLight],
+                    ),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'PRO',
+                    'SUPER',
                     style: GoogleFonts.lexend(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
                       color: Colors.white,
-                    ),
-                  ),
-                )
-              else
-                TextButton(
-                  onPressed: () {},
-                  style: TextButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: Text(
-                    'Upgrade',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -265,9 +257,81 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
+  // Super LeoBook Upsell Card
+  // ═══════════════════════════════════════════════════════════════════
+
+  Widget _buildSuperUpsell(BuildContext context) {
+    return BlocBuilder<UserCubit, UserState>(
+      builder: (context, state) {
+        final user = state.user;
+        if (user.isSuperLeoBook) return const SizedBox.shrink();
+
+        return GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SuperLeoBookScreen()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.neutral800,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.15),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome, color: AppColors.primary, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Try Super LeoBook free',
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'Unlimited rules, automation, priority access',
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Try Now',
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
   // Section Label
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
 
   Widget _sectionLabel(String label) {
     return Padding(
@@ -283,9 +347,9 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // Glass Group (list of tiles in a single rounded card)
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
+  // Glass Group
+  // ═══════════════════════════════════════════════════════════════════
 
   Widget _glassGroup(List<Widget> children) {
     return Container(
@@ -313,9 +377,9 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
   // Settings Tile
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
 
   Widget _settingsTile({
     required IconData icon,
@@ -365,9 +429,9 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
   // Version Footer with Update Check
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
 
   Widget _buildVersionFooter(BuildContext context) {
     return Consumer<UpdateService>(
@@ -376,7 +440,6 @@ class AccountScreen extends StatelessWidget {
         return Center(
           child: Column(
             children: [
-              // App version
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -397,7 +460,6 @@ class AccountScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              // Update available
               if (info.updateAvailable) ...[
                 const SizedBox(height: 6),
                 GestureDetector(

@@ -2,12 +2,14 @@
 // Part of LeoBook App — Screens
 //
 // Background: AppColors.neutral900, centered white "LEOBOOK" in Lexend Bold.
-// Displays for 2 seconds, then navigates to MainScreen.
+// Routes to LoginScreen or MainScreen based on auth state.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:leobookapp/core/constants/app_colors.dart';
+import 'package:leobookapp/presentation/screens/login_screen.dart';
 import 'package:leobookapp/presentation/screens/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -26,7 +28,6 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // Immersive status bar
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
@@ -39,18 +40,22 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
 
-    // Navigate after 2 seconds
+    // Navigate after 2 seconds based on auth state
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const MainScreen(),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
-      }
+      if (!mounted) return;
+
+      final user = Supabase.instance.client.auth.currentUser;
+      final destination =
+          user != null ? const MainScreen() : const LoginScreen();
+
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => destination,
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
     });
   }
 

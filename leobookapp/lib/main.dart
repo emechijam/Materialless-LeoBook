@@ -12,6 +12,7 @@ import 'package:leobookapp/data/repositories/news_repository.dart';
 import 'package:leobookapp/presentation/screens/splash_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:leobookapp/logic/cubit/user_cubit.dart';
+import 'package:leobookapp/data/repositories/auth_repository.dart';
 import 'package:provider/provider.dart';
 import 'package:leobookapp/core/services/update_service.dart';
 
@@ -40,6 +41,7 @@ class LeoBookApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiRepositoryProvider(
       providers: [
+        RepositoryProvider(create: (context) => AuthRepository()),
         RepositoryProvider(create: (context) => DataRepository()),
         RepositoryProvider(create: (context) => NewsRepository()),
       ],
@@ -53,7 +55,7 @@ class LeoBookApp extends StatelessWidget {
                 context.read<NewsRepository>(),
               )..loadDashboard(),
             ),
-            BlocProvider<UserCubit>(create: (context) => UserCubit()),
+            BlocProvider<UserCubit>(create: (context) => UserCubit(context.read<AuthRepository>())),
             BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
           ],
           child: BlocBuilder<ThemeCubit, ThemeMode>(
