@@ -280,8 +280,17 @@ flutter build apk --release   # Production APK
 
 ### Download APK
 
-[**📱 Download LeoBook APK (Android)**](https://drive.google.com/file/d/1f987PBVQS1X7tiH_DFLfPfSkWkC72WMQ/view?usp=drive_link)
+[**📱 Download LeoBook APK (Android)**](https://jefoqzewyvscdqcpnjxu.supabase.co/storage/v1/object/public/app-releases/LeoBook-latest.apk)
 
+### Deploy APK
+
+```bash
+# Build, rename (auto-versioned from pubspec.yaml), and upload to Supabase
+./deploy_apk.sh
+
+# Skip build, upload existing APK
+./deploy_apk.sh --skip-build
+```
 ---
 
 *Last updated: 2026-03-26 — v9.4.1 — Ch1 pipeline bug fixes (6 bugs: NameError typo, NoneType crash, race condition, zero resolution, partial hydration retry, off-season league filter), Flashscore UI parity (round grouping, winner highlighting, red cards)*
