@@ -41,24 +41,30 @@ PUBLIC_URL="${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${LATEST_NAME}"
 
 # ── Build ─────────────────────────────────────────────────────────────────
 if [ "${1:-}" != "--skip-build" ]; then
-  echo "🔨 Building release APK..."
+  echo "🔨 Building release APK (split-per-abi)..."
   cd "$APP_DIR"
-  flutter build apk --release
+  flutter build apk --release --split-per-abi
   cd "$SCRIPT_DIR"
 else
   echo "⏭  Skipping build (--skip-build)"
 fi
 
 # ── Rename ────────────────────────────────────────────────────────────────
-SOURCE_APK="$APK_OUTPUT/app-release.apk"
+# Prefer arm64 split APK (smaller, covers 95%+ of modern devices)
+SOURCE_APK="$APK_OUTPUT/app-arm64-v8a-release.apk"
 if [ ! -f "$SOURCE_APK" ]; then
-  echo "❌ APK not found at $SOURCE_APK"
+  # Fallback to fat APK
+  SOURCE_APK="$APK_OUTPUT/app-release.apk"
+fi
+if [ ! -f "$SOURCE_APK" ]; then
+  echo "❌ APK not found at $APK_OUTPUT"
   exit 1
 fi
 
+APK_SIZE=$(du -h "$SOURCE_APK" | cut -f1)
 cp "$SOURCE_APK" "$APK_OUTPUT/$APK_NAME"
 cp "$SOURCE_APK" "$APK_OUTPUT/$LATEST_NAME"
-echo "✅ Renamed → $APK_NAME"
+echo "✅ Renamed → $APK_NAME ($APK_SIZE)"
 
 # ── Load Supabase key from .env if not already set ────────────────────────
 if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
