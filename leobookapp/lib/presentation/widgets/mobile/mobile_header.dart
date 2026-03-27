@@ -11,7 +11,9 @@ import 'package:leobookapp/logic/cubit/search_cubit.dart';
 import '../../screens/search_screen.dart';
 
 class MobileHeader extends StatelessWidget {
-  const MobileHeader({super.key});
+  final int currentIndex;
+
+  const MobileHeader({super.key, this.currentIndex = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -55,34 +57,35 @@ class MobileHeader extends StatelessWidget {
                       letterSpacing: 2.0,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BlocProvider.value(
-                            value: context.read<SearchCubit>(),
-                            child: const SearchScreen(),
+                  if (currentIndex != 3)
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BlocProvider.value(
+                              value: context.read<SearchCubit>(),
+                              child: const SearchScreen(),
+                            ),
                           ),
+                        );
+                      },
+                      child: Container(
+                        padding: EdgeInsets.all(Responsive.sp(context, 6)),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.black.withValues(alpha: 0.05),
+                          borderRadius:
+                              BorderRadius.circular(Responsive.sp(context, 8)),
                         ),
-                      );
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(Responsive.sp(context, 6)),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.black.withValues(alpha: 0.05),
-                        borderRadius:
-                            BorderRadius.circular(Responsive.sp(context, 8)),
-                      ),
-                      child: Icon(
-                        Icons.search_rounded,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                        size: Responsive.sp(context, 15),
+                        child: Icon(
+                          Icons.search_rounded,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                          size: Responsive.sp(context, 15),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

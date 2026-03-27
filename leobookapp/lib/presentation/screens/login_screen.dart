@@ -48,7 +48,7 @@ class LoginScreen extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isDesktop = constraints.maxWidth > 1024;
-              final loginContent = _buildLoginContent(context);
+              final loginContent = _buildDesktopLoginContent(context);
 
               if (isDesktop) {
                 // Desktop: centered modal card
@@ -68,8 +68,8 @@ class LoginScreen extends StatelessWidget {
                 );
               }
 
-              // Mobile: full screen
-              return loginContent;
+              // Mobile: full screen with buttons at bottom
+              return _buildMobileLoginContent(context);
             },
           ),
         ),
@@ -77,7 +77,158 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLoginContent(BuildContext context) {
+  /// Mobile: title centered vertically, buttons pinned near bottom.
+  Widget _buildMobileLoginContent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          // ── Skip button ────────────────────────────────────
+          Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: GestureDetector(
+                onTap: () {
+                  context.read<UserCubit>().skipAsGuest();
+                  _navigateToMain(context);
+                },
+                child: Text(
+                  'Skip',
+                  style: GoogleFonts.lexend(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Push title to center
+          const Spacer(flex: 3),
+
+          // ── Logo / Title ───────────────────────────────────
+          Text(
+            'LeoBook',
+            style: GoogleFonts.lexend(
+              fontSize: 48,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -1,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Subtitle ──────────────────────────────────────
+          Text(
+            'Thanks for trying LeoBook.',
+            style: GoogleFonts.lexend(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sign in to unlock predictions, rules, and automation.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.lexend(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textTertiary,
+              height: 1.5,
+            ),
+          ),
+
+          // Push buttons to bottom
+          const Spacer(flex: 5),
+
+          // ── Auth Buttons ───────────────────────────────────
+          BlocBuilder<UserCubit, UserState>(
+            builder: (context, state) {
+              final isLoading = state is UserLoading;
+              return Column(
+                children: [
+                  _AuthButton(
+                    label: 'Continue with Google',
+                    icon: Icons.g_mobiledata_rounded,
+                    isLoading: isLoading,
+                    onTap: () =>
+                        context.read<UserCubit>().signInWithGoogle(),
+                  ),
+                  const SizedBox(height: 12),
+                  _AuthButton(
+                    label: 'Continue with Phone',
+                    icon: Icons.phone_outlined,
+                    isLoading: false,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PhoneOtpScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Terms & Privacy ────────────────────────────────
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                color: AppColors.textDisabled,
+              ),
+              children: [
+                const TextSpan(text: 'By continuing you agree to '),
+                TextSpan(
+                  text: 'Terms',
+                  style: TextStyle(
+                    color: AppColors.textTertiary,
+                    decoration: TextDecoration.underline,
+                    decorationColor: AppColors.textTertiary,
+                  ),
+                ),
+                const TextSpan(text: ' and '),
+                TextSpan(
+                  text: 'Privacy Policy',
+                  style: TextStyle(
+                    color: AppColors.textTertiary,
+                    decoration: TextDecoration.underline,
+                    decorationColor: AppColors.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // ── Materialless Creation ──────────────────────────
+          Text(
+            'A Materialless Creation',
+            style: GoogleFonts.lexend(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textDisabled,
+              letterSpacing: 0.5,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  /// Desktop modal content (compact Column).
+  Widget _buildDesktopLoginContent(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

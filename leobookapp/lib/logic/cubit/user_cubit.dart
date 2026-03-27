@@ -155,9 +155,13 @@ class UserCubit extends Cubit<UserState> {
   }
 
   void toggleTier(UserTier tier) {
-    if (tier == UserTier.lite) loginAsLite();
-    else if (tier == UserTier.pro) loginAsPro();
-    else logout();
+    if (tier == UserTier.lite) {
+      loginAsLite();
+    } else if (tier == UserTier.pro) {
+      loginAsPro();
+    } else {
+      logout();
+    }
   }
 
   @override

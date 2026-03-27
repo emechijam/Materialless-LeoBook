@@ -4,7 +4,6 @@
 // Grouped sections with category headers, glass cards, version footer
 // with in-app update availability check.
 
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,12 +23,27 @@ class AccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<UserCubit, UserState>(
       listener: (context, state) {
-        // If user logs out, go back to login screen
+        // If user logs out, show login
         if (state is UserInitial && state.user.isGuest) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (_) => false,
-          );
+          final isDesktop = MediaQuery.of(context).size.width > 1024;
+          if (isDesktop) {
+            // Desktop: show login as a centered modal dialog
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              barrierColor: Colors.black87,
+              builder: (_) => BlocProvider.value(
+                value: context.read<UserCubit>(),
+                child: const LoginScreen(),
+              ),
+            );
+          } else {
+            // Mobile: navigate to full-screen login
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (_) => false,
+            );
+          }
         }
       },
       child: Scaffold(

@@ -2,6 +2,7 @@
 // Part of LeoBook App — Screens
 //
 // Two-step flow: phone input → OTP pin entry.
+// Desktop: centered modal card. Mobile: full-page scaffold.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -61,6 +62,14 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
     );
   }
 
+  void _goBack() {
+    if (_otpSent) {
+      setState(() => _otpSent = false);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<UserCubit, UserState>(
@@ -79,32 +88,91 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.neutral900,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () {
-              if (_otpSent) {
-                setState(() => _otpSent = false);
-              } else {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-          title: Text(
-            _otpSent ? 'Verify OTP' : 'Phone Number',
-            style: GoogleFonts.lexend(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _otpSent ? _buildOtpView() : _buildPhoneView(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth > 1024;
+              final content = _otpSent ? _buildOtpView() : _buildPhoneView();
+
+              if (isDesktop) {
+                // Desktop: centered modal card (same style as login modal)
+                return Center(
+                  child: Container(
+                    width: 420,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 40, horizontal: 32),
+                    decoration: BoxDecoration(
+                      color: AppColors.neutral800,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Back button row
+                        GestureDetector(
+                          onTap: _goBack,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.arrow_back,
+                                  color: Colors.white, size: 20),
+                              const SizedBox(width: 10),
+                              Text(
+                                _otpSent ? 'Verify OTP' : 'Phone Number',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        content,
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              // Mobile: full page with AppBar
+              return Column(
+                children: [
+                  // Custom AppBar row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back,
+                              color: Colors.white),
+                          onPressed: _goBack,
+                        ),
+                        Text(
+                          _otpSent ? 'Verify OTP' : 'Phone Number',
+                          style: GoogleFonts.lexend(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: content,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -116,6 +184,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
   Widget _buildPhoneView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 32),
         Text(
@@ -235,6 +304,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
   Widget _buildOtpView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 32),
         Text(

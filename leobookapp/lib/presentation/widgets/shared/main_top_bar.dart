@@ -27,6 +27,6 @@ class MainTopBar extends StatelessWidget {
         onProfileTap: onProfileTap,
       );
     }
-    return const MobileHeader();
+    return MobileHeader(currentIndex: currentIndex);
   }
 }
