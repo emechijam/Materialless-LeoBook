@@ -27,6 +27,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  bool _showProfilePanel = false;
 
   @override
   Widget build(BuildContext context) {
@@ -41,23 +42,57 @@ class _MainScreenState extends State<MainScreen> {
             Widget bodyArea;
 
             if (state is HomeLoaded) {
+              final mainTabs = [
+                    HomeScreen(
+                      onViewAllPredictions: () =>
+                          setState(() => _currentIndex = 2),
+                    ),
+                    const BacktestDashboard(),
+                    const TopPredictionsScreen(),
+                    if (!isDesktop) const AccountScreen(),
+                  ];
+
               final content = Column(
                 children: [
                   MainTopBar(
                     currentIndex: _currentIndex,
-                    onTabChanged: (i) => setState(() => _currentIndex = i),
+                    onTabChanged: (i) => setState(() {
+                      _currentIndex = i.clamp(0, mainTabs.length - 1);
+                      if (isDesktop) _showProfilePanel = false;
+                    }),
+                    onProfileTap: isDesktop ? () => setState(() => _showProfilePanel = !_showProfilePanel) : null,
                   ),
                   Expanded(
-                    child: IndexedStack(
-                      index: _currentIndex,
+                    child: Row(
                       children: [
-                        HomeScreen(
-                          onViewAllPredictions: () =>
-                              setState(() => _currentIndex = 2),
+                        Expanded(
+                          child: IndexedStack(
+                            index: _currentIndex.clamp(0, mainTabs.length - 1),
+                            children: mainTabs,
+                          ),
                         ),
-                        const BacktestDashboard(),
-                        const TopPredictionsScreen(),
-                        const AccountScreen(),
+                        // Desktop right-side profile panel
+                        if (isDesktop)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutCubic,
+                            width: _showProfilePanel ? 380 : 0,
+                            child: _showProfilePanel
+                                ? Container(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.neutral900,
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: Colors.white.withValues(alpha: 0.06),
+                                        ),
+                                      ),
+                                    ),
+                                    child: const ClipRect(
+                                      child: AccountScreen(),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
                       ],
                     ),
                   ),
@@ -77,6 +112,7 @@ class _MainScreenState extends State<MainScreen> {
                   MainTopBar(
                     currentIndex: _currentIndex,
                     onTabChanged: (i) => setState(() => _currentIndex = i),
+                    onProfileTap: isDesktop ? () => setState(() => _showProfilePanel = !_showProfilePanel) : null,
                   ),
                   Expanded(
                     child: IndexedStack(
@@ -88,7 +124,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                         const BacktestDashboard(),
                         const TopPredictionsScreen(),
-                        const AccountScreen(),
+                        if (!isDesktop) const AccountScreen(),
                       ],
                     ),
                   ),

@@ -14,11 +14,13 @@ import '../../screens/search_screen.dart';
 class DesktopHeader extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTabChanged;
+  final VoidCallback? onProfileTap;
 
   const DesktopHeader({
     super.key,
     required this.currentIndex,
     required this.onTabChanged,
+    this.onProfileTap,
   });
 
   @override
@@ -120,7 +122,10 @@ class DesktopHeader extends StatelessWidget {
                   const SizedBox(width: 24),
                   _buildBalance(),
                   const SizedBox(width: 16),
-                  _buildAvatar(),
+                  GestureDetector(
+                    onTap: onProfileTap,
+                    child: _buildAvatar(),
+                  ),
                 ],
               ),
             ],

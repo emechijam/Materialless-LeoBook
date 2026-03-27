@@ -37,27 +37,7 @@ class AccountScreen extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-              // ── Header ────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).maybePop(),
-                      child: const Icon(Icons.close, color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'Settings',
-                      style: GoogleFonts.lexend(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 12),
 
               // ── Scrollable body ────────────────────────────────
               Expanded(

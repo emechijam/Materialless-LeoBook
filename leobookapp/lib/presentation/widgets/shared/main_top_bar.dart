@@ -9,11 +9,13 @@ import '../../widgets/mobile/mobile_header.dart';
 class MainTopBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTabChanged;
+  final VoidCallback? onProfileTap;
 
   const MainTopBar({
     super.key,
     required this.currentIndex,
     required this.onTabChanged,
+    this.onProfileTap,
   });
 
   @override
@@ -22,6 +24,7 @@ class MainTopBar extends StatelessWidget {
       return DesktopHeader(
         currentIndex: currentIndex,
         onTabChanged: onTabChanged,
+        onProfileTap: onProfileTap,
       );
     }
     return const MobileHeader();
