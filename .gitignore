@@ -213,3 +213,8 @@ rclone/rclone.1
 rclone/rclone.exe
 rclone/README.html
 rclone/README.txt
+
+# Release signing
+leobookapp/android/key.properties
+leobookapp/android/app/*.jks
+

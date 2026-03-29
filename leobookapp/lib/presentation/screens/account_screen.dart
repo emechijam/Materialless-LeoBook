@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:leobookapp/core/constants/app_colors.dart';
 import 'package:leobookapp/core/services/update_service.dart';
 import 'package:leobookapp/logic/cubit/user_cubit.dart';
@@ -431,6 +430,7 @@ class AccountScreen extends StatelessWidget {
     return Consumer<UpdateService>(
       builder: (context, updateService, _) {
         final info = updateService.info;
+        final dlState = updateService.downloadState;
         return Center(
           child: Column(
             children: [
@@ -445,36 +445,100 @@ class AccountScreen extends StatelessWidget {
               ),
               if (info.updateAvailable) ...[
                 const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () {
-                    if (info.downloadUrl != null) {
-                      launchUrl(
-                        Uri.parse(info.downloadUrl!),
-                        mode: LaunchMode.externalApplication,
-                      );
-                    }
-                  },
-                  child: RichText(
-                    text: TextSpan(
-                      style: GoogleFonts.lexend(fontSize: 13),
+
+                // ── Downloading: progress bar ──────────────────
+                if (dlState == UpdateDownloadState.downloading) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Column(
                       children: [
-                        TextSpan(
-                          text: 'New Version is Available: ',
-                          style: TextStyle(color: AppColors.textTertiary),
-                        ),
-                        TextSpan(
-                          text: 'Update',
-                          style: TextStyle(
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: updateService.downloadProgress,
+                            backgroundColor: AppColors.neutral700,
                             color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                            decorationColor: AppColors.primary,
+                            minHeight: 6,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${(updateService.downloadProgress * 100).toStringAsFixed(0)}%',
+                          style: GoogleFonts.lexend(
+                            fontSize: 11,
+                            color: AppColors.textTertiary,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                ]
+
+                // ── Installing ─────────────────────────────────
+                else if (dlState == UpdateDownloadState.installing) ...[
+                  Text(
+                    'Installing…',
+                    style: GoogleFonts.lexend(
+                      fontSize: 13,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ]
+
+                // ── Error: show message + retry ────────────────
+                else if (dlState == UpdateDownloadState.error) ...[
+                  Text(
+                    updateService.errorMessage ?? 'Update failed',
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      color: AppColors.liveRed,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: () {
+                      updateService.resetDownloadState();
+                      updateService.downloadAndInstall();
+                    },
+                    child: Text(
+                      'Retry',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ]
+
+                // ── Idle: show "Update" tap target ─────────────
+                else ...[
+                  GestureDetector(
+                    onTap: () => updateService.downloadAndInstall(),
+                    child: RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.lexend(fontSize: 13),
+                        children: [
+                          TextSpan(
+                            text: 'v${info.latestVersion} available — ',
+                            style: TextStyle(color: AppColors.textTertiary),
+                          ),
+                          TextSpan(
+                            text: 'Update',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                              decorationColor: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
               const SizedBox(height: 12),
               Text(
