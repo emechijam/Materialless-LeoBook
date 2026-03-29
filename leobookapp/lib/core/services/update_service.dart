@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AppUpdateInfo {
   final bool updateAvailable;
@@ -49,8 +50,19 @@ class UpdateService extends ChangeNotifier {
 
   Timer? _timer;
 
-  /// Current app version — matches pubspec.yaml version field.
-  static const String appVersion = '9.5.1';
+  static String? _cachedAppVersion;
+
+  /// Dynamically fetches current app version from pubspec.yaml.
+  static Future<String> getAppVersion() async {
+    if (_cachedAppVersion != null) return _cachedAppVersion!;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _cachedAppVersion = info.version;
+      return _cachedAppVersion!;
+    } catch (e) {
+      throw Exception('Failed to dynamically fetch app version: $e');
+    }
+  }
 
   /// Start periodic checking (every [intervalSeconds]).
   void startPeriodicCheck({int intervalSeconds = 3}) {
@@ -70,6 +82,7 @@ class UpdateService extends ChangeNotifier {
   /// Fetch metadata.json from Supabase Storage and compare versions.
   Future<void> checkForUpdate() async {
     try {
+      final currentVersion = await getAppVersion();
       final supabase = Supabase.instance.client;
 
       final bytes = await supabase.storage
@@ -79,14 +92,14 @@ class UpdateService extends ChangeNotifier {
       final jsonStr = utf8.decode(bytes);
       final Map<String, dynamic> metadata = json.decode(jsonStr);
 
-      final latestVersion = metadata['version'] as String? ?? appVersion;
+      final latestVersion = metadata['version'] as String? ?? currentVersion;
       final downloadUrl = metadata['apk_url'] as String?;
 
-      final isNewer = _isVersionNewer(latestVersion, appVersion);
+      final isNewer = _isVersionNewer(latestVersion, currentVersion);
 
       _info = AppUpdateInfo(
         updateAvailable: isNewer,
-        currentVersion: appVersion,
+        currentVersion: currentVersion,
         latestVersion: latestVersion,
         downloadUrl: downloadUrl,
       );
