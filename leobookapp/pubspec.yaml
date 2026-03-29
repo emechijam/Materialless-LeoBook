@@ -1,7 +1,7 @@
 name: leobookapp
 description: "LeoBook: Elite Autonomous Betting Dashboard by Materialless LLC."
 publish_to: 'none'
-version: 9.5.2+4
+version: 9.5.3+5
 
 environment:
   sdk: ^3.0.0
@@ -24,13 +24,14 @@ dependencies:
   supabase_flutter: ^2.8.0
   flutter_dotenv: ^5.2.1
   provider: ^6.1.2
-  google_sign_in: 6.2.1
+  google_sign_in: ^7.2.0
   flutter_svg: ^2.0.10+1
   package_info_plus: ^8.0.0
   dio: ^5.7.0
   open_filex: ^4.5.0
   path_provider: ^2.1.5
   device_info_plus: ^12.3.0
+  country_picker: ^2.0.27
 
 dev_dependencies:
   flutter_test:

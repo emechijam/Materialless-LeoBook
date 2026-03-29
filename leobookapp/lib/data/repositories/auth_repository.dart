@@ -64,18 +64,15 @@ class AuthRepository {
       final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
       final iosClientId = dotenv.env['GOOGLE_IOS_CLIENT_ID'] ?? '';
 
-      final GoogleSignIn googleSignIn = GoogleSignIn(
+      final signIn = GoogleSignIn.instance;
+      await signIn.initialize(
         clientId: iosClientId.isEmpty ? null : iosClientId,
         serverClientId: webClientId.isEmpty ? null : webClientId,
       );
 
-      final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) {
-        throw 'Sign in aborted by user.';
-      }
+      final googleUser = await signIn.authenticate();
 
-      final googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
@@ -85,7 +82,6 @@ class AuthRepository {
       return await _supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
-        accessToken: accessToken,
       );
     } catch (e) {
       debugPrint('[AuthRepository] Google Sign-In (native) error: $e');
@@ -123,7 +119,34 @@ class AuthRepository {
 
   // ─── Phone OTP ───────────────────────────────────────────────────
 
-  /// Send OTP to phone number. Phone format: +234XXXXXXXXXX
+  /// Send OTP via WhatsApp. Phone format: +234XXXXXXXXXX
+  Future<void> sendOtp(String phone) async {
+    try {
+      await _supabase.auth.signInWithOtp(
+        phone: phone,
+        channel: OtpChannel.whatsapp,
+      );
+    } catch (e) {
+      debugPrint('[AuthRepository] Send OTP error: $e');
+      rethrow;
+    }
+  }
+
+  /// Verify OTP token for phone sign-in via SMS.
+  Future<AuthResponse> verifyOtp(String phone, String token) async {
+    try {
+      return await _supabase.auth.verifyOTP(
+        phone: phone,
+        token: token,
+        type: OtpType.sms,
+      );
+    } catch (e) {
+      debugPrint('[AuthRepository] Verify OTP error: $e');
+      rethrow;
+    }
+  }
+
+  // (Legacy) Send simple OTP to phone number
   Future<void> sendPhoneOtp(String phone) async {
     try {
       await _supabase.auth.signInWithOtp(phone: phone);
@@ -133,7 +156,7 @@ class AuthRepository {
     }
   }
 
-  /// Verify OTP token for phone sign-in.
+  // (Legacy) Verify OTP token for phone sign-in
   Future<AuthResponse> verifyPhoneOtp(String phone, String token) async {
     try {
       return await _supabase.auth.verifyOTP(
@@ -154,10 +177,7 @@ class AuthRepository {
     await _supabase.auth.signOut();
     if (!kIsWeb) {
       try {
-        final GoogleSignIn googleSignIn = GoogleSignIn();
-        if (await googleSignIn.isSignedIn()) {
-          await googleSignIn.signOut();
-        }
+        await GoogleSignIn.instance.signOut();
       } catch (_) {
         // Google sign out failure is non-critical
       }
