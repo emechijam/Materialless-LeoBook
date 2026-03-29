@@ -122,7 +122,7 @@ class AccountScreen extends StatelessWidget {
                           onTap: () => showLicensePage(
                             context: context,
                             applicationName: 'LeoBook',
-                            applicationVersion: UpdateService.appVersion,
+                            applicationVersion: context.read<UpdateService>().info.currentVersion,
                           ),
                         ),
                         _settingsTile(
@@ -435,7 +435,7 @@ class AccountScreen extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                'LeoBook v${UpdateService.appVersion}',
+                'LeoBook v${info.currentVersion.isNotEmpty ? info.currentVersion : "..."}',
                 style: GoogleFonts.lexend(
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
