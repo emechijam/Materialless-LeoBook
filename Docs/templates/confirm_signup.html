@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Your LeoBook Signup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000000;
+      color: #ffffff;
+      font-family: 'Lexend', Arial, sans-serif;
+      text-align: center;
+    }
+    .wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      margin-bottom: 50px;
+      color: #ffffff;
+    }
+    .content {
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 40px;
+      font-weight: 300;
+    }
+    .btn {
+      display: inline-block;
+      padding: 16px 40px;
+      background-color: #ffffff;
+      color: #000000;
+      text-decoration: none;
+      font-weight: 600;
+      border-radius: 50px;
+      font-size: 14px;
+      letter-spacing: 1px;
+      transition: opacity 0.3s ease;
+    }
+    .footer {
+      margin-top: 60px;
+      font-size: 12px;
+      color: #666666;
+      border-top: 1px solid #222222;
+      padding-top: 20px;
+    }
+    a {
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="logo">LOBOOK</div>
+    <div class="content">
+      <h2 style="font-weight: 400; margin-bottom: 20px;">Welcome to the Elite.</h2>
+      <p>Your LeoBook account is ready. Follow the link below to confirm your signup and access your dashboard.</p>
+    </div>
+    <a href="{{ .ConfirmationURL }}" class="btn">CONFIRM SIGNUP</a>
+    <div class="footer">
+      <p>&copy; 2026 Materialless LLC. All rights reserved.</p>
+      <p>If you did not sign up for this account, please ignore this email.</p>
+    </div>
+  </div>
+</body>
+</html>
