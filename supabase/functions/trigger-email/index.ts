@@ -45,7 +45,7 @@ serve(async (req: Request) => {
     }
 
     const { data: res, error } = await resend.emails.send({
-      from: 'LOBOOK Elite <no-reply@lobook.com>',
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: subject,
       html: html,

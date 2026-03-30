@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; padding: 0; background-color: #000000; font-family: 'Lexend', sans-serif; color: #ffffff; -webkit-font-smoothing: antialiased; }
+        .container { max-width: 500px; margin: 40px auto; padding: 60px 40px; background-color: #0b0b0b; border: 1px solid #1a1a1a; border-radius: 20px; text-align: center; }
+        h1 { font-size: 24px; font-weight: 700; letter-spacing: 2px; margin-bottom: 40px; color: #ffffff; }
+        h2 { font-size: 18px; font-weight: 600; margin-bottom: 24px; color: #ffffff; }
+        p { font-size: 14px; line-height: 1.6; color: #a0a0a0; margin-bottom: 30px; }
+        .details { margin: 20px 0; padding: 15px; background: #111111; border-radius: 10px; font-size: 13px; text-align: center; border: 1px solid #222222; }
+        .details strong { color: #ffffff; }
+        .footer { margin-top: 40px; font-size: 11px; color: #444444; letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LOBOOK</h1>
+        <h2>Phone Changed.</h2>
+        <p>Your LeoBook account phone number has been successfully updated.</p>
+        
+        <div class="details">
+            User: <strong>{{ .Email }}</strong>
+        </div>
+
+        <p>If you did not make this change, please contact support or reset your password immediately via the link below.</p>
+        
+        <a href="{{ .SiteURL }}/auth/reset" style="color: #ffffff; font-size: 12px; font-weight: 700; text-decoration: underline;">Security Dashboard</a>
+        
+        <div class="footer">ELITE AUTONOMOUS ACCESS — LEBOOK v9.5.5</div>
+    </div>
+</body>
+</html>
