@@ -41,3 +41,17 @@ class UserError extends UserState {
 class UserProfileIncomplete extends UserState {
   const UserProfileIncomplete({required super.user});
 }
+
+/// User is authenticated but hasn't verified their phone number yet.
+class UserNeedsVerification extends UserState {
+  final String phone;
+  const UserNeedsVerification({required super.user, required this.phone});
+
+  @override
+  List<Object?> get props => [user, phone];
+}
+
+/// App started and biometrics are available for an existing session.
+class UserBiometricPrompt extends UserState {
+  const UserBiometricPrompt({required super.user});
+}

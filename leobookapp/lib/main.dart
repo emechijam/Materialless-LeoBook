@@ -20,6 +20,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:leobookapp/core/config/supabase_config.dart';
 
+import 'package:leobookapp/core/services/secure_storage.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -29,6 +31,9 @@ Future<void> main() async {
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
+    authOptions: FlutterAuthClientOptions(
+      localStorage: SecureSupabaseStorage(),
+    ),
   );
 
   runApp(const LeoBookApp());

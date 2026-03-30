@@ -282,6 +282,34 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
             ],
           ),
         ),
+        // Forgot Password?
+        if (!_isSignUp)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                final email = _emailController.text.trim();
+                if (email.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Enter your email first.')),
+                  );
+                  return;
+                }
+                context.read<UserCubit>().sendPasswordReset(email);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reset link sent to your email.')),
+                );
+              },
+              child: Text(
+                'Forgot Password?',
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ),
+          ),
+
         const SizedBox(height: 24),
 
         // Submit button
@@ -320,6 +348,36 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
             );
           },
         ),
+
+        const SizedBox(height: 16),
+
+        // Magic Link option
+        if (!_isSignUp)
+          Center(
+            child: TextButton(
+              onPressed: () {
+                final email = _emailController.text.trim();
+                if (email.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Enter your email first.')),
+                  );
+                  return;
+                }
+                context.read<UserCubit>().sendMagicLink(email);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Magic link sent to your email.')),
+                );
+              },
+              child: Text(
+                'Sign in with Magic Link',
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  color: AppColors.primary.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
 
         const SizedBox(height: 20),
 

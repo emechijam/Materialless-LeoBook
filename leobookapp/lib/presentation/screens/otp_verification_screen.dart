@@ -22,8 +22,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   bool _isLoading = false;
   
   Timer? _resendTimer;
-  int _countdown = 60;
+  int _countdown = 30; // 30s fallback rule
   bool _canResend = false;
+  bool _isSmsFallback = false;
 
   @override
   void initState() {
@@ -40,7 +41,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   void _startResendTimer() {
     setState(() {
-      _countdown = 60;
+      _countdown = 30;
       _canResend = false;
     });
 
@@ -53,7 +54,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (_countdown > 0) {
         setState(() => _countdown--);
       } else {
-        setState(() => _canResend = true);
+        setState(() {
+          _canResend = true;
+          _isSmsFallback = true;
+        });
         timer.cancel();
       }
     });
@@ -64,10 +68,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     
     setState(() => _isLoading = true);
     try {
-      await _authRepo.sendOtp(widget.phone);
+      // Logic: WhatsApp first, then SMS fallback after 30s
+      final channel = _isSmsFallback ? OtpChannel.sms : OtpChannel.whatsapp;
+      await _authRepo.sendOtp(widget.phone, channel: channel);
+      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP resent via WhatsApp.')),
+        SnackBar(content: Text('OTP resent via ${channel == OtpChannel.sms ? 'SMS' : 'WhatsApp'}.')),
       );
       _startResendTimer(); // Restart the timer
     } catch (e) {
@@ -84,7 +91,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     final token = _otpController.text.trim();
     if (token.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the fully 6-digit OTP.')),
+        const SnackBar(content: Text('Please enter the full 6-digit OTP.')),
       );
       return;
     }
@@ -106,7 +113,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             
         // Optionally update the phone number attribute securely via updateUser metadata as well if needed.
         await supabase.auth.updateUser(
-          UserAttributes(phone: widget.phone),
+          UserAttributes(phone: widget.phone, data: {'phone_verified': true}),
         );
       }
 
@@ -154,7 +161,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.forum_outlined, size: 64, color: Color(0xFF25D366)),
+                   Icon(
+                    _isSmsFallback ? Icons.sms_outlined : Icons.forum_outlined, 
+                    size: 64, 
+                    color: _isSmsFallback ? AppColors.primary : const Color(0xFF25D366)
+                  ),
                   const SizedBox(height: 24),
                   Text(
                     'Enter verification code',
@@ -167,7 +178,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'We sent a 6-digit code via WhatsApp to\n${widget.phone}',
+                    'We sent a 6-digit code to\n${widget.phone}',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.lexend(
                       fontSize: 14,
@@ -182,7 +193,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.neutral800,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withAlpha(20)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                     ),
                     child: TextField(
                       controller: _otpController,
@@ -229,7 +240,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      disabledBackgroundColor: AppColors.primary.withAlpha(50),
+                      disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.3),
                     ),
                     onPressed: _isLoading ? null : _verifyOtp,
                     child: _isLoading 
@@ -255,9 +266,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       GestureDetector(
                         onTap: _canResend ? _handleResend : null,
                         child: Text(
-                          _canResend ? 'Resend via WhatsApp' : 'Resend in ${_countdown}s',
+                          _canResend 
+                            ? (_isSmsFallback ? 'Send via SMS' : 'Resend via WhatsApp') 
+                            : 'Resend in ${_countdown}s',
                           style: GoogleFonts.lexend(
-                            color: _canResend ? const Color(0xFF25D366) : AppColors.textDisabled,
+                            color: _canResend ? AppColors.primary : AppColors.textDisabled,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),

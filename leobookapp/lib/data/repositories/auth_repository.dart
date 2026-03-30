@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/twilio_service.dart';
 
 class AuthRepository {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -107,24 +108,65 @@ class AuthRepository {
   /// Sign in with existing email + password.
   Future<AuthResponse> signInWithEmail(String email, String password) async {
     try {
-      return await _supabase.auth.signInWithPassword(
+      final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
+      // Log session info in background
+      if (response.user != null) {
+        logUserSession(response.user!);
+      }
+      return response;
     } catch (e) {
       debugPrint('[AuthRepository] Email sign-in error: $e');
       rethrow;
     }
   }
 
+  /// Sign in with identifier (email or phone) and password.
+  Future<AuthResponse> signInWithPassword(String identifier, String password) async {
+    try {
+      final response = await _supabase.auth.signInWithPassword(
+        email: identifier.contains('@') ? identifier : null,
+        phone: identifier.contains('@') ? null : identifier,
+        password: password,
+      );
+      if (response.user != null) {
+        logUserSession(response.user!);
+      }
+      return response;
+    } catch (e) {
+      debugPrint('[AuthRepository] Password sign-in error: $e');
+      rethrow;
+    }
+  }
+
+  /// Check if a user exists by searching the profiles table.
+  /// Returns the user's data if found, otherwise null.
+  Future<Map<String, dynamic>?> checkUserExistence(String identifier) async {
+    try {
+      final query = _supabase.from('profiles').select();
+      if (identifier.contains('@')) {
+        query.eq('email', identifier);
+      } else {
+        query.eq('phone', identifier);
+      }
+      final data = await query.maybeSingle();
+      return data;
+    } catch (e) {
+      debugPrint('[AuthRepository] Check existence error: $e');
+      return null;
+    }
+  }
+
   // ─── Phone OTP ───────────────────────────────────────────────────
 
-  /// Send OTP via WhatsApp. Phone format: +234XXXXXXXXXX
-  Future<void> sendOtp(String phone) async {
+  /// Send OTP via WhatsApp or SMS.
+  Future<void> sendOtp(String phone, {OtpChannel channel = OtpChannel.whatsapp}) async {
     try {
       await _supabase.auth.signInWithOtp(
         phone: phone,
-        channel: OtpChannel.whatsapp,
+        channel: channel,
       );
     } catch (e) {
       debugPrint('[AuthRepository] Send OTP error: $e');
@@ -132,7 +174,7 @@ class AuthRepository {
     }
   }
 
-  /// Verify OTP token for phone sign-in via SMS.
+  /// Verify OTP token for phone sign-in.
   Future<AuthResponse> verifyOtp(String phone, String token) async {
     try {
       return await _supabase.auth.verifyOTP(
@@ -146,29 +188,78 @@ class AuthRepository {
     }
   }
 
-  // (Legacy) Send simple OTP to phone number
-  Future<void> sendPhoneOtp(String phone) async {
+  // ─── Email Actions (Triggers Designing Templates) ────────────────
+
+  /// Send Magic Link (One-Click Log In)
+  Future<void> sendMagicLink(String email) async {
     try {
-      await _supabase.auth.signInWithOtp(phone: phone);
+      await _supabase.auth.signInWithOtp(
+        email: email,
+        emailRedirectTo: kIsWeb ? Uri.base.origin : null,
+      );
     } catch (e) {
-      debugPrint('[AuthRepository] Send OTP error: $e');
+      debugPrint('[AuthRepository] Send Magic Link error: $e');
       rethrow;
     }
   }
 
-  // (Legacy) Verify OTP token for phone sign-in
-  Future<AuthResponse> verifyPhoneOtp(String phone, String token) async {
+  /// Send Password Reset Link
+  Future<void> sendPasswordReset(String email) async {
     try {
-      return await _supabase.auth.verifyOTP(
-        phone: phone,
-        token: token,
-        type: OtpType.sms,
+      await _supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: kIsWeb ? Uri.base.origin : null,
       );
     } catch (e) {
-      debugPrint('[AuthRepository] Verify OTP error: $e');
+      debugPrint('[AuthRepository] Password Reset error: $e');
       rethrow;
     }
   }
+
+  /// Reauthenticate user for sensitive actions
+  Future<void> reauthenticate() async {
+    try {
+      await _supabase.auth.reauthenticate();
+    } catch (e) {
+      debugPrint('[AuthRepository] Reauth error: $e');
+      rethrow;
+    }
+  }
+
+  /// Trigger custom Supabase Edge Function for premium emails
+  Future<void> triggerEmailEdgeFunction(String template, Map<String, dynamic> data) async {
+    try {
+      await _supabase.functions.invoke(
+        'trigger-email',
+        body: {
+          'template': template,
+          'email': currentUser?.email,
+          'data': data,
+        },
+      );
+    } catch (e) {
+      debugPrint('[AuthRepository] Edge Function trigger error: $e');
+      // Non-critical, do not rethrow but log it
+    }
+  }
+
+  /// Log session info and send security alert.
+  Future<void> logUserSession(User user) async {
+    try {
+      final phone = user.phone ?? user.userMetadata?['phone'] as String?;
+      if (phone != null) {
+        TwilioService.sendDeviceLoginNotification(phone);
+      }
+    } catch (e) {
+      debugPrint('[AuthRepository] Log session error: $e');
+    }
+  }
+
+  // ─── Legacy (Aliases for UserCubit) ─────────────────────────────
+
+  Future<void> sendPhoneOtp(String phone) async => sendOtp(phone);
+  Future<AuthResponse> verifyPhoneOtp(String phone, String token) async =>
+      verifyOtp(phone, token);
 
   // ─── Sign Out ────────────────────────────────────────────────────
 

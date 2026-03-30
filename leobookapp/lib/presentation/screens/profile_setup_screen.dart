@@ -34,6 +34,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _acceptedTerms = false;
+  bool _biometricsEnabled = false; // New field
 
   String _selectedCountryCode = '+234';
   String _selectedCountryFlag = '🇳🇬';
@@ -53,6 +54,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
     
     _usernameController.text = user.displayName ?? '';
+    _biometricsEnabled = user.isBiometricsEnabled;
   }
 
   @override
@@ -131,21 +133,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final userCubit = context.read<UserCubit>();
       final supabase = Supabase.instance.client;
+      final password = _passwordController.text.trim();
 
-      // 1. We no longer verify OTP here as it's done in OtpVerificationScreen
-      // but just in case, we proceed to save the rest of the profile.
-
-      // 2. Update metadata and password
+      // 1. Update metadata and password
       await supabase.auth.updateUser(
         UserAttributes(
-          password: _passwordController.text.trim(),
+          password: password,
           data: {
             'username': _usernameController.text.trim(),
             'profile_completed': true,
+            'biometrics_enabled': _biometricsEnabled,
+            'phone_verified': true,
           },
         ),
       );
+
+      // 2. Enable biometrics in Cubit if toggled
+      if (_biometricsEnabled) {
+        await userCubit.enableBiometrics(true, password: password);
+      }
 
       // Refresh session state in Cubit
       await supabase.auth.refreshSession();
@@ -344,6 +352,40 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               return null;
             },
           ),
+          const SizedBox(height: 16),
+
+          // Biometrics Toggle
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.neutral800,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+            child: SwitchListTile(
+              title: Text(
+                'Enable Biometric Login',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+              subtitle: Text(
+                'Sign in faster using your fingerprint or face.',
+                style: GoogleFonts.lexend(
+                  fontSize: 12,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+              value: _biometricsEnabled,
+              activeColor: AppColors.primary,
+              secondary: const Icon(Icons.fingerprint_rounded, color: AppColors.primary),
+              onChanged: (v) => setState(() => _biometricsEnabled = v),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+
           const SizedBox(height: 24),
 
           // WhatsApp OTP Send Button

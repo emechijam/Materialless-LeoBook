@@ -10,9 +10,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:leobookapp/core/constants/app_colors.dart';
 import 'package:leobookapp/logic/cubit/user_cubit.dart';
 import 'package:leobookapp/presentation/screens/main_screen.dart';
-import 'package:leobookapp/presentation/screens/phone_otp_screen.dart';
 import 'package:leobookapp/presentation/screens/email_auth_screen.dart';
 import 'package:leobookapp/presentation/screens/profile_setup_screen.dart';
+import 'package:leobookapp/presentation/screens/otp_verification_screen.dart';
+import 'package:leobookapp/presentation/screens/password_entry_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -28,6 +29,176 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
+  void _showBiometricPrompt(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.neutral800,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.fingerprint_rounded, size: 64, color: AppColors.primary),
+            const SizedBox(height: 24),
+            Text(
+              'Biometric Login',
+              style: GoogleFonts.lexend(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Sign in quickly using your device credentials.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.lexend(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 32),
+            _AuthButton(
+              label: 'Sign in with Biometrics',
+              icon: Icons.face_rounded,
+              isLoading: false,
+              onTap: () {
+                Navigator.pop(context);
+                context.read<UserCubit>().biometricSignIn();
+              },
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.lexend(color: AppColors.textTertiary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleIdentifierCheck(BuildContext context, String title) async {
+    final controller = TextEditingController();
+    final isPhone = title.toLowerCase().contains('phone');
+
+    return showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.neutral800,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          top: 32,
+          left: 24,
+          right: 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.lexend(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isPhone 
+                ? 'Enter your phone number to continue.' 
+                : 'Enter your email to continue.',
+              style: GoogleFonts.lexend(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.neutral700.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: isPhone ? TextInputType.phone : TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  hintText: isPhone ? 'e.g. 8012345678' : 'e.g. user@example.com',
+                  hintStyle: TextStyle(color: AppColors.textDisabled, fontSize: 14),
+                  border: InputBorder.none,
+                  prefixIcon: Icon(isPhone ? Icons.phone_outlined : Icons.email_outlined, color: AppColors.textTertiary, size: 20),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              ),
+              onPressed: () async {
+                final id = controller.text.trim();
+                if (id.isEmpty) return;
+                
+                final formattedId = isPhone 
+                    ? (id.startsWith('+') ? id : '+234$id') 
+                    : id;
+
+                Navigator.pop(context);
+                final exists = await context.read<UserCubit>().checkUserStatus(formattedId);
+                
+                if (!context.mounted) return;
+
+                if (exists) {
+                  // Existing user -> Password Screen
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PasswordEntryScreen(identifier: formattedId),
+                    ),
+                  );
+                } else {
+                  // New user -> OTP / Signup flow
+                  if (isPhone) {
+                    context.read<UserCubit>().sendPhoneOtp(formattedId);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => OtpVerificationScreen(phone: formattedId),
+                      ),
+                    );
+                  } else {
+                    // For Email, send them to the regular Email Screen but prefilled
+                    // or just start the signup directly if we want velocity
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const EmailAuthScreen(),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Text('Continue', style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<UserCubit, UserState>(
@@ -38,6 +209,14 @@ class LoginScreen extends StatelessWidget {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
           );
+        } else if (state is UserNeedsVerification) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => OtpVerificationScreen(phone: state.phone),
+            ),
+          );
+        } else if (state is UserBiometricPrompt) {
+          _showBiometricPrompt(context);
         } else if (state is UserError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -167,26 +346,14 @@ class LoginScreen extends StatelessWidget {
                     label: 'Continue with Phone',
                     icon: Icons.phone_outlined,
                     isLoading: false,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PhoneOtpScreen(),
-                        ),
-                      );
-                    },
+                    onTap: () => _handleIdentifierCheck(context, 'Continue with Phone'),
                   ),
                   const SizedBox(height: 12),
                   _AuthButton(
                     label: 'Continue with Email',
                     icon: Icons.email_outlined,
                     isLoading: false,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const EmailAuthScreen(),
-                        ),
-                      );
-                    },
+                    onTap: () => _handleIdentifierCheck(context, 'Continue with Email'),
                   ),
                 ],
               );
@@ -324,26 +491,14 @@ class LoginScreen extends StatelessWidget {
                   label: 'Continue with Phone',
                   icon: Icons.phone_outlined,
                   isLoading: false,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const PhoneOtpScreen(),
-                      ),
-                    );
-                  },
+                  onTap: () => _handleIdentifierCheck(context, 'Continue with Phone'),
                 ),
                 const SizedBox(height: 12),
                 _AuthButton(
                   label: 'Continue with Email',
                   icon: Icons.email_outlined,
                   isLoading: false,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const EmailAuthScreen(),
-                      ),
-                    );
-                  },
+                  onTap: () => _handleIdentifierCheck(context, 'Continue with Email'),
                 ),
               ],
             );

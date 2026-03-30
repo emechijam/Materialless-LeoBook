@@ -14,6 +14,8 @@ class UserModel {
   final String? displayName;
   final UserTier tier;
   final bool isEmailVerified;
+  final bool isPhoneVerified;
+  final bool isBiometricsEnabled;
   final bool isSuperLeoBook; // UI-level subscription flag
   final bool isProfileComplete;
 
@@ -24,6 +26,8 @@ class UserModel {
     this.displayName,
     this.tier = UserTier.unregistered,
     this.isEmailVerified = false,
+    this.isPhoneVerified = false,
+    this.isBiometricsEnabled = false,
     this.isSuperLeoBook = false,
     this.isProfileComplete = false,
   });
@@ -87,6 +91,8 @@ class UserModel {
     }
 
     final isProfileComplete = meta['profile_completed'] == true;
+    final isPhoneVerified = meta['phone_verified'] == true || user.phone != null;
+    final isBiometricsEnabled = meta['biometrics_enabled'] == true;
 
     return UserModel(
       id: user.id,
@@ -98,6 +104,8 @@ class UserModel {
           user.email?.split('@').first,
       tier: currentTier,
       isEmailVerified: user.emailConfirmedAt != null,
+      isPhoneVerified: isPhoneVerified,
+      isBiometricsEnabled: isBiometricsEnabled,
       isSuperLeoBook: isSuperLeoBook,
       isProfileComplete: isProfileComplete,
     );
@@ -108,6 +116,8 @@ class UserModel {
     bool? isSuperLeoBook, 
     UserTier? tier,
     bool? isProfileComplete,
+    bool? isPhoneVerified,
+    bool? isBiometricsEnabled,
   }) {
     return UserModel(
       id: id,
@@ -116,6 +126,8 @@ class UserModel {
       displayName: displayName,
       tier: tier ?? this.tier,
       isEmailVerified: isEmailVerified,
+      isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
+      isBiometricsEnabled: isBiometricsEnabled ?? this.isBiometricsEnabled,
       isSuperLeoBook: isSuperLeoBook ?? this.isSuperLeoBook,
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
     );
