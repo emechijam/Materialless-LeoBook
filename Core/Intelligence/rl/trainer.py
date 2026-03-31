@@ -155,10 +155,12 @@ def _build_fixture_context(
         goals = []
         for r in form_rows:
             try:
-                if r["home_team_id"] == team_id:
-                    goals.append(_safe_int(r["home_score"]))
+                # schedules row index map (from SELECT above): 
+                # 0:fixture_id, 1:home_tid, 2:away_tid, 3:h_score, 4:a_score
+                if r[1] == team_id:
+                    goals.append(_safe_int(r[3]))
                 else:
-                    goals.append(_safe_int(r["away_score"]))
+                    goals.append(_safe_int(r[4]))
             except Exception:
                 pass
         return round(sum(goals) / len(goals), 2) if goals else 0.0
@@ -172,13 +174,19 @@ def _build_fixture_context(
     h2h_n = len(h2h)
     st_n = len(standings)
 
+    # --- ALL-OR-NOTHING CONTRACT ENFORCEMENT ---
+    # Strict requirement: Minimum 5 matches of form for BOTH teams + Standings
+    # If missing, it's not a "Perfect" fixture.
+    is_complete = (hfn >= 5 and afn >= 5 and st_n > 0)
+
     return {
+        "is_complete":       is_complete,
         "home_form_n":       hfn,
         "away_form_n":       afn,
         "h2h_count":         h2h_n,
-        "h2h_fixture_ids":   _json.dumps([r["fixture_id"] for r in h2h]),
+        "h2h_fixture_ids":   _json.dumps([r[0] for r in h2h]),
         "form_fixture_ids":  _json.dumps(
-            [r["fixture_id"] for r in home_form] + [r["fixture_id"] for r in away_form]
+            [r[0] for r in home_form] + [r[0] for r in away_form]
         ),
         "standings_snapshot": _json.dumps(standings),
         "xg_home":           xg_home,
@@ -821,6 +829,11 @@ class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
                     vision_data = self._build_training_vision_data(
                         t_conn, match_date, league_id, home_tid, h_name, away_tid, a_name, season=season
                     )
+                    
+                    # --- ALL-OR-NOTHING CONTRACT ENFORCEMENT ---
+                    if not vision_data.get("is_complete", False):
+                        return None  # Skip incomplete fixtures ("Perfect or Gone")
+
                     features = FeatureEncoder.encode(vision_data)
                     expert_probs = self._get_rule_engine_probs(vision_data)
                     xg_fair_odds = self._get_xg_fair_odds(vision_data) if active_phase >= 2 else None
@@ -837,7 +850,7 @@ class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
                     t_conn.close()
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                prepped_data = list(executor.map(_prepare_fixture, fixtures))
+                prepped_data = [d for d in executor.map(_prepare_fixture, fixtures) if d is not None]
 
             for data in prepped_data:
                 fix = data["fix"]

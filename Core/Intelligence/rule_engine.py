@@ -46,6 +46,17 @@ class RuleEngine:
         away_form = [m for m in h2h_data.get("away_last_10_matches", []) if m][:10]
         h2h_raw = h2h_data.get("head_to_head", [])
 
+        # --- ALL-OR-NOTHING CONTRACT ENFORCEMENT ---
+        hfn = len(home_form)
+        afn = len(away_form)
+        st_n = len(standings)
+        if hfn < 5 or afn < 5 or st_n == 0:
+            return {
+                "type": "SKIP", 
+                "confidence": "Low", 
+                "reason": f"Contract violation: Incomplete analytical context (Home:{hfn}, Away:{afn}, St:{st_n})"
+            }
+
         # Filter H2H based on config
         cutoff = datetime.now() - timedelta(days=config.h2h_lookback_days)
         h2h = []

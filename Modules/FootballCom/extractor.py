@@ -310,17 +310,14 @@ async def _extract_matches_from_container(container, match_card_sel, home_team_s
                         const monStr = String(mon).padStart(2, '0');
                         const now = new Date();
                         let year = now.getFullYear();
-                        // If month is in the past relative to now, it's likely next year
-                        if (mon < now.getMonth() + 1 || (mon === now.getMonth() + 1 && parseInt(m[1]) < now.getDate())) {
-                            // Could be this year (past match) or next year — keep this year
-                        }
                         return { date: `${year}-${monStr}-${day}`, time: m[3] };
                     }
                 }
                 // Fallback: just a time like "20:00"
-                const t = raw.match(/(\d{2}:\d{2})/);
-                return { date: null, time: t ? t[1] : raw };
+                const t = raw.match(/(\d{1,2}:\d{2})/);
+                return { date: null, time: t ? t[1].padStart(5, '0') : raw };
             }
+
             const results = [];
             const cards = document.querySelectorAll(selectors.match_card_sel);
             cards.forEach(card => {
@@ -331,8 +328,11 @@ async def _extract_matches_from_container(container, match_card_sel, home_team_s
                     || card.querySelector('.ko-time')
                     || card.querySelector('.fixture-time')
                     || card.querySelector('.start-time')
+                    || card.querySelector('.time')
+                    || card.querySelector('.match-card-header-info-time')
                     || card.querySelector('[class*="time"]:not([class*="team"]):not([class*="overtime"])')
                     || card.querySelector('[data-time]');
+
                 const linkEl = card.querySelector(selectors.match_url_sel) || card.closest('a');
                 if (homeEl && awayEl) {
                     const rawTime = timeEl ? timeEl.innerText.trim() : null;
@@ -392,9 +392,10 @@ async def _extract_matches_from_container(container, match_card_sel, home_team_s
                         return { date: `${year}-${monStr}-${day}`, time: m[3] };
                     }
                 }
-                const t = raw.match(/(\d{2}:\d{2})/);
-                return { date: null, time: t ? t[1] : raw };
+                const t = raw.match(/(\d{1,2}:\d{2})/);
+                return { date: null, time: t ? t[1].padStart(5, '0') : raw };
             }
+
             const results = [];
             const cards = element.querySelectorAll(selectors.match_card_sel);
             cards.forEach(card => {
@@ -405,8 +406,11 @@ async def _extract_matches_from_container(container, match_card_sel, home_team_s
                     || card.querySelector('.ko-time')
                     || card.querySelector('.fixture-time')
                     || card.querySelector('.start-time')
+                    || card.querySelector('.time')
+                    || card.querySelector('.match-card-header-info-time')
                     || card.querySelector('[class*="time"]:not([class*="team"]):not([class*="overtime"])')
                     || card.querySelector('[data-time]');
+
                 const linkEl = card.querySelector(selectors.match_url_sel) || card.closest('a');
                 if (homeEl && awayEl) {
                     const rawTime = timeEl ? timeEl.innerText.trim() : null;

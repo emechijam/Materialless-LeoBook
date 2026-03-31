@@ -19,7 +19,7 @@ from Data.Access.league_db import (
     get_all_leagues, get_active_leagues,
 )
 from Data.Access.gap_scanner import GapScanner
-from Scripts.db_purge import run_purge
+from Scripts.db_purge import run_purge, purge_by_contract
 
 from Modules.Flashscore.fs_league_images import executor
 from Modules.Flashscore.fs_league_extractor import (
@@ -54,6 +54,7 @@ async def main(
     min_severity: str = "important",
     drain_queue: bool = False,
     purge: bool = False,
+    enforce_contract: bool = False,
 ) -> None:
     print("\n" + "=" * 60)
     print("  FLASHSCORE LEAGUE ENRICHMENT -> SQLite")
@@ -102,6 +103,18 @@ async def main(
         print(f"\n  [GapScan] Scanning leagues, teams, schedules for missing data...")
         report = GapScanner(conn).scan()
         report.print_report()
+
+        if enforce_contract:
+            violators = report.get_contract_violators()
+            if violators:
+                print(f"\n  [Contract] Identified {len(violators)} violator(s) below 'Perfect' status.")
+                purge_by_contract(violators, dry_run=False)
+                # Re-scan after purge so enrichment list is clean
+                print("  [Contract] Re-scanning after purge...")
+                report = GapScanner(conn).scan()
+                report.print_report()
+            else:
+                print("\n  [Contract] All leagues currently meet the data contract.")
 
         if scan_only:
             print("  [scan-only] Exiting without enrichment.")
@@ -384,6 +397,8 @@ if __name__ == "__main__":
     parser.add_argument("--drain-queue",  action="store_true")
     parser.add_argument("--purge",        action="store_true",
                         help="Purge orphan leagues before starting enrichment")
+    parser.add_argument("--enforce-contract", action="store_true",
+                        help="Automatically purge leagues that violate the Strict Data Contract (Perfect or Gone)")
     args = parser.parse_args()
 
     limit_count = None
@@ -403,4 +418,5 @@ if __name__ == "__main__":
         target_season=args.season, refresh=args.refresh,
         scan_only=args.scan_only, min_severity=args.min_severity,
         drain_queue=args.drain_queue, purge=args.purge,
+        enforce_contract=args.enforce_contract,
     ))

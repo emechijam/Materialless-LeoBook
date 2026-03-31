@@ -637,7 +637,7 @@ def get_team_id(conn: sqlite3.Connection, name: str, country_code: str = None) -
 # Fixture operations
 # ---------------------------------------------------------------------------
 
-def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any]) -> int:
+def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True) -> int:
     """Insert or update a fixture. Returns the row id."""
     now = now_ng().isoformat()
     extra_json = json.dumps(data.get("extra")) if data.get("extra") else None
@@ -707,8 +707,10 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any]) -> int:
             "last_updated": now,
         },
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return cur.lastrowid
+
 
 
 def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]], commit: bool = True):
@@ -774,7 +776,7 @@ def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]
 # Prediction operations
 # ---------------------------------------------------------------------------
 
-def upsert_prediction(conn: sqlite3.Connection, data: Dict[str, Any]):
+def upsert_prediction(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
     """Insert or update a prediction row."""
     now = now_ng().isoformat()
     # Normalize over_2.5 â†’ over_2_5
@@ -805,7 +807,7 @@ def upsert_prediction(conn: sqlite3.Connection, data: Dict[str, Any]):
     json_fields = (
         "h2h_fixture_ids", "form_fixture_ids", "standings_snapshot",
         "form_home", "form_away", "h2h_summary", "standings_home", "standings_away",
-        "ensemble_weights", "rec_qualifications"
+        "ensemble_weights", "rec_qualifications", "rl_decision"
     )
     for jf in json_fields:
         if jf in values and values[jf] is not None and not isinstance(values[jf], str):
@@ -821,7 +823,9 @@ def upsert_prediction(conn: sqlite3.Connection, data: Dict[str, Any]):
         f"ON CONFLICT(fixture_id) DO UPDATE SET {updates}",
         present,
     )
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 def get_predictions(conn: sqlite3.Connection, status: str = None) -> List[Dict[str, Any]]:
@@ -833,21 +837,23 @@ def get_predictions(conn: sqlite3.Connection, status: str = None) -> List[Dict[s
     return [dict(r) for r in rows]
 
 
-def update_prediction(conn: sqlite3.Connection, fixture_id: str, updates: Dict[str, Any]):
+def update_prediction(conn: sqlite3.Connection, fixture_id: str, updates: Dict[str, Any], commit: bool = True):
     """Update specific fields on a prediction."""
     now = now_ng().isoformat()
     updates["last_updated"] = now
     set_clause = ", ".join([f"{k} = :{k}" for k in updates.keys()])
     updates["fixture_id"] = fixture_id
     conn.execute(f"UPDATE predictions SET {set_clause} WHERE fixture_id = :fixture_id", updates)
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 # ---------------------------------------------------------------------------
 # Standings operations
 # ---------------------------------------------------------------------------
 
-def upsert_standing(conn: sqlite3.Connection, data: Dict[str, Any]):
+def upsert_standing(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
     """Insert or update a standings row."""
     now = now_ng().isoformat()
     conn.execute(
@@ -889,7 +895,9 @@ def upsert_standing(conn: sqlite3.Connection, data: Dict[str, Any]):
             "last_updated": now,
         },
     )
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 def get_standings(conn: sqlite3.Connection, country_league: str = None) -> List[Dict[str, Any]]:
@@ -908,7 +916,7 @@ def get_standings(conn: sqlite3.Connection, country_league: str = None) -> List[
 # Audit log
 # ---------------------------------------------------------------------------
 
-def log_audit_event(conn: sqlite3.Connection, data: Dict[str, Any]):
+def log_audit_event(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
     """Insert an audit log entry."""
     now = now_ng().isoformat()
     conn.execute(
@@ -929,14 +937,16 @@ def log_audit_event(conn: sqlite3.Connection, data: Dict[str, Any]):
             "last_updated": now,
         },
     )
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 # ---------------------------------------------------------------------------
 # Live scores
 # ---------------------------------------------------------------------------
 
-def upsert_live_score(conn: sqlite3.Connection, data: Dict[str, Any]):
+def upsert_live_score(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
     """Insert or update a live score entry."""
     now = now_ng().isoformat()
     conn.execute(
@@ -974,14 +984,16 @@ def upsert_live_score(conn: sqlite3.Connection, data: Dict[str, Any]):
             "last_updated": now,
         },
     )
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 # ---------------------------------------------------------------------------
 # FB Matches
 # ---------------------------------------------------------------------------
 
-def upsert_fb_match(conn: sqlite3.Connection, data: Dict[str, Any]):
+def upsert_fb_match(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
     """Insert or update an fb_matches entry.
 
     Writes only the columns present in both the local SQLite schema AND the
@@ -1015,14 +1027,16 @@ def upsert_fb_match(conn: sqlite3.Connection, data: Dict[str, Any]):
             "matched": data.get("matched"),
         },
     )
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 # ---------------------------------------------------------------------------
 # Countries
 # ---------------------------------------------------------------------------
 
-def upsert_country(conn: sqlite3.Connection, data: Dict[str, Any]):
+def upsert_country(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
     """Insert or update a country entry."""
     now = now_ng().isoformat()
     conn.execute(
@@ -1046,14 +1060,16 @@ def upsert_country(conn: sqlite3.Connection, data: Dict[str, Any]):
             "last_updated": now,
         },
     )
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 # ---------------------------------------------------------------------------
 # Accuracy reports
 # ---------------------------------------------------------------------------
 
-def upsert_accuracy_report(conn: sqlite3.Connection, data: Dict[str, Any]):
+def upsert_accuracy_report(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
     """Insert or update an accuracy report."""
     now = now_ng().isoformat()
     conn.execute(
@@ -1077,7 +1093,9 @@ def upsert_accuracy_report(conn: sqlite3.Connection, data: Dict[str, Any]):
             "last_updated": now,
         },
     )
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 # ---------------------------------------------------------------------------
@@ -1102,6 +1120,7 @@ def count_rows(conn: sqlite3.Connection, table: str) -> int:
 def upsert_match_odds_batch(
     conn: sqlite3.Connection,
     odds_list: List[Dict[str, Any]],
+    commit: bool = True,
 ) -> int:
     """Bulk upsert match odds. Returns rows written."""
     if not odds_list:
@@ -1139,5 +1158,7 @@ def upsert_match_odds_batch(
             for o in odds_list
         ],
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return len(odds_list)
+

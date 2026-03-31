@@ -173,65 +173,87 @@ async def run_chapter_1_p2(p=None, scheduler: TaskScheduler = None,
                            refresh: bool = False, target_dates: Optional[list] = None):
     """Chapter 1 Page 2: Predictions (Rule Engine + RL Ensemble)."""
     log_state(chapter="Ch1 P2", action="Predictions")
+    conn = init_db()
     try:
         print("\n" + "=" * 60)
         print("  CHAPTER 1 PAGE 2: Predictions (Pure DB Computation)")
         print("=" * 60)
+        
+        # --- START TRANSACTION: All-or-Nothing for Page 2 ---
+        conn.execute("BEGIN")
+        
         predictions = await run_predictions(scheduler=scheduler)
         count = len(predictions) if predictions else 0
+        
+        # --- COMMIT TRANSACTION ---
+        conn.execute("COMMIT")
+        print(f"    ✓ [Ch1 P2] Atomic commit successful: {count} predictions generated.")
         log_audit_event("CH1_P2", f"Predictions completed: {count} generated.", status="success")
     except Exception as e:
-        print(f"  [Error] Chapter 1 Page 2 failed: {e}")
+        # --- ROLLBACK TRANSACTION ---
+        conn.execute("ROLLBACK")
+        print(f"    ⚠ [Ch1 P2] PAGE FAILED -> ROLLED BACK. Error: {e}")
         log_audit_event("CH1_P2", f"Failed: {e}", status="failed")
+
 
 
 @AIGOSuite.aigo_retry(max_retries=2, delay=2.0)
 async def run_chapter_1_p3(p=None):
     """Chapter 1 Page 3: Recommendations, Booking Code Harvest & Final Sync."""
     log_state(chapter="Ch1 P3", action="Recommendations, Booking Harvest & Final Sync")
+    conn = init_db()
     try:
         print("\n" + "=" * 60)
         print("  CHAPTER 1 PAGE 3: Recommendations & Booking Code Harvest")
         print("=" * 60)
 
-        # 1. Generate recommendations — sorted by score DESC per date
-        result = await get_recommendations(save_to_file=True)
-        recommendations = result.get("recommendations", []) if result else []
+        # --- START TRANSACTION: All-or-Nothing for Page 3 ---
+        conn.execute("BEGIN")
+        
+        try:
+            # 1. Generate recommendations — sorted by score DESC per date
+            result = await get_recommendations(save_to_file=True)
+            recommendations = result.get("recommendations", []) if result else []
 
-        # 2. Booking code harvest — top 20% per date, no-login session
-        if recommendations and p is not None:
-            from Modules.FootballCom.booker.booking_harvester import (
-                harvest_booking_codes_for_recommendations,
-            )
-            from Data.Access.league_db import init_db
+            # 2. Booking code harvest — top 20% per date, no-login session
+            if recommendations and p is not None:
+                from Modules.FootballCom.booker.booking_harvester import (
+                    harvest_booking_codes_for_recommendations,
+                )
+                codes_harvested = await harvest_booking_codes_for_recommendations(
+                    page=p,
+                    recommendations=recommendations,
+                    conn=conn,
+                )
+                print(f"    [Ch1 P3] Booking codes harvested: {codes_harvested}")
+            else:
+                if p is None:
+                    print("  [Ch1 P3] No browser page available — skipping booking harvest.")
+                if not recommendations:
+                    print("  [Ch1 P3] No recommendations — skipping booking harvest.")
 
-            conn = init_db()
-            codes_harvested = await harvest_booking_codes_for_recommendations(
-                page=p,
-                recommendations=recommendations,
-                conn=conn,
-            )
-            log_audit_event(
-                "CH1_P3_BOOKING",
-                f"Booking codes harvested: {codes_harvested}",
-                status="success" if codes_harvested > 0 else "partial",
-            )
-        else:
-            if p is None:
-                print("  [Ch1 P3] No browser page available — skipping booking harvest.")
-            if not recommendations:
-                print("  [Ch1 P3] No recommendations — skipping booking harvest.")
+            # --- COMMIT TRANSACTION ---
+            conn.execute("COMMIT")
+            print("    ✓ [Ch1 P3] Atomic commit successful.")
+            log_audit_event("CH1_P3", "Recommendations and booking harvest completed.", status="success")
+            
+        except Exception as e:
+            # --- ROLLBACK TRANSACTION ---
+            conn.execute("ROLLBACK")
+            print(f"    ⚠ [Ch1 P3] PAGE FAILED -> ROLLED BACK. Error: {e}")
+            log_audit_event("CH1_P3", f"Internal Failure: {e}", status="failed")
+            raise  # Re-raise for retry decorator
 
-        # 3. Final sync
+        # 3. Final sync (Outside transaction to avoid long locks during network IO)
         sync_ok = await run_full_sync(session_name="Chapter 1 Final")
         if not sync_ok:
             print("  [AIGO] Sync parity issues detected. Logged for review.")
             log_audit_event("CH1_P3_SYNC", "Sync parity issues detected.", status="partial_failure")
 
-        log_audit_event("CH1_P3", "Recommendations and booking harvest completed.", status="success")
     except Exception as e:
         print(f"  [Error] Chapter 1 Page 3 failed: {e}")
-        log_audit_event("CH1_P3", f"Failed: {e}", status="failed")
+        log_audit_event("CH1_P3", f"Critical Failure: {e}", status="failed")
+
 
 
 

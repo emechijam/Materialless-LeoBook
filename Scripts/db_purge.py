@@ -28,6 +28,44 @@ def load_valid_league_ids() -> Set[str]:
         data = json.load(f)
         return {l['league_id'] for l in data if 'league_id' in l}
 
+def delete_leagues_from_sqlite(conn, league_ids: List[str], dry_run: bool = False):
+    """Core logic to delete specific leagues and their data from SQLite."""
+    if not league_ids:
+        return
+
+    logger.info(f"Purging {len(league_ids)} leagues from SQLite...")
+    if dry_run:
+        logger.info("[DRY RUN] Would delete leagues from SQLite.")
+        return
+
+    try:
+        for l_id in league_ids:
+            logger.info(f"Purging league: {l_id}")
+            # Find fixtures
+            f_cursor = conn.execute("SELECT fixture_id FROM schedules WHERE league_id = ?", (l_id,))
+            fixtures = [row[0] for row in f_cursor.fetchall()]
+            
+            if fixtures:
+                placeholders = ', '.join(['?'] * len(fixtures))
+                # Delete associated data
+                for table in ["predictions", "match_odds", "live_scores"]:
+                    conn.execute(f"DELETE FROM {table} WHERE fixture_id IN ({placeholders})", fixtures)
+                conn.execute("DELETE FROM schedules WHERE league_id = ?", (l_id,))
+
+            # Delete league itself
+            conn.execute("DELETE FROM leagues WHERE league_id = ?", (l_id,))
+        
+        # Cleanup teams: remove teams no longer in ANY schedule
+        conn.execute("""
+            DELETE FROM teams 
+            WHERE team_id NOT IN (SELECT home_team_id FROM schedules)
+              AND team_id NOT IN (SELECT away_team_id FROM schedules)
+        """)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"SQLite deletion failed: {e}")
+
 def purge_sqlite(valid_ids: Set[str], dry_run: bool = False):
     """Purge orphans from local SQLite."""
     conn = get_connection()
@@ -35,57 +73,54 @@ def purge_sqlite(valid_ids: Set[str], dry_run: bool = False):
         # 1. Get all orphan league IDs
         cursor = conn.execute("SELECT league_id FROM leagues")
         db_ids = {row[0] for row in cursor.fetchall()}
-        orphans = db_ids - valid_ids
+        orphans = list(db_ids - valid_ids)
         
         if not orphans:
             logger.info("No orphan leagues found in SQLite.")
             return
 
-        logger.info(f"Found {len(orphans)} orphan leagues in SQLite: {list(orphans)[:5]}...")
-
-        if dry_run:
-            logger.info("[DRY RUN] Would delete orphans from SQLite.")
-            return
-
-        # 2. Cascade delete
-        for l_id in orphans:
-            logger.info(f"Purging league: {l_id}")
-            
-            # Find fixtures to delete associated predictions/odds
-            f_cursor = conn.execute("SELECT fixture_id FROM schedules WHERE league_id = ?", (l_id,))
-            fixtures = [row[0] for row in f_cursor.fetchall()]
-            
-            if fixtures:
-                # Delete predictions
-                placeholders = ', '.join(['?'] * len(fixtures))
-                conn.execute(f"DELETE FROM predictions WHERE fixture_id IN ({placeholders})", fixtures)
-                # Delete match_odds
-                conn.execute(f"DELETE FROM match_odds WHERE fixture_id IN ({placeholders})", fixtures)
-                # Delete live_scores
-                conn.execute(f"DELETE FROM live_scores WHERE fixture_id IN ({placeholders})", fixtures)
-                # Delete schedules
-                conn.execute("DELETE FROM schedules WHERE league_id = ?", (l_id,))
-
-            # Delete league itself
-            conn.execute("DELETE FROM leagues WHERE league_id = ?", (l_id,))
-            
-        # 3. Clean up teams (delete if they have no league_ids or only orphan league_ids)
-        # This is a bit complex due to JSON mapping, but for P1 we focus on the core.
-        # Simple approach: delete teams that aren't in ANY remaining league's schedules.
-        conn.execute("""
-            DELETE FROM teams 
-            WHERE team_id NOT IN (SELECT home_team_id FROM schedules)
-              AND team_id NOT IN (SELECT away_team_id FROM schedules)
-        """)
-
-        conn.commit()
+        delete_leagues_from_sqlite(conn, orphans, dry_run)
         logger.info("SQLite purge complete.")
         
     except Exception as e:
-        conn.rollback()
-        logger.error(f"SQLite purge failed: {e}")
+        logger.error(f"SQLite purge process failed: {e}")
     finally:
         conn.close()
+
+def delete_leagues_from_supabase(league_ids: List[str], dry_run: bool = False):
+    """Core logic to delete specific leagues and their data from Supabase."""
+    if not league_ids:
+        return
+
+    supabase = get_supabase_client()
+    if not supabase:
+        logger.warning("Supabase client not available. Skipping cloud purge.")
+        return
+
+    logger.info(f"Purging {len(league_ids)} leagues from Supabase.")
+    if dry_run:
+        logger.info("[DRY RUN] Would delete leagues from Supabase.")
+        return
+
+    try:
+        for l_id in league_ids:
+            logger.info(f"Purging Supabase league: {l_id}")
+            # Find fixtures
+            f_resp = supabase.table("schedules").select("fixture_id").eq("league_id", l_id).execute()
+            fixtures = [row['fixture_id'] for row in f_resp.data]
+            
+            if fixtures:
+                # Chunk deletions if needed
+                for i in range(0, len(fixtures), 50):
+                    chunk = fixtures[i:i + 50]
+                    for table in ["predictions", "match_odds", "live_scores"]:
+                        supabase.table(table).delete().in_("fixture_id", chunk).execute()
+                supabase.table("schedules").delete().eq("league_id", l_id).execute()
+
+            # Delete league itself
+            supabase.table("leagues").delete().eq("league_id", l_id).execute()
+    except Exception as e:
+        logger.error(f"Supabase deletion failed: {e}")
 
 def purge_supabase(valid_ids: Set[str], dry_run: bool = False):
     """Purge orphans from Supabase."""
@@ -104,39 +139,25 @@ def purge_supabase(valid_ids: Set[str], dry_run: bool = False):
             logger.info("No orphan leagues found in Supabase.")
             return
 
-        logger.info(f"Found {len(orphans)} orphan leagues in Supabase.")
-
-        if dry_run:
-            logger.info("[DRY RUN] Would delete orphans from Supabase.")
-            return
-
-        # 2. Cascade delete in Supabase
-        # Note: Supabase RLS and Foreign Keys might handle some of this, 
-        # but we do it manually to be safe.
-        for l_id in orphans:
-            logger.info(f"Purging Supabase league: {l_id}")
-            
-            # Find fixtures
-            f_resp = supabase.table("schedules").select("fixture_id").eq("league_id", l_id).execute()
-            fixtures = [row['fixture_id'] for row in f_resp.data]
-            
-            if fixtures:
-                # Delete predictions
-                supabase.table("predictions").delete().in_("fixture_id", fixtures).execute()
-                # Delete match_odds
-                supabase.table("match_odds").delete().in_("fixture_id", fixtures).execute()
-                # Delete live_scores
-                supabase.table("live_scores").delete().in_("fixture_id", fixtures).execute()
-                # Delete schedules
-                supabase.table("schedules").delete().eq("league_id", l_id).execute()
-
-            # Delete league itself
-            supabase.table("leagues").delete().eq("league_id", l_id).execute()
-            
+        delete_leagues_from_supabase(orphans, dry_run)
         logger.info("Supabase purge complete.")
 
     except Exception as e:
-        logger.error(f"Supabase purge failed: {e}")
+        logger.error(f"Supabase purge process failed: {e}")
+
+def purge_by_contract(violator_ids: List[str], dry_run: bool = False):
+    """Purge leagues identified as contract violators."""
+    if not violator_ids:
+        logger.info("No contract violators to purge.")
+        return
+
+    logger.info(f"Starting contract-based purge for {len(violator_ids)} leagues...")
+    conn = get_connection()
+    try:
+        delete_leagues_from_sqlite(conn, violator_ids, dry_run)
+        delete_leagues_from_supabase(violator_ids, dry_run)
+    finally:
+        conn.close()
 
 def run_purge(dry_run: bool = False):
     """Execute full purge."""

@@ -232,6 +232,18 @@ class GapReport:
             and (season is None or g.season == season)
         ]
 
+    def get_contract_violators(self) -> List[str]:
+        """Return IDs of leagues that fall below the All-or-Nothing Strict Data Contract.
+        
+        A league is a violator if it has ANY 'critical' gaps in its hierarchy.
+        Per user instruction: Perfect or Gone.
+        """
+        violators = []
+        for league_id, summary in self.summary_by_league.items():
+            if summary.severity_counts.get("critical", 0) > 0:
+                violators.append(league_id)
+        return violators
+
     def print_report(self, show_row_details: bool = False) -> None:
         """Print a structured CLI gap report."""
         border = "=" * 70

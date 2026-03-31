@@ -304,16 +304,24 @@ async def run_predictions(conn=None, fixtures: List[Dict] = None, scheduler=None
             intelligence_context = build_rule_engine_input(conn, fixture)
             real_odds = intelligence_context.get("real_odds", {})
 
-            # Data quality gate: need at least 3 form matches per team
+            # --- ALL-OR-NOTHING CONTRACT ENFORCEMENT ---
             home_form_n = len(intelligence_context["h2h_data"]["home_last_10_matches"])
             away_form_n = len(intelligence_context["h2h_data"]["away_last_10_matches"])
+            standings_n = len(intelligence_context.get("standings", []))
 
-            if home_form_n < 3 or away_form_n < 3:
+            if home_form_n < 5 or away_form_n < 5 or standings_n == 0:
                 skipped += 1
+                logger.warning(
+                    f"    [Predictions] Skipping {home} vs {away}: Incomplete context "
+                    f"(H:{home_form_n}, A:{away_form_n}, S:{standings_n})"
+                )
                 continue
 
             # Run symbolic prediction
             rule_prediction = RuleEngine.analyze(intelligence_context, live_odds=real_odds)
+            if rule_prediction.get("type") == "SKIP":
+                skipped += 1
+                continue
 
             # --- Semantic Rule Engine Upgrade ---
             from Core.Intelligence.rule_engine_manager import SemanticRuleEngine

@@ -32,11 +32,13 @@ from .odds_extractor import OddsExtractor, OddsResult
 from .fb_session import launch_browser_with_retry
 from .navigator import load_or_create_session, extract_balance, hide_overlays
 from .extractor import extract_league_matches, validate_match_data
+from .fb_contract import FBDataContract, DataContractViolation
 from Data.Access.db_helpers import (
     get_site_match_id, save_site_matches, save_match_odds,
-    update_site_match_status,
+    update_site_match_status, get_connection,
 )
 from Data.Access.league_db import LEAGUES_JSON_PATH
+
 
 
 
@@ -347,6 +349,7 @@ async def _odds_worker(
                         update_site_match_status(
                             site_id, "odds_extracted",
                             fixture_id=fixture_id,
+                            commit=False, # Atomic batch: no intermediate commit
                             **update_kwargs,
                         )
                         print(f"    [Odds] {fixture_id}: saved date={result.match_date} time={result.match_time}")
@@ -354,6 +357,7 @@ async def _odds_worker(
                     print(f"    [Odds] {fixture_id}: date/time save skipped: {dt_save_err}")
 
             return result
+
 
         except Exception as e:
             err_str = str(e)
@@ -601,110 +605,130 @@ async def run_odds_harvesting(playwright: Playwright):
 
     print(f"  [System] Processing {total_leagues} leagues in {len(batches)} batches (Size: {BATCH_SIZE})...")
 
-    for batch_idx, batch_ids in enumerate(batches):
-        if batch_idx < resume_from:   # already completed today
-            continue
-        batch_num = batch_idx + 1
-        print(f"\n  [Batch {batch_num}/{len(batches)}] Starting extraction for {len(batch_ids)} leagues...")
-        
-        context = None
-        try:
-            context, _ = await _create_session_no_login(playwright)
-            # BUG 3 FIX: Force semaphore=1 to prevent concurrent pages
-            # from racing in a shared browser context. Each page's DOM
-            # reads can contaminate other pages when running in parallel.
-            league_sem = asyncio.Semaphore(1)
-            
-            league_tasks = []
-            for lid in batch_ids:
-                league_entry = fb_lookup[lid]
-                fb_url = league_entry['fb_url']
-                lname = league_entry.get('fb_league_name', league_entry.get('name', lid))
-                fs_fixtures = leagues_to_extract[lid]
-                league_tasks.append(
-                    _league_worker(
-                        league_sem, context,
-                        lid, lname,
-                        fs_fixtures, fb_url, conn, matcher,
-                    )
-                )
-
-            batch_extraction_results = await asyncio.gather(*league_tasks, return_exceptions=True)
-            
-            # Close browser context immediately after extraction to free memory
-            if context:
-                await context.close()
-                if hasattr(context, '_browser_ref'):
-                    await context._browser_ref.close()
-                context = None
-
-            # Flatten pairs for this batch
-            batch_pairs: List[Dict] = []
-            for res in batch_extraction_results:
-                if isinstance(res, list):
-                    batch_pairs.extend(res)
-
-            if not batch_pairs:
-                print(f"    [Batch {batch_num}] No fixtures extracted.")
+    # 4.1 Launch persistent browser for the entire session (Hardening Fix)
+    # This prevents "Connection closed" errors from frequent context creation.
+    session_context, _ = await _create_session_no_login(playwright)
+    
+    try:
+        for batch_idx, batch_ids in enumerate(batches):
+            if batch_idx < resume_from:   # already completed today
                 continue
+            batch_num = batch_idx + 1
+            print(f"\n  [Batch {batch_num}/{len(batches)}] Starting extraction for {len(batch_ids)} leagues...")
+            
+            # --- START TRANSACTION: All-or-Nothing for Batch ---
+            conn.execute("BEGIN")
+            
+            try:
+                # BUG 3 FIX: Force semaphore=1 to prevent concurrent pages
+                # from racing (Phase 1 Sequential Hardening).
+                league_sem = asyncio.Semaphore(1)
+                
+                league_tasks = []
+                for lid in batch_ids:
+                    league_entry = fb_lookup[lid]
+                    fb_url = league_entry['fb_url']
+                    lname = league_entry.get('fb_league_name', league_entry.get('name', lid))
+                    fs_fixtures = leagues_to_extract[lid]
+                    league_tasks.append(
+                        _league_worker(
+                            league_sem, session_context, # Use persistent context
+                            lid, lname,
+                            fs_fixtures, fb_url, conn, matcher,
+                        )
+                    )
 
-            # 6. Resolve batch immediately
-            print(f"    [Batch {batch_num}] Resolving {len(batch_pairs)} fixtures...")
-            batch_resolved = []
-            for pair in batch_pairs:
-                fs_fix = pair['fs_fix']
-                candidates = pair['candidates']
+                batch_extraction_results = await asyncio.gather(*league_tasks, return_exceptions=True)
+                
+                # Flatten pairs for this batch
+                batch_pairs: List[Dict] = []
+                for res in batch_extraction_results:
+                    if isinstance(res, list):
+                        batch_pairs.extend(res)
+                    elif isinstance(res, Exception):
+                        print(f"    [Batch {batch_num}] Extraction task failed: {res}")
 
-                match_row, score, method = await matcher.resolve(
-                    fs_fix, candidates, conn
-                )
+                if not batch_pairs:
+                    print(f"    [Batch {batch_num}] No fixtures extracted.")
+                    conn.execute("COMMIT") # Empty batch is valid
+                    continue
 
-                if match_row:
-                    match_row["fixture_id"] = fs_fix.get("fixture_id", "")
-                    match_row["home_id"] = fs_fix.get("home_team_id") or fs_fix.get("home_id")
-                    match_row["away_id"] = fs_fix.get("away_team_id") or fs_fix.get("away_id")
-                    match_row["resolution_method"] = method
-                    save_site_matches([match_row])  # immediate SQLite save
-                    batch_resolved.append(match_row)
-                    all_resolved_matches.append(match_row)
-                else:
-                    all_resolved_matches.append({"status": "failed", "resolution_method": "failed"})
+                # 6. Resolve batch immediately
+                print(f"    [Batch {batch_num}] Resolving {len(batch_pairs)} fixtures...")
+                batch_resolved = []
+                for pair in batch_pairs:
+                    fs_fix = pair['fs_fix']
+                    candidates = pair['candidates']
 
-            # 7. Extract odds for batch (also requires a browser session)
-            if batch_resolved:
-                print(f"    [Batch {batch_num}] Extracting odds for {len(batch_resolved)} matches...")
-                context_odds, _ = await _create_session_no_login(playwright)
-                try:
+                    match_row, score, method = await matcher.resolve(
+                        fs_fix, candidates, conn
+                    )
+
+                    if match_row:
+                        # ENFORCE CONTRACT: Strictly validate match before saving
+                        try:
+                            # Add missing context for contract validation
+                            match_row['home'] = match_row.get('home', match_row.get('home_team'))
+                            match_row['away'] = match_row.get('away', match_row.get('away_team'))
+                            FBDataContract.validate_match(match_row)
+                        except DataContractViolation as dcv:
+                            print(f"    [Contract] Skipping match: {dcv}")
+                            continue
+
+                        match_row["fixture_id"] = fs_fix.get("fixture_id", "")
+                        match_row["home_id"] = fs_fix.get("home_team_id") or fs_fix.get("home_id")
+                        match_row["away_id"] = fs_fix.get("away_team_id") or fs_fix.get("away_id")
+                        match_row["resolution_method"] = method
+                        save_site_matches([match_row], commit=False)  # Atomic Batch: NO commit
+                        batch_resolved.append(match_row)
+                        all_resolved_matches.append(match_row)
+                    else:
+                        all_resolved_matches.append({"status": "failed", "resolution_method": "failed"})
+
+                # 7. Extract odds for batch (using same persistent context)
+                if batch_resolved:
+                    print(f"    [Batch {batch_num}] Extracting odds for {len(batch_resolved)} matches...")
                     odds_sem = asyncio.Semaphore(MAX_CONCURRENCY)
-                    odds_conn = get_connection()
                     results = await asyncio.gather(
                         *[
-                            _odds_worker(odds_sem, context_odds, m, odds_conn)
+                            _odds_worker(odds_sem, session_context, m, conn)
                             for m in batch_resolved
                         ],
                         return_exceptions=True,
                     )
                     
-                    batch_outcomes = sum(
-                        r.outcomes_extracted for r in results 
-                        if isinstance(r, OddsResult)
-                    )
+                    batch_outcomes = 0
+                    for r in results:
+                        if isinstance(r, OddsResult) and r.outcomes_extracted > 0:
+                            # ENFORCE CONTRACT: Validate odds batch (if applicable/needed)
+                            # (OddsExtractor already does some validation, but we check outcomes here)
+                            batch_outcomes += r.outcomes_extracted
+                        elif isinstance(r, Exception):
+                            print(f"    [Batch {batch_num}] Odds task failed: {r}")
+
                     total_session_odds_count += batch_outcomes
                     print(f"    [Batch {batch_num}] Odds extracted: {batch_outcomes} outcomes.")
-                finally:
-                    if context_odds:
-                        await context_odds.close()
-                        if hasattr(context_odds, '_browser_ref'):
-                            await context_odds._browser_ref.close()
 
-        except Exception as e:
-            print(f"  [Batch {batch_num}] CRITICAL ERROR: {e}")
-            if context:
-                await context.close()
-        
-        # Small cooldown between batches
-        await asyncio.sleep(2)
-        _save_checkpoint(batch_idx + 1)  # mark this batch complete
+                # --- COMMIT TRANSACTION: Batch Succcess ---
+                conn.execute("COMMIT")
+                print(f"    ✓ [Batch {batch_num}] Atomic commit successful.")
+
+            except Exception as e:
+                # --- ROLLBACK TRANSACTION: Batch Failure ---
+                conn.execute("ROLLBACK")
+                print(f"    ⚠ [Batch {batch_num}] BATCH FAILED -> ROLLED BACK. Error: {e}")
+            
+            # Small cooldown between batches
+            await asyncio.sleep(2)
+            _save_checkpoint(batch_idx + 1)  # mark this batch complete
+
+    finally:
+        # Close persistent browser context at the end of all batches
+        if session_context:
+            await session_context.close()
+            if hasattr(session_context, '_browser_ref'):
+                await session_context._browser_ref.close()
+
 
     # Full session completed — clear checkpoint so next day starts fresh
     _CHECKPOINT_PATH.unlink(missing_ok=True)

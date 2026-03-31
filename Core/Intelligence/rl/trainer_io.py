@@ -42,7 +42,14 @@ class TrainerIOMixin:
             except Exception:
                 standings = []
 
+        # --- ALL-OR-NOTHING CONTRACT ENFORCEMENT ---
+        hfn = len(home_form)
+        afn = len(away_form)
+        st_n = len(standings)
+        is_complete = (hfn >= 5 and afn >= 5 and st_n > 0)
+
         return {
+            "is_complete": is_complete,
             "h2h_data": {
                 "home_team": home_team_name,
                 "away_team": away_team_name,

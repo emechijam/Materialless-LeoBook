@@ -36,72 +36,105 @@ _MATCH_ALWAYS_REQUIRED = [
     "home_team_url",
     "away_team_url",
     "home_crest_url",
-    "away_crest_url",
-    "match_link",
-    "match_status",
-]
-
-_MATCH_RESULTS_ONLY = [
-    "home_score",
-    "away_score",
-    "winner",
-]
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  DataContract Class
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class DataContract:
+    "awayclass DataContract:
     """Strict data contract validation for Flashscore enrichment."""
-    pass
-
-def validate_league_metadata(data: Dict) -> Tuple[bool, List[str]]:
-    """Validate league-level metadata. All fields are REQUIRED."""
-    violations = []
-    for field in _LEAGUE_REQUIRED_FIELDS:
-        val = data.get(field)
-        if val is None or (isinstance(val, str) and not val.strip()):
-            violations.append(f"league.{field} is missing or empty")
-    return (len(violations) == 0, violations)
-
-def validate_match(match: Dict, tab: str) -> Tuple[bool, List[str]]:
-    """Validate a single match against the strict data contract.
     
-    Args:
-        match: Raw match dict.
-        tab: "results" or "fixtures".
-    """
-    violations = []
+    @staticmethod
+    def validate_league_metadata(data: Dict) -> Tuple[bool, List[str]]:
+        """Validate league-level metadata. All fields are REQUIRED."""
+        violations = []
+        for field in _LEAGUE_REQUIRED_FIELDS:
+            val = data.get(field)
+            if val is None or (isinstance(val, str) and not val.strip()):
+                violations.append(f"league.{field} is missing or empty")
+        return (len(violations) == 0, violations)
 
-    for field in _MATCH_ALWAYS_REQUIRED:
-        val = match.get(field)
-        if val is None or (isinstance(val, str) and not val.strip()):
-            violations.append(f"match[{match.get('fixture_id', '?')}].{field}")
+    @staticmethod
+    def validate_match(match: Dict, tab: str = "fixtures") -> Tuple[bool, List[str]]:
+        """Validate a single match against the strict data contract."""
+        violations = []
 
-    if tab == "results":
-        # Scores are only required for genuinely finished matches.
-        status = (match.get("match_status") or "").lower()
-        score_finished_statuses = ("finished", "ft", "aet", "pen", "after pen", "after et")
-        if status in score_finished_statuses:
-            for field in _MATCH_RESULTS_ONLY:
-                val = match.get(field)
-                if val is None or (isinstance(val, str) and not val.strip()):
-                    violations.append(f"match[{match.get('fixture_id', '?')}].{field}")
+        # 1. Mandatory Fields
+        for field in _MATCH_ALWAYS_REQUIRED:
+            val = match.get(field)
+            if val is None or (isinstance(val, str) and not val.strip()):
+                violations.append(f"match[{match.get('fixture_id', '?')}].{field} is missing")
 
-    return (len(violations) == 0, violations)
+        # 2. Team Parity Check
+        h_id = match.get("home_team_id")
+        a_id = match.get("away_team_id")
+        if h_id and a_id and h_id == a_id:
+            violations.append(f"match[{match.get('fixture_id', '?')}] home/away team ID parity: {h_id}")
 
-def validate_tab_extraction(scanned_count: int, matches: List[Dict], tab: str) -> Tuple[bool, str]:
-    """Validate an entire tab extraction: row count + per-match contract."""
-    extracted_count = len(matches)
+        h_name = match.get("home_team_name", "").strip()
+        a_name = match.get("away_team_name", "").strip()
+        if h_name and a_name and h_name.lower() == a_name.lower():
+            violations.append(f"match[{match.get('fixture_id', '?')}] home/away team name parity: {h_name}")
 
-    # Level 1: Row count parity
-    if scanned_count != extracted_count:
-        return (
-            False,
-            f"[{tab.upper()}] Row count mismatch: scanned={scanned_count}, extracted={extracted_count}",
-        )
+        # 3. Results Logic
+        if tab == "results":
+            status = (match.get("match_status") or "").lower()
+            score_finished_statuses = ("finished", "ft", "aet", "pen", "after pen", "after et")
+            if status in score_finished_statuses:
+                for field in _MATCH_RESULTS_ONLY:
+                    val = match.get(field)
+                    if val is None or (isinstance(val, str) and not val.strip()):
+                        violations.append(f"match[{match.get('fixture_id', '?')}].{field} missing for finished match")
+                
+                # Score Sanity
+                h_score = match.get("home_score")
+                a_score = match.get("away_score")
+                winner = match.get("winner")
+                try:
+                    hs = int(h_score or 0)
+                    ascore = int(a_score or 0)
+                    if winner == "HOME" and hs <= ascore:
+                        violations.append(f"match[{match.get('fixture_id', '?')}] winner=HOME but score {hs}-{ascore}")
+                    if winner == "AWAY" and ascore <= hs:
+                        violations.append(f"match[{match.get('fixture_id', '?')}] winner=AWAY but score {hs}-{ascore}")
+                    if winner == "DRAW" and hs != ascore:
+                        violations.append(f"match[{match.get('fixture_id', '?')}] winner=DRAW but score {hs}-{ascore}")
+                except (ValueError, TypeError):
+                    pass
 
-    # Level 2: Per-match atomic validation
+        return (len(violations) == 0, violations)
+
+    @staticmethod
+    def validate_tab_extraction(scanned_count: int, matches: List[Dict], tab: str) -> Tuple[bool, str]:
+        """Validate an entire tab extraction: row count + per-match contract + unique IDs."""
+        extracted_count = len(matches)
+
+        # Level 1: Row count parity
+        if scanned_count != extracted_count:
+            return (
+                False,
+                f"[{tab.upper()}] Row count mismatch: scanned={scanned_count}, extracted={extracted_count}",
+            )
+
+        # Level 2: Unique Fixture IDs
+        fids = [m.get("fixture_id") for m in matches if m.get("fixture_id")]
+        if len(fids) != len(set(fids)):
+            dupes = set([x for x in fids if fids.count(x) > 1])
+            return (False, f"[{tab.upper()}] Duplicate fixture IDs detected: {dupes}")
+
+        # Level 3: Per-match atomic validation
+        all_violations = []
+        for match in matches:
+            passed, violations = DataContract.validate_match(match, tab)
+            if not passed:
+                all_violations.extend(violations)
+
+        if all_violations:
+            summary = (
+                f"[{tab.upper()}] {len(all_violations)} contract violation(s) in {extracted_count} matches:\n"
+                + "\n".join(f"    • {v}" for v in all_violations[:20])
+            )
+            if len(all_violations) > 20:
+                summary += f"\n    ... and {len(all_violations) - 20} more"
+            return (False, summary)
+
+        return (True, f"[{tab.upper()}] {extracted_count} matches — contract OK")
+ validation
     all_violations = []
     for match in matches:
         passed, violations = validate_match(match, tab)

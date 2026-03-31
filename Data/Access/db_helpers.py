@@ -83,7 +83,7 @@ def log_audit_event(event_type: str, description: str, balance_before: Optional[
 
 # ─── Predictions ───
 
-def save_prediction(match_data: Dict[str, Any], prediction_result: Dict[str, Any]):
+def save_prediction(match_data: Dict[str, Any], prediction_result: Dict[str, Any], commit: bool = True):
     """UPSERTs a prediction into the database."""
     fixture_id = match_data.get('fixture_id') or match_data.get('id')
     if not fixture_id or fixture_id == 'unknown':
@@ -148,14 +148,16 @@ def save_prediction(match_data: Dict[str, Any], prediction_result: Dict[str, Any
             f"market: {prediction_result.get('chosen_market')}"
         )
 
-    upsert_prediction(_get_conn(), row)
+    upsert_prediction(_get_conn(), row, commit=commit)
 
 
-def update_prediction_status(match_id: str, date: str, new_status: str, **kwargs):
+
+def update_prediction_status(match_id: str, date: str, new_status: str, commit: bool = True, **kwargs):
     """Updates the status and optional fields for a prediction."""
     updates = {'status': new_status}
     updates.update(kwargs)
-    update_prediction(_get_conn(), match_id, updates)
+    update_prediction(_get_conn(), match_id, updates, commit=commit)
+
 
 
 def backfill_prediction_entry(fixture_id: str, updates: Dict[str, str]):
@@ -206,7 +208,7 @@ def get_last_processed_info() -> Dict:
 
 # ─── Schedules / Fixtures ───
 
-def save_schedule_entry(match_info: Dict[str, Any]):
+def save_schedule_entry(match_info: Dict[str, Any], commit: bool = True):
     """Saves a single schedule entry."""
     match_info['last_updated'] = dt.now().isoformat()
     # Map schedule CSV column names to fixture table columns
@@ -226,7 +228,8 @@ def save_schedule_entry(match_info: Dict[str, Any]):
         'match_link': match_info.get('match_link'),
         'league_stage': match_info.get('league_stage'),
     }
-    upsert_fixture(_get_conn(), mapped)
+    upsert_fixture(_get_conn(), mapped, commit=commit)
+
 
 
 def transform_streamer_match_to_schedule(m: Dict[str, Any]) -> Dict[str, Any]:
@@ -267,7 +270,7 @@ def transform_streamer_match_to_schedule(m: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def save_schedule_batch(entries: List[Dict[str, Any]]):
+def save_schedule_batch(entries: List[Dict[str, Any]], commit: bool = True):
     """Batch UPSERTs multiple schedule entries."""
     if not entries:
         return
@@ -289,7 +292,8 @@ def save_schedule_batch(entries: List[Dict[str, Any]]):
             'match_link': e.get('match_link'),
             'league_stage': e.get('league_stage'),
         })
-    bulk_upsert_fixtures(_get_conn(), mapped)
+    bulk_upsert_fixtures(_get_conn(), mapped, commit=commit)
+
 
 
 def get_all_schedules() -> List[Dict[str, Any]]:
@@ -307,7 +311,7 @@ def save_live_score_entry(match_info: Dict[str, Any]):
 
 # ─── Standings ───
 
-def save_standings(standings_data: List[Dict[str, Any]], country_league: str, league_id: str = ""):
+def save_standings(standings_data: List[Dict[str, Any]], country_league: str, league_id: str = "", commit: bool = True):
     """UPSERTs standings data for a specific league."""
     if not standings_data:
         return
@@ -327,11 +331,14 @@ def save_standings(standings_data: List[Dict[str, Any]], country_league: str, le
 
         if t_id and l_id:
             row['standings_key'] = f"{l_id}_{t_id}".upper()
-            upsert_standing(_get_conn(), row)
+            upsert_standing(_get_conn(), row, commit=False) # Always skip inner commit
             updated_count += 1
 
     if updated_count > 0:
+        if commit:
+            _get_conn().commit()
         print(f"      [DB] UPSERTed {updated_count} standings entries for {country_league or league_id}")
+
 
 
 def get_standings(country_league: str) -> List[Dict[str, Any]]:
@@ -627,7 +634,7 @@ def get_site_match_id(date: str, home: str, away: str) -> str:
     return hashlib.md5(unique_str.encode()).hexdigest()
 
 
-def save_site_matches(matches: List[Dict[str, Any]]):
+def save_site_matches(matches: List[Dict[str, Any]], commit: bool = True):
     """UPSERTs a list of matches extracted from Football.com into the registry."""
     if not matches:
         return
@@ -653,12 +660,17 @@ def save_site_matches(matches: List[Dict[str, Any]]):
             'booking_code': match.get('booking_code', ''),
             'booking_url': match.get('booking_url', ''),
             'status': match.get('status', ''),
-        })
+        }, commit=False) # Always skip inner commit
+
+    if commit:
+        conn.commit()
 
 
-def save_match_odds(odds_list: List[Dict[str, Any]]) -> int:
+
+def save_match_odds(odds_list: List[Dict[str, Any]], commit: bool = True) -> int:
     """Persist match odds to SQLite immediately. Returns rows written."""
-    return upsert_match_odds_batch(_get_conn(), odds_list)
+    return upsert_match_odds_batch(_get_conn(), odds_list, commit=commit)
+
 
 
 def get_match_odds(fixture_id: str) -> List[Dict[str, Any]]:
@@ -688,7 +700,7 @@ def update_site_match_status(site_match_id: str, status: str,
                              details: Optional[str] = None,
                              booking_code: Optional[str] = None,
                              booking_url: Optional[str] = None,
-                             matched: Optional[str] = None, **kwargs):
+                             matched: Optional[str] = None, commit: bool = True, **kwargs):
     """Updates the booking status, fixture_id, or booking details for a site match."""
     conn = _get_conn()
     updates = {'booking_status': status, 'status': status, 'last_updated': dt.now().isoformat()}
@@ -708,7 +720,9 @@ def update_site_match_status(site_match_id: str, status: str,
     set_clause = ", ".join([f"{k} = :{k}" for k in updates.keys()])
     updates['site_match_id'] = site_match_id
     conn.execute(f"UPDATE fb_matches SET {set_clause} WHERE site_match_id = :site_match_id", updates)
-    conn.commit()
+    if commit:
+        conn.commit()
+
 
 
 # ─── Market Outcome Evaluator (moved to market_evaluator.py) ───
