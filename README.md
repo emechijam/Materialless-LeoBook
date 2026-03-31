@@ -3,8 +3,8 @@
 **Developer**: Materialless LLC
 **Chief Engineer**: Emenike Chinenye James
 **Powered by**: Rule Engine + Neural RL Stairway Engine · Gemini Multi-Key (AIGO browser assistant + search enrichment only)
-**Architecture**: v9.5 "Stairway Engine" (All files ≤500 lines · Fully Modular · Season-Aware RL Weighting · Streamer Independence)
-**App Version**: 9.5.0 ([pubspec.yaml](leobookapp/pubspec.yaml) aligned with `LEOBOOK_VERSION` in `Core/Utils/constants.py`)
+**Architecture**: v9.5.6 "Stairway Engine" (All files ≤500 lines · Fully Modular · Season-Aware RL Weighting · Data Contract)
+**App Version**: 9.5.6 ([pubspec.yaml](leobookapp/pubspec.yaml) aligned with `LEOBOOK_VERSION` in `Core/Utils/constants.py`)
 
 ---
 
@@ -17,7 +17,7 @@ LeoBook is an **autonomous sports prediction and betting system** with two halve
 | `Leo.py`      | Python 3.12 + Playwright + PyTorch | Autonomous data extraction, **Rule Engine + Neural RL prediction** (no LLM), odds harvesting, automated bet placement, and dynamic task scheduling |
 | `leobookapp/` | Flutter/Dart                       | Cross-platform dashboard with "Telegram-grade" UI density, Liquid Glass aesthetics, and real-time streaming                          |
 
-**Leo.py** is an **autonomous orchestrator** powered by a **Supervisor-Worker Pattern** (`Core/System/supervisor.py`). Chapter/page execution functions live in `Core/System/pipeline.py`. The system enforces **Data Readiness Gates** (Prologue P1-P3) with **materialized readiness cache** for O(1) checks. **Data Quality & Season Completeness** are tracked autonomously with `CUP_FORMAT` and `data_richness_score` protecting the pipeline from phantom season completions and over-relying on the RL model before sufficient history exists. Cloud sync uses **watermark-based delta detection**.
+**Leo.py** is an **autonomous orchestrator** powered by a **Supervisor-Worker Pattern** (`Core/System/supervisor.py`). Chapter/page execution functions live in `Core/System/pipeline.py`. The system enforces **Data Readiness Gates** (Prologue P1-P3) with **materialized readiness cache** for O(1) checks. **Chapter 1 Hardening (v9.5.6)** introduces **All-or-Nothing Transactions** with a **Strict Data Contract** — ensuring either a full league enrichment passes validation or zero data is persisted. Intelligence outputs now serialize **Rich Rationale** (Form, H2H, Standings) as structured JSON for transparency.
 
 For the complete file inventory and step-by-step execution trace, see [docs/LeoBook_Technical_Master_Report.md](docs/LeoBook_Technical_Master_Report.md).
 
@@ -33,14 +33,14 @@ Leo.py (Entry Point — 473 lines)
 │   │   ├── P1: Quantity & ID Gate (O(1) lookup)
 │   │   ├── P2: History & Quality Gate — Job A (blocks) + Job B (RL tier)
 │   │   └── P3: AI Readiness Gate (O(1) lookup)
-│   ├── Chapter 1 (Prediction Pipeline v9.0):
+│   ├── Chapter 1 (Data Hardening v9.5.6):
 │   │   ├── Ch1 P1: URL Resolution & Direct Odds Harvesting
-│   │   ├── Ch1 P2: Predictions (30-dim Stairway Engine: Rule + RL, season-aware)
+│   │   ├── Ch1 P2: Hardened Predictions (Strict Data Contract + Rich Rationale)
 │   │   └── Ch1 P3: Recommendations & Final Chapter Sync (Odds 1.20–4.00)
 │   └── Chapter 2 (Betting Automation):
 │       ├── Ch2 P1: Automated Booking
 │       └── Ch2 P2: Funds & Withdrawal Check
-└── Live Streamer: **Independent OS process** — spawned with **Watchdog** (PID + Heartbeat)
+└── Live Streamer: **Independent OS process** — spawned with **Watchdog**
                    Automatically monitored and respawned by Supervisor if dead/stale.
                    Manual stopping: kill using CLI or process manager.
 ```
@@ -144,7 +144,7 @@ LeoBook/
 │   ├── search_dict_llm.py
 │   └── rl_diagnose.py
 ├── leobookapp/                     # Flutter dashboard
-│   ├── pubspec.yaml                # version: 9.5.0+2
+│   ├── pubspec.yaml                # version: 9.5.6+1
 │   └── lib/
 │       ├── presentation/screens/   # search, league (6 tabs), match (3-col), team
 │       ├── core/widgets/           # LeoLoadingIndicator, LeoShimmer, GlassContainer
@@ -293,5 +293,5 @@ flutter build apk --release   # Production APK
 ```
 ---
 
-*Last updated: 2026-03-29 — v9.5.0 — Authentication overhaul (Supabase Email/Password), On-device Client ID migration (.env), Heartbeat optimization (3s update frequency), Settings UI branding.*
+*Last updated: 2026-03-31 — v9.5.6 — Chapter 1 Hardening: All-or-Nothing Transactions, Strict Data Contract (data_contract.py), AI Rationale JSONB serialization, MatchRationaleSheet UI.*
 *LeoBook Engineering Team — Materialless LLC*
