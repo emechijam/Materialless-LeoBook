@@ -471,8 +471,7 @@ class _MatchCardState extends State<MatchCard> {
   // PREDICTION BAR (bottom section)
   // ─────────────────────────────────────────────────────────────
   Widget _buildPredictionBar(BuildContext context) {
-    final reliabilityVal =
-        double.tryParse(match.marketReliability ?? '') ?? 0;
+    final reliabilityVal = match.reliabilityScore ?? 0;
     final oddsVal = double.tryParse(match.odds ?? '') ?? 0;
 
     return Container(
@@ -509,7 +508,7 @@ class _MatchCardState extends State<MatchCard> {
             ),
           ),
           // Reliability badge
-          if (reliabilityVal > 0)
+          if (match.reliabilityScore != null && match.reliabilityScore! > 0)
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: SpacingScale.sm,

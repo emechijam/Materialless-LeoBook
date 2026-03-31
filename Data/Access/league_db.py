@@ -785,9 +785,7 @@ def upsert_prediction(conn: sqlite3.Connection, data: Dict[str, Any]):
         "fixture_id", "date", "match_time", "country_league",
         "home_team", "away_team", "home_team_id", "away_team_id",
         "prediction", "confidence", "reason",
-        "xg_home", "xg_away", "btts", "over_2_5",
-        "best_score", "top_scores", "home_form_n", "away_form_n",
-        "home_tags", "away_tags", "h2h_tags", "standings_tags",
+        "home_form_n", "away_form_n",
         "h2h_count", "actual_score", "outcome_correct",
         "status", "match_link", "odds",
         "market_reliability_score", "home_crest_url", "away_crest_url",
@@ -795,14 +793,22 @@ def upsert_prediction(conn: sqlite3.Connection, data: Dict[str, Any]):
         "standings_snapshot", "league_stage", "generated_at",
         "home_score", "away_score", "chosen_market", "market_id",
         "rule_explanation", "override_reason", "statistical_edge",
-        "pure_model_suggestion", "last_updated",
+        "pure_model_suggestion",
+        "form_home", "form_away", "h2h_summary", "standings_home", "standings_away",
+        "rule_engine_decision", "rl_decision", "ensemble_weights", "rec_qualifications",
+        "is_available", "last_updated",
     ]
     values = {c: data.get(c) for c in cols}
     values["last_updated"] = now
 
     # JSON-serialize complex fields
-    for jf in ("h2h_fixture_ids", "form_fixture_ids", "standings_snapshot"):
-        if values[jf] is not None and not isinstance(values[jf], str):
+    json_fields = (
+        "h2h_fixture_ids", "form_fixture_ids", "standings_snapshot",
+        "form_home", "form_away", "h2h_summary", "standings_home", "standings_away",
+        "ensemble_weights", "rec_qualifications"
+    )
+    for jf in json_fields:
+        if jf in values and values[jf] is not None and not isinstance(values[jf], str):
             values[jf] = json.dumps(values[jf])
 
     present = {k: v for k, v in values.items() if v is not None}

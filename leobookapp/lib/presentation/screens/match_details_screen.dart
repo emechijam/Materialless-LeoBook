@@ -488,7 +488,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    flex: (match.probHome * 100).toInt(),
+                    flex: (match.probHome * 100).toInt().clamp(1, 100),
                     child: Container(
                       color: AppColors.primary,
                       alignment: Alignment.centerLeft,
@@ -504,7 +504,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     ),
                   ),
                   Expanded(
-                    flex: (match.probDraw * 100).toInt(),
+                    flex: (match.probDraw * 100).toInt().clamp(1, 100),
                     child: Container(
                       color: Colors.grey[700],
                       alignment: Alignment.center,
@@ -519,7 +519,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     ),
                   ),
                   Expanded(
-                    flex: (match.probAway * 100).toInt(),
+                    flex: (match.probAway * 100).toInt().clamp(1, 100),
                     child: Container(
                       color: AppColors.liveRed,
                       alignment: Alignment.centerRight,
@@ -574,7 +574,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
   }
 
   Widget _buildExpertPrediction() {
-    final ruleOutput = match.ruleOutput;
+    // final ruleOutput = match.ruleOutput; // Deleted as it caused indexing errors
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -621,7 +621,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      ruleOutput["chosen_market"].toString(),
+                      match.chosenMarket ?? match.prediction ?? "N/A",
                       style: GoogleFonts.lexend(
                         color: Colors.white,
                         fontSize: 22,
@@ -631,7 +631,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Confidence: ${ruleOutput['statistical_edge']}%",
+                      "Confidence: ${(match.statisticalEdge ?? 0.0 * 100).toStringAsFixed(0)}%",
                       style: GoogleFonts.lexend(
                         color: Colors.white60,
                         fontSize: 11,
@@ -676,7 +676,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          if (ruleOutput["override_reason"] != null) ...[
+          if (match.overrideReason != null && match.overrideReason!.isNotEmpty) ...[
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -692,7 +692,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "Rule override: ${ruleOutput['override_reason']}",
+                      "Rule override: ${match.overrideReason}",
                       style: GoogleFonts.lexend(
                         color: Colors.amber,
                         fontSize: 11,
@@ -736,7 +736,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  ruleOutput["rule_explanation"].toString(),
+                  match.ruleExplanation ?? "AI analyzing patterns...",
                   style: GoogleFonts.lexend(
                     color: Colors.white70,
                     fontSize: 11,
@@ -749,7 +749,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            "Pure model suggested: ${ruleOutput['pure_model_suggestion']}",
+            "Pure model suggested: ${match.pureModelSuggestion ?? '-'}",
             style: GoogleFonts.lexend(
               color: Colors.white38,
               fontSize: 10,
@@ -977,13 +977,13 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
       });
     }
 
-    // Market reliability
-    if (match.marketReliability != null &&
-        match.marketReliability!.isNotEmpty) {
+    // Reliability
+    if (match.reliabilityScore != null &&
+        match.reliabilityScore! > 0) {
       insights.add({
         'icon': Icons.verified_outlined,
-        'label': 'Market Reliability',
-        'value': match.marketReliability!,
+        'label': 'Model Reliability',
+        'value': '${match.reliabilityScore!.toStringAsFixed(1)}%',
       });
     }
 

@@ -19,6 +19,7 @@ from Data.Access.league_db import (
     get_all_leagues, get_active_leagues,
 )
 from Data.Access.gap_scanner import GapScanner
+from Scripts.db_purge import run_purge
 
 from Modules.Flashscore.fs_league_images import executor
 from Modules.Flashscore.fs_league_extractor import (
@@ -52,6 +53,7 @@ async def main(
     scan_only: bool = False,
     min_severity: str = "important",
     drain_queue: bool = False,
+    purge: bool = False,
 ) -> None:
     print("\n" + "=" * 60)
     print("  FLASHSCORE LEAGUE ENRICHMENT -> SQLite")
@@ -59,6 +61,10 @@ async def main(
 
     conn = init_db()
     print(f"  [DB] {os.path.abspath(conn.execute('PRAGMA database_list').fetchone()[2])}")
+
+    if purge:
+        print("  [Purge] Running orphan data purge pass...")
+        run_purge()
 
     if reset:
         conn.execute("UPDATE leagues SET processed = 0")
@@ -376,6 +382,8 @@ if __name__ == "__main__":
     parser.add_argument("--min-severity", default="important",
                         choices=["critical", "important", "enrichable"])
     parser.add_argument("--drain-queue",  action="store_true")
+    parser.add_argument("--purge",        action="store_true",
+                        help="Purge orphan leagues before starting enrichment")
     args = parser.parse_args()
 
     limit_count = None
@@ -394,5 +402,5 @@ if __name__ == "__main__":
         num_seasons=args.seasons, all_seasons=args.all_seasons,
         target_season=args.season, refresh=args.refresh,
         scan_only=args.scan_only, min_severity=args.min_severity,
-        drain_queue=args.drain_queue,
+        drain_queue=args.drain_queue, purge=args.purge,
     ))

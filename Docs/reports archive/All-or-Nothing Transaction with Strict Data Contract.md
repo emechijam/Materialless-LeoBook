@@ -8,7 +8,7 @@ Implement atomic league enrichment: either all data for a league passes validati
 
 #### [NEW] [data_contract.py](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Modules/Flashscore/data_contract.py)
 
-A standalone validation module defining the strict data contract. Three validation layers.
+A formalized validation module defining the strict data contract. All validation logic is encapsulated in the `DataContract` class.
 
 **League Metadata Contract** — per-league validation (from [enrich_single_league](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Modules/Flashscore/fs_league_tab.py#255-443)):
 | Field | Source | Status |
@@ -44,11 +44,10 @@ A standalone validation module defining the strict data contract. Three validati
 | `away_red_cards` | NULLABLE | NULLABLE |
 | [extra](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Modules/Flashscore/fs_league_tab.py#50-253) | NULLABLE | NULLABLE |
 
-Functions:
-- [validate_league_metadata(data: dict) -> (bool, list[str])](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Modules/Flashscore/data_contract.py#31-46) — validates league-level fields.
-- [validate_match(match: dict, tab: str) -> (bool, list[str])](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Modules/Flashscore/data_contract.py#80-104) — validates one match, returns [(passed, violations)](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Core/System/supervisor.py#143-230).
-- [validate_tab_extraction(scanned_count: int, matches: list, tab: str) -> (bool, str)](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Modules/Flashscore/data_contract.py#106-147) — validates row count + all matches.
-- [DataContractViolation(Exception)](file:///c:/Users/Admin/Desktop/ProProjection/LeoBook/Modules/Flashscore/data_contract.py#12-15) — raised on any contract failure to trigger retry/rollback.
+Functions (encapsulated in `DataContract` class):
+- `DataContract.validate_match(match: dict, tab: str) -> (bool, list[str])` — validates one match.
+- `DataContract.validate_tab_extraction(scanned_count: int, matches: list, tab: str) -> (bool, str)` — validates row count + all matches.
+- `DataContractViolation(Exception)` — raised on any contract failure to trigger retry/rollback.
 
 ---
 

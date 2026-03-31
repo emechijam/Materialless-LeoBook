@@ -6,8 +6,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:leobookapp/core/constants/app_colors.dart';
+import 'package:leobookapp/data/models/match_model.dart';
+import 'package:leobookapp/data/repositories/data_repository.dart';
+import 'package:leobookapp/presentation/widgets/shared/modals/match_rationale_sheet.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class LeaguePredictionsTab extends StatelessWidget {
+class LeaguePredictionsTab extends StatefulWidget {
   final String leagueId;
   final String leagueName;
   const LeaguePredictionsTab({
@@ -17,101 +21,140 @@ class LeaguePredictionsTab extends StatelessWidget {
   });
 
   @override
+  State<LeaguePredictionsTab> createState() => _LeaguePredictionsTabState();
+}
+
+class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
+  late Future<List<MatchModel>> _matchesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _matchesFuture = context.read<DataRepository>().fetchMatchesByLeague(widget.leagueId);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.stars, size: 16, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Text(
-                "PREDICTION OF THE MATCHDAY",
-                style: GoogleFonts.lexend(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
-                  letterSpacing: 1.2,
+    return FutureBuilder<List<MatchModel>>(
+      future: _matchesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+        }
+
+        final matches = snapshot.data ?? [];
+        if (matches.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.analytics_outlined, size: 48, color: AppColors.textGrey.withValues(alpha: 0.3)),
+                const SizedBox(height: 16),
+                Text(
+                  "No predictions available for this league yet.",
+                  style: GoogleFonts.lexend(color: AppColors.textGrey),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildHeroPrediction(context),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ],
+            ),
+          );
+        }
+
+        // Sort matches to find the "Hero" (highest recommendation score)
+        final List<MatchModel> sortedMatches = List.from(matches);
+        sortedMatches.sort((a, b) => (b.reliabilityScore ?? 0.0).compareTo(a.reliabilityScore ?? 0.0));
+        final heroMatch = sortedMatches.first;
+        final remainingMatches = matches.where((m) => m.fixtureId != heroMatch.fixtureId).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "Upcoming Tips",
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppColors.textDark,
-                ),
-              ),
               Row(
                 children: [
+                  Icon(Icons.stars, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 8),
                   Text(
-                    "Sort by: ",
+                    "PREDICTION OF THE MATCHDAY",
                     style: GoogleFonts.lexend(
                       fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textGrey,
-                    ),
-                  ),
-                  Text(
-                    "VALUE",
-                    style: GoogleFonts.lexend(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w900,
                       color: AppColors.primary,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => _showRationale(context, heroMatch),
+                child: _buildHeroPrediction(context, heroMatch),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Upcoming Tips",
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppColors.textDark,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        "Sort by: ",
+                        style: GoogleFonts.lexend(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textGrey,
+                        ),
+                      ),
+                      Text(
+                        "VALUE",
+                        style: GoogleFonts.lexend(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...remainingMatches.map((match) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: GestureDetector(
+                  onTap: () => _showRationale(context, match),
+                  child: _buildTipCardFromModel(context, match, isDark),
+                ),
+              )),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildTipCard(
-            context,
-            "ARS",
-            "NEW",
-            "Arsenal",
-            "Newcastle",
-            "Arsenal to Win",
-            "1.45",
-            "High Confidence",
-            AppColors.primary,
-            isDark,
-          ),
-          const SizedBox(height: 12),
-          _buildTipCard(
-            context,
-            "AVL",
-            "CHE",
-            "Aston Villa",
-            "Chelsea",
-            "BTTS - Yes",
-            "1.62",
-            "Value Tip",
-            AppColors.warning,
-            isDark,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildHeroPrediction(BuildContext context) {
+  void _showRationale(BuildContext context, MatchModel match) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => MatchRationaleSheet(match: match),
+    );
+  }
+
+  Widget _buildHeroPrediction(BuildContext context, MatchModel match) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryLight],
+          colors: [AppColors.primary, AppColors.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -142,7 +185,7 @@ class LeaguePredictionsTab extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildHeroTeam("LIV", "Liverpool"),
+                    _buildHeroTeam(match.homeTeam.length >= 3 ? match.homeTeam.substring(0, 3).toUpperCase() : match.homeTeam, match.homeTeam),
                     Column(
                       children: [
                         Text(
@@ -165,7 +208,7 @@ class LeaguePredictionsTab extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            "Sun 17:30",
+                            match.time,
                             style: GoogleFonts.lexend(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -175,7 +218,7 @@ class LeaguePredictionsTab extends StatelessWidget {
                         ),
                       ],
                     ),
-                    _buildHeroTeam("MCI", "Man City"),
+                    _buildHeroTeam(match.awayTeam.length >= 3 ? match.awayTeam.substring(0, 3).toUpperCase() : match.awayTeam, match.awayTeam),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -198,7 +241,7 @@ class LeaguePredictionsTab extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "EXPERT PICK",
+                                "ANALYTICAL VERDICT",
                                 style: GoogleFonts.lexend(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -207,60 +250,52 @@ class LeaguePredictionsTab extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                "Home Win & Over 2.5",
+                                match.prediction ?? "No Verdict",
                                 style: GoogleFonts.lexend(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                "ODDS",
-                                style: GoogleFonts.lexend(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                ),
-                              ),
-                              Text(
-                                "3.10",
-                                style: GoogleFonts.lexend(
-                                  fontSize: 20,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
                                 ),
                               ),
                             ],
                           ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              match.odds ?? "-",
+                              style: GoogleFonts.lexend(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.neutral900,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Container(
-                        height: 1,
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                      const SizedBox(height: 12),
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.auto_awesome,
-                            color: Colors.white,
-                            size: 16,
+                          Icon(
+                            Icons.verified,
+                            size: 14,
+                            color: Colors.white.withValues(alpha: 0.5),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              "Poisson Model suggests high probability (68%) of Over 2.5 goals based on both teams' current scoring frequency.",
+                              match.ruleExplanation ?? "AI Confidence: Low",
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.lexend(
-                                fontSize: 11,
-                                color: Colors.white.withValues(alpha: 0.9),
-                                height: 1.4,
+                                fontSize: 10,
+                                color: Colors.white.withValues(alpha: 0.6),
                               ),
                             ),
                           ),
@@ -281,19 +316,18 @@ class LeaguePredictionsTab extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 56,
-          height: 56,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.1),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
           ),
           child: Center(
             child: Text(
               code,
               style: GoogleFonts.lexend(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
                 color: Colors.white,
               ),
             ),
@@ -312,142 +346,118 @@ class LeaguePredictionsTab extends StatelessWidget {
     );
   }
 
+  Widget _buildTipCardFromModel(BuildContext context, MatchModel match, bool isDark) {
+    return _buildTipCard(
+      context,
+      match.homeTeam.length >= 3 ? match.homeTeam.substring(0, 3).toUpperCase() : match.homeTeam,
+      match.awayTeam.length >= 3 ? match.awayTeam.substring(0, 3).toUpperCase() : match.awayTeam,
+      match.homeTeam,
+      match.awayTeam,
+      match.prediction ?? "No Pick",
+      match.odds ?? "-",
+      match.confidence ?? "Medium",
+      (match.confidence?.contains('High') ?? false) ? AppColors.primary : AppColors.warning,
+      isDark,
+    );
+  }
+
   Widget _buildTipCard(
     BuildContext context,
     String homeCode,
     String awayCode,
     String homeName,
     String awayName,
-    String prediction,
+    String tip,
     String odds,
-    String tag,
-    Color tagColor,
+    String confidence,
+    Color accentColor,
     bool isDark,
   ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.neutral800 : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? AppColors.neutral800.withValues(alpha: 0.5) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.black.withValues(alpha: 0.05),
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Saturday, 12:30".toUpperCase(),
-                style: GoogleFonts.lexend(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textGrey,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: tagColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
+              _buildSmallTeam(homeName),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  tag,
+                  "vs",
                   style: GoogleFonts.lexend(
                     fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: tagColor,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textGrey,
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildTeamRow(homeCode, homeName, isDark),
-              Text(
-                "VS",
-                style: GoogleFonts.lexend(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey[300],
+              _buildSmallTeam(awayName),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  confidence.toUpperCase(),
+                  style: GoogleFonts.lexend(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    color: accentColor,
+                  ),
                 ),
               ),
-              _buildTeamRow(awayCode, awayName, isDark, isRight: true),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "PREDICTION",
-                        style: GoogleFonts.lexend(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textGrey,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        prediction,
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : AppColors.textDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                  ),
-                ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "ODDS",
+                      "RECOMMENDED TIP",
                       style: GoogleFonts.lexend(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                        color: AppColors.textGrey,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
-                      odds,
+                      tip,
                       style: GoogleFonts.lexend(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.primary,
+                        color: isDark ? Colors.white : AppColors.textDark,
                       ),
                     ),
                   ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.2)),
+                ),
+                child: Text(
+                  odds,
+                  style: GoogleFonts.lexend(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: accentColor,
+                  ),
                 ),
               ),
             ],
@@ -457,53 +467,16 @@ class LeaguePredictionsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildTeamRow(
-    String code,
-    String name,
-    bool isDark, {
-    bool isRight = false,
-  }) {
-    List<Widget> children = [
-      Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.1)
-              : Colors.grey[100],
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: 0.05),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            code,
-            style: GoogleFonts.lexend(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textGrey,
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(width: 8),
-      Text(
+  Widget _buildSmallTeam(String name) {
+    return Expanded(
+      child: Text(
         name,
+        overflow: TextOverflow.ellipsis,
         style: GoogleFonts.lexend(
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: isDark ? Colors.white : AppColors.textDark,
         ),
       ),
-    ];
-
-    if (isRight) {
-      children = children.reversed.toList();
-    }
-
-    return Row(children: children);
+    );
   }
 }

@@ -674,7 +674,7 @@ class HomeCubit extends Cubit<HomeState> {
       double mOdds = double.tryParse(m.odds ?? '1.0') ?? 1.0;
       bool oddsMatch = mOdds >= minO && mOdds <= maxO;
 
-      double rel = double.tryParse(m.marketReliability ?? '0.0') ?? 0.0;
+      double rel = m.reliabilityScore ?? 0.0;
       bool relMatch = rel >= minRel;
 
       bool confMatch = confs.isEmpty ||
@@ -765,7 +765,7 @@ class HomeCubit extends Cubit<HomeState> {
             homeCrestUrl: homeCrest,
             awayCrestUrl: awayCrest,
             regionFlagUrl: m.regionFlagUrl,
-            marketReliability: m.marketReliability,
+            reliabilityScore: m.reliabilityScore,
             xgHome: m.xgHome,
             xgAway: m.xgAway,
             reasonTags: m.reasonTags,

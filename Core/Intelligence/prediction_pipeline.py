@@ -301,19 +301,19 @@ async def run_predictions(conn=None, fixtures: List[Dict] = None, scheduler=None
 
         try:
             # Build input from DB
-            vision_data = build_rule_engine_input(conn, fixture)
-            real_odds = vision_data.get("real_odds", {})
+            intelligence_context = build_rule_engine_input(conn, fixture)
+            real_odds = intelligence_context.get("real_odds", {})
 
             # Data quality gate: need at least 3 form matches per team
-            home_form_n = len(vision_data["h2h_data"]["home_last_10_matches"])
-            away_form_n = len(vision_data["h2h_data"]["away_last_10_matches"])
+            home_form_n = len(intelligence_context["h2h_data"]["home_last_10_matches"])
+            away_form_n = len(intelligence_context["h2h_data"]["away_last_10_matches"])
 
             if home_form_n < 3 or away_form_n < 3:
                 skipped += 1
                 continue
 
             # Run symbolic prediction
-            rule_prediction = RuleEngine.analyze(vision_data, live_odds=real_odds)
+            rule_prediction = RuleEngine.analyze(intelligence_context, live_odds=real_odds)
 
             # --- Semantic Rule Engine Upgrade ---
             from Core.Intelligence.rule_engine_manager import SemanticRuleEngine
@@ -323,7 +323,7 @@ async def run_predictions(conn=None, fixtures: List[Dict] = None, scheduler=None
             # Run neural prediction
             rl_predictor = RLPredictor.get_instance()
             rl_prediction = rl_predictor.predict(
-                vision_data,
+                intelligence_context,
                 fs_league_id=fixture.get("league_id", "GLOBAL"),
                 home_team_id=fixture.get("home_team_id", ""),
                 away_team_id=fixture.get("away_team_id", "")
@@ -355,9 +355,33 @@ async def run_predictions(conn=None, fixtures: List[Dict] = None, scheduler=None
             prediction["market_id"] = rule_output["market_id"]
             prediction["statistical_edge"] = rule_output["statistical_edge"]
 
+            # --- Rich Rationale Extraction ---
+            prediction["rule_engine_decision"] = rule_output.get("chosen_market")
+            prediction["rl_decision"] = rl_prediction.get("rl_action_probs") # Full prob distribution
+            
+            # Extract team-specific standings
+            std_home, std_away = {}, {}
+            for s in intelligence_context.get("standings", []):
+                if str(s.get("team_id")) == str(fixture.get("home_team_id")):
+                    std_home = s
+                elif str(s.get("team_id")) == str(fixture.get("away_team_id")):
+                    std_away = s
+            
+            prediction["standings_home"] = std_home
+            prediction["standings_away"] = std_away
+            prediction["form_home"] = intelligence_context["h2h_data"]["home_last_10_matches"]
+            prediction["form_away"] = intelligence_context["h2h_data"]["away_last_10_matches"]
+            prediction["h2h_summary"] = intelligence_context["h2h_data"]["head_to_head"]
+            
+            # Rec Qualifications: summarize the "why" in a list of badges
+            prediction["rec_qualifications"] = {
+                "high_form": home_form_n >= 7 and away_form_n >= 7,
+                "h2h_rich": len(prediction["h2h_summary"]) >= 5,
+                "statistical_edge": rule_output.get("statistical_edge", 0) > 0.05
+            }
 
             # Use RuleEngine's top score as the pure model suggestion since we removed Poisson
-            prediction["pure_model_suggestion"] = "Poisson Top Score: " + rule_prediction.get("best_score", "1-1")
+            prediction["pure_model_suggestion"] = "Rule Engine Suggestion: " + rule_prediction.get("best_score", "1-1")
 
             # ── Bug 2 fix: Attach chosen market odds to prediction ──────────
             # real_odds maps action keys (e.g. "home_win", "over_2_5") to odds values.
@@ -365,25 +389,18 @@ async def run_predictions(conn=None, fixtures: List[Dict] = None, scheduler=None
             # We need to find the matching odds from real_odds using market_id + outcome.
             chosen_odds = ""
             if real_odds and prediction.get("chosen_market"):
-                cm = prediction["chosen_market"]
                 mid = str(prediction.get("market_id", ""))
-                # Strategy 1: direct key match from real_odds
-                # real_odds keys are action keys like "home_win", "dc_1x", "over_2_5"
-                for rk, rv in real_odds.items():
-                    chosen_odds = str(rv)
-                    # We want the FIRST match for the chosen market_id
-                    # Check if this action's market_id matches
-                    try:
-                        from Core.Intelligence.rl.market_space import ACTIONS
-                        matching_action = next(
-                            (a for a in ACTIONS if a["key"] == rk and str(a.get("market_id")) == mid),
-                            None
-                        )
-                        if matching_action:
-                            chosen_odds = str(rv)
-                            break
-                    except Exception:
-                        break
+                try:
+                    from Core.Intelligence.rl.market_space import ACTIONS
+                    matching_action = next(
+                        (a for a in ACTIONS if str(a.get("market_id")) == mid),
+                        None
+                    )
+                    if matching_action:
+                        chosen_odds = str(real_odds.get(matching_action["key"], ""))
+                except Exception:
+                    pass
+
                 # Strategy 2: fallback — look up match_odds directly for chosen_market
                 if not chosen_odds and fixture_id and mid:
                     try:
@@ -410,13 +427,13 @@ async def run_predictions(conn=None, fixtures: List[Dict] = None, scheduler=None
                 continue
 
             # Record reference data
-            h2h_ids = [m.get("fixture_id", "") for m in vision_data["h2h_data"]["head_to_head"] if m.get("fixture_id")]
-            home_form_ids = [m.get("fixture_id", "") for m in vision_data["h2h_data"]["home_last_10_matches"] if m.get("fixture_id")]
-            away_form_ids = [m.get("fixture_id", "") for m in vision_data["h2h_data"]["away_last_10_matches"] if m.get("fixture_id")]
+            h2h_ids = [m.get("fixture_id", "") for m in intelligence_context["h2h_data"]["head_to_head"] if m.get("fixture_id")]
+            home_form_ids = [m.get("fixture_id", "") for m in intelligence_context["h2h_data"]["home_last_10_matches"] if m.get("fixture_id")]
+            away_form_ids = [m.get("fixture_id", "") for m in intelligence_context["h2h_data"]["away_last_10_matches"] if m.get("fixture_id")]
 
             prediction["h2h_fixture_ids"] = h2h_ids
             prediction["form_fixture_ids"] = home_form_ids + away_form_ids
-            prediction["standings_snapshot"] = vision_data["standings"]
+            prediction["standings_snapshot"] = intelligence_context["standings"]
 
             # Build match_data for save_prediction
             match_data = {

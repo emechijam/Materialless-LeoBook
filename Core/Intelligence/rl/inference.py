@@ -33,7 +33,7 @@ class RLPredictor:
 
     Usage:
         predictor = RLPredictor()
-        result = predictor.predict(vision_data, fs_league_id, home_team_id, away_team_id)
+        result = predictor.predict(intelligence_context, fs_league_id, home_team_id, away_team_id)
     """
 
     _instance: Optional["RLPredictor"] = None
@@ -74,7 +74,7 @@ class RLPredictor:
 
     def predict(
         self,
-        vision_data: Dict[str, Any],
+        intelligence_context: Dict[str, Any],
         fs_league_id: str = "GLOBAL",
         home_team_id: str = "GLOBAL",
         away_team_id: str = "GLOBAL",
@@ -83,7 +83,7 @@ class RLPredictor:
         Generate predictions in the same format as RuleEngine.analyze().
 
         Args:
-            vision_data: Same dict that RuleEngine.analyze() receives.
+            intelligence_context: Same dict that RuleEngine.analyze() receives.
             fs_league_id: Flashscore league ID string.
             home_team_id: Flashscore home team ID string.
             away_team_id: Flashscore away team ID string.
@@ -98,12 +98,12 @@ class RLPredictor:
                 "reason": ["RL model not trained yet — run: python Leo.py --train-rl"],
             }
 
-        h2h_data = vision_data.get("h2h_data", {})
+        h2h_data = intelligence_context.get("h2h_data", {})
         home_team = h2h_data.get("home_team", "Unknown")
         away_team = h2h_data.get("away_team", "Unknown")
 
         # Encode features
-        features = FeatureEncoder.encode(vision_data)
+        features = FeatureEncoder.encode(intelligence_context)
         features = features.to(self.device)
 
         # Get adapter indices

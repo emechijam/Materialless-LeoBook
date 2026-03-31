@@ -21,7 +21,7 @@ from .rule_config import RuleConfig
 
 class RuleEngine:
     @staticmethod
-    def analyze(vision_data: Dict[str, Any], config: RuleConfig = None, live_odds: Dict[str, float] = None) -> Dict[str, Any]:
+    def analyze(context: Dict[str, Any], config: RuleConfig = None, live_odds: Dict[str, float] = None) -> Dict[str, Any]:
         """
         MAIN PREDICTION ENGINE — Returns full market predictions
         Accepts optional RuleConfig for custom logic.
@@ -29,8 +29,8 @@ class RuleEngine:
         if config is None:
             config = RuleConfig()
             
-        h2h_data = vision_data.get("h2h_data", {})
-        standings = vision_data.get("standings", [])
+        h2h_data = context.get("h2h_data", {})
+        standings = context.get("standings", [])
         home_team = h2h_data.get("home_team")
         away_team = h2h_data.get("away_team")
         country_league = h2h_data.get("country_league", "GLOBAL")
@@ -64,9 +64,9 @@ class RuleEngine:
             except:
                 h2h.append(m)  # keep if date parse fails
         
-        # Merge live_odds from vision_data if not passed explicitly (backward compatibility)
+        # Merge live_odds from context if not passed explicitly (backward compatibility)
         if live_odds is None:
-            live_odds = vision_data.get("real_odds")
+            live_odds = context.get("real_odds")
 
         # Generate all tags using TagGenerator
         home_tags = TagGenerator.generate_form_tags(home_form, home_team, standings)

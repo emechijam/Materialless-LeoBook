@@ -173,6 +173,28 @@ class DataRepository {
     }
   }
 
+  Future<List<MatchModel>> fetchMatchesByLeague(String leagueId) async {
+    try {
+      final response = await _supabase
+          .from('schedules')
+          .select()
+          .eq('league_id', leagueId)
+          .order('date', ascending: false)
+          .limit(100);
+
+      final rows = response as List;
+      final fixtureIds =
+          rows.map((r) => r['fixture_id']?.toString() ?? '').toList();
+      final predMap = await _fetchPredictionMap(fixtureIds: fixtureIds);
+
+      final matches = _mergeSchedulesWithPredictions(rows, predMap);
+      return matches;
+    } catch (e) {
+      debugPrint("DataRepository Error (League Matches): $e");
+      return [];
+    }
+  }
+
   Future<List<MatchModel>> getTeamMatches(String teamName) async {
     try {
       var schedList = await _supabase

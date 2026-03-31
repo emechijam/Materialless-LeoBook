@@ -1,7 +1,4 @@
-// recommendation_model.dart: recommendation_model.dart: Widget/screen for App — Data Models.
-// Part of LeoBook App — Data Models
-//
-// Classes: RecommendationModel
+import 'dart:convert';
 
 class RecommendationModel {
   final String match;
@@ -23,6 +20,15 @@ class RecommendationModel {
   final String? regionFlagUrl;
   final String league;
   final bool isAvailable;
+  final Map<String, dynamic>? formHome;
+  final Map<String, dynamic>? formAway;
+  final List<dynamic>? h2hSummary;
+  final Map<String, dynamic>? standingsHome;
+  final Map<String, dynamic>? standingsAway;
+  final String? ruleEngineDecision;
+  final Map<String, dynamic>? rlDecision;
+  final Map<String, dynamic>? ensembleWeights;
+  final Map<String, dynamic>? recQualifications;
 
   RecommendationModel({
     required this.match,
@@ -44,6 +50,15 @@ class RecommendationModel {
     this.leagueCrestUrl,
     this.regionFlagUrl,
     this.isAvailable = false,
+    this.formHome,
+    this.formAway,
+    this.h2hSummary,
+    this.standingsHome,
+    this.standingsAway,
+    this.ruleEngineDecision,
+    this.rlDecision,
+    this.ensembleWeights,
+    this.recQualifications,
   });
 
   String get homeTeam {
@@ -86,33 +101,38 @@ class RecommendationModel {
   }
 
   factory RecommendationModel.fromJson(Map<String, dynamic> json) {
-    // Standardize column mapping for Supabase 'predictions' table
-    final league = json['country_league'] ?? json['region_league'] ?? json['league'] ?? '';
+    final leagueStr =
+        (json['country_league'] ?? json['region_league'] ?? json['league'] ?? '').toString();
 
-    // Create match string if missing (Supabase has home_team, away_team)
-    String match = json['match'] ?? '';
-    if (match.isEmpty &&
+    String matchStr = json['match'] ?? '';
+    if (matchStr.isEmpty &&
         json['home_team'] != null &&
         json['away_team'] != null) {
-      match = "${json['home_team']} vs ${json['away_team']}";
+      matchStr = "${json['home_team']} vs ${json['away_team']}";
     }
 
-    String sport = 'Football';
-    final l = league.toString().toLowerCase();
-    if (l.contains('nba') ||
-        l.contains('basketball') ||
-        l.contains('euroleague')) {
-      sport = 'Basketball';
+    String sportType = 'Football';
+    final l = leagueStr.toLowerCase();
+    if (l.contains('nba') || l.contains('basketball') || l.contains('euroleague')) {
+      sportType = 'Basketball';
+    } else if (l.contains('atp') || l.contains('wta') || l.contains('itf') || l.contains('tennis')) {
+      sportType = 'Tennis';
     }
-    if (l.contains('atp') ||
-        l.contains('wta') ||
-        l.contains('itf') ||
-        l.contains('tennis')) {
-      sport = 'Tennis';
+
+    dynamic parseJsonField(dynamic field) {
+      if (field == null) return null;
+      if (field is String && (field.startsWith('{') || field.startsWith('['))) {
+        try {
+          return jsonDecode(field);
+        } catch (_) {
+          return null;
+        }
+      }
+      return field;
     }
 
     return RecommendationModel(
-      match: match,
+      match: matchStr,
       fixtureId: json['fixture_id']?.toString() ?? '',
       time: (json['match_time'] ?? json['time'] ?? '').toString(),
       date: (json['date'] ?? '').toString(),
@@ -130,8 +150,8 @@ class RecommendationModel {
               double.tryParse(json['reliability_score']?.toString() ?? '') ??
               double.tryParse(json['recommendation_score']?.toString() ?? '') ??
               0.0,
-      league: league.toString(),
-      sport: sport,
+      league: leagueStr,
+      sport: sportType,
       homeCrestUrl: json['home_crest_url']?.toString(),
       awayCrestUrl: json['away_crest_url']?.toString(),
       leagueCrestUrl: json['league_crest_url']?.toString(),
@@ -139,6 +159,15 @@ class RecommendationModel {
       isAvailable: json['is_available'] == true ||
           json['is_available'] == 1 ||
           json['is_available'] == '1',
+      formHome: parseJsonField(json['form_home']),
+      formAway: parseJsonField(json['form_away']),
+      h2hSummary: parseJsonField(json['h2h_summary']),
+      standingsHome: parseJsonField(json['standings_home']),
+      standingsAway: parseJsonField(json['standings_away']),
+      ruleEngineDecision: json['rule_engine_decision']?.toString(),
+      rlDecision: parseJsonField(json['rl_decision']),
+      ensembleWeights: parseJsonField(json['ensemble_weights']),
+      recQualifications: parseJsonField(json['rec_qualifications']),
     );
   }
 }

@@ -27,13 +27,13 @@ class FeatureEncoder:
     """Encodes raw match context into a 192-dim tensor for the RL model."""
 
     @staticmethod
-    def encode(vision_data: Dict[str, Any],
+    def encode(intelligence_context: Dict[str, Any],
                league_meta: Optional[Dict[str, Any]] = None) -> torch.Tensor:
         """
-        Convert vision_data to a [1, FEATURE_DIM] tensor.
+        Convert intelligence_context to a [1, FEATURE_DIM] tensor.
 
         Args:
-            vision_data: Same dict that RuleEngine.analyze() receives.
+            intelligence_context: Same dict that RuleEngine.analyze() receives.
             league_meta: Optional league-level metadata (avg_goals, home_adv, level).
 
         Returns:
@@ -41,8 +41,8 @@ class FeatureEncoder:
         """
         features = []
 
-        h2h_data = vision_data.get("h2h_data", {})
-        standings = vision_data.get("standings", [])
+        h2h_data = intelligence_context.get("h2h_data", {})
+        standings = intelligence_context.get("standings", [])
         home_team = h2h_data.get("home_team", "")
         away_team = h2h_data.get("away_team", "")
 

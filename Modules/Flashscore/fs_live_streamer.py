@@ -38,6 +38,7 @@ from Core.Utils.constants import NAVIGATION_TIMEOUT, WAIT_FOR_LOAD_STATE_TIMEOUT
 from Core.Intelligence.selector_manager import SelectorManager
 from Core.Intelligence.aigo_suite import AIGOSuite
 from Modules.Flashscore.fs_extractor import extract_all_matches, expand_all_leagues as ensure_content_expanded
+from Modules.Flashscore.data_contract import DataContract, DataContractViolation
 
 STREAM_INTERVAL = 60
 FLASHSCORE_URL = "https://www.flashscore.com/football/"
@@ -114,6 +115,8 @@ def _parse_match_start(date_val, time_val):
 def _propagate_status_updates(live_matches, resolved_matches, force_finished_ids=None):
     """Propagate live scores and resolved results into fixtures and predictions tables."""
     conn = _get_conn()
+    cursor = conn.cursor()
+    cursor.execute("BEGIN TRANSACTION")
     resolved_matches = resolved_matches or []
     force_finished_ids = force_finished_ids or set()
     live_ids = {m['fixture_id'] for m in live_matches}
@@ -250,10 +253,19 @@ def _propagate_status_updates(live_matches, resolved_matches, force_finished_ids
                     updates['outcome_correct'] = oc
 
         if updates:
-            update_prediction(conn, fid, updates)
-            row.update(updates)
-            pred_updates.append(dict(row))
+            try:
+                # Validate before update
+                temp_row = dict(row)
+                temp_row.update(updates)
+                DataContract.validate_match(temp_row)
+                
+                update_prediction(conn, fid, updates)
+                row.update(updates)
+                pred_updates.append(dict(row))
+            except DataContractViolation as e:
+                print(f"   [Streamer-Contract] Skipping prediction update for {fid}: {e}")
 
+    cursor.execute("COMMIT")
     return sched_updates, pred_updates
 
 

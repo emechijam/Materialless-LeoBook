@@ -1,4 +1,4 @@
-# LeoBook Developer RuleBook v9.5.0
+# LeoBook Developer RuleBook v9.5.6
 
 > **This document is LAW.** Every developer and AI agent working on LeoBook MUST follow these rules without exception. Violations will break the system.
 
@@ -48,6 +48,12 @@ Leo.py operates via three sequential gates to ensure data integrity:
 
 1. **Prologue P1 (Quantity & ID Gate)**: Leagues >= 90% coverage AND Teams >= 3 per league (v7.1). Validates Flashscore IDs — fails if invalid ID rate > 5%. GapScanner feeds this gate: P1 fails if `critical` gap count across `leagues` or `teams` tables exceeds threshold.
 2. **Prologue P2 (History & Quality Gate)**: Two separate jobs (v9.1):
+    - **History Job**: Schedules >= 10 matches per team (seasonal rolling).
+    - **Live Job**: Real-time score validation (v9.5).
+
+### 2.4 Strict Data Contract (v9.5.6)
+- **All-or-Nothing Transactions**: Standardized in `Modules/Flashscore/data_contract.py`. Every worker MUST validate the full match payload before database ingress. Partial data is dropped.
+- **Rich Rationale Serialization**: Intelligence outputs MUST include the reasoning chain (Form, H2H, Standings) as structured JSON in the `intelligence_context` column. Single-string reasoning is deprecated.
     - **Job A (gate — blocks pipeline)**: 0 critical gaps AND 0 completed season mismatches. CUP_FORMAT competitions (< 4 registered teams) are EXCLUDED from this logic and from COMPLETED classification.
     - **Job B (informational — never blocks)**: Reports RL tier — RULE_ENGINE (no prior seasons) / PARTIAL (20–50% of leagues have history) / FULL (50%+ have history). Enables the ensemble to scale `W_neural` per league via `data_richness_score`.
     - GapScanner feeds this gate: `schedules` table gaps at `critical` severity are reported per `(league_id, season)` pair. Only completed seasons with critical gaps block P2.
