@@ -144,7 +144,9 @@ class UpdateService extends ChangeNotifier {
     } catch (e) {
       debugPrint('[UpdateService] Download failed: $e');
       _downloadState = UpdateDownloadState.error;
-      _errorMessage = 'Download failed: ${e.toString()}';
+      _errorMessage = _friendlyErrorMessage(
+        'Download failed: ${e.toString()}',
+      );
       notifyListeners();
     }
   }
@@ -172,12 +174,12 @@ class UpdateService extends ChangeNotifier {
 
       if (result.type != ResultType.done) {
         _downloadState = UpdateDownloadState.error;
-        _errorMessage = result.message;
+        _errorMessage = _friendlyErrorMessage(result.message);
         notifyListeners();
       }
     } catch (e) {
       _downloadState = UpdateDownloadState.error;
-      _errorMessage = 'Install failed: ${e.toString()}';
+      _errorMessage = _friendlyErrorMessage('Install failed: ${e.toString()}');
       notifyListeners();
     }
   }
@@ -202,6 +204,26 @@ class UpdateService extends ChangeNotifier {
       if (r < l) return false;
     }
     return false;
+  }
+
+  String _friendlyErrorMessage(String? rawMessage) {
+    final message = (rawMessage ?? '').trim();
+    if (message.isEmpty) {
+      return 'Update failed. Please try again.';
+    }
+
+    final lower = message.toLowerCase();
+    if (lower.contains('conflicts with an existing package') ||
+        lower.contains('package conflict') ||
+        lower.contains('inconsistent certificates')) {
+      return 'This update package was signed differently from the installed LeoBook app. Please install the latest official release package.';
+    }
+
+    if (lower.contains('app not installed')) {
+      return 'Android could not install this update package. Please try the latest official LeoBook release again.';
+    }
+
+    return message;
   }
 
   @override

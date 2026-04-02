@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -13,6 +14,30 @@ val keystoreProperties = Properties()
 val keystoreFile = rootProject.file("key.properties")
 if (keystoreFile.exists()) {
     keystoreProperties.load(FileInputStream(keystoreFile))
+}
+
+val keystoreKeys = listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
+val hasCompleteSigningConfig = keystoreKeys.all {
+    !keystoreProperties.getProperty(it).isNullOrBlank()
+}
+val releaseStoreFile = if (hasCompleteSigningConfig) {
+    rootProject.file(keystoreProperties.getProperty("storeFile"))
+} else {
+    null
+}
+val hasReleaseSigning = keystoreFile.exists() &&
+    hasCompleteSigningConfig &&
+    releaseStoreFile?.exists() == true
+val isReleaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.contains("release", ignoreCase = true) ||
+        taskName.contains("bundle", ignoreCase = true)
+}
+
+if (isReleaseTaskRequested && !hasReleaseSigning) {
+    throw GradleException(
+        "Release signing is required for LeoBook builds. " +
+            "Ensure android/key.properties exists and points to a valid release keystore.",
+    )
 }
 
 android {
@@ -39,30 +64,25 @@ android {
     }
 
     signingConfigs {
-        if (keystoreFile.exists()) {
+        if (hasReleaseSigning) {
             create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = releaseStoreFile
+                storePassword = keystoreProperties.getProperty("storePassword")
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (keystoreFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
         debug {
-            signingConfig = if (keystoreFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
