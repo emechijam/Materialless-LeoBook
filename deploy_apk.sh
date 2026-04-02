@@ -17,12 +17,124 @@ ANDROID_DIR="$APP_DIR/android"
 PUBSPEC="$APP_DIR/pubspec.yaml"
 APK_OUTPUT="$APP_DIR/build/app/outputs/flutter-apk"
 KEY_PROPERTIES_FILE="$ANDROID_DIR/key.properties"
+LOCAL_PROPERTIES_FILE="$ANDROID_DIR/local.properties"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "ERROR: '$1' is required but not available in PATH."
     exit 1
   fi
+}
+
+read_local_property() {
+  local key="$1"
+  if [ ! -f "$LOCAL_PROPERTIES_FILE" ]; then
+    return 1
+  fi
+
+  local value
+  value="$(sed -n "s/^${key}=//p" "$LOCAL_PROPERTIES_FILE" | head -1 | tr -d '\r')"
+  if [ -z "$value" ]; then
+    return 1
+  fi
+
+  value="${value//\\\\/\\}"
+  value="${value//\\:/:}"
+  printf '%s' "$value"
+}
+
+resolve_android_sdk_root() {
+  local candidates=()
+
+  if [ -n "${ANDROID_SDK_ROOT:-}" ]; then
+    candidates+=("$ANDROID_SDK_ROOT")
+  fi
+  if [ -n "${ANDROID_HOME:-}" ]; then
+    candidates+=("$ANDROID_HOME")
+  fi
+
+  local sdk_from_local_properties
+  sdk_from_local_properties="$(read_local_property sdk.dir || true)"
+  if [ -n "$sdk_from_local_properties" ]; then
+    candidates+=("$sdk_from_local_properties")
+  fi
+
+  candidates+=(
+    "$HOME/Android/Sdk"
+    "/usr/local/lib/android/sdk"
+    "/opt/android-sdk"
+    "/opt/android-sdk-linux"
+  )
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [ -n "$candidate" ] && [ -d "$candidate" ]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+resolve_java_tool() {
+  local tool_name="$1"
+
+  if command -v "$tool_name" >/dev/null 2>&1; then
+    command -v "$tool_name"
+    return 0
+  fi
+
+  if [ -n "${JAVA_HOME:-}" ]; then
+    local java_home_tool="$JAVA_HOME/bin/$tool_name"
+    if [ -x "$java_home_tool" ]; then
+      printf '%s' "$java_home_tool"
+      return 0
+    fi
+  fi
+
+  echo "ERROR: '$tool_name' is required but was not found in PATH or JAVA_HOME/bin." >&2
+  exit 1
+}
+
+resolve_android_tool() {
+  local tool_name="$1"
+
+  if command -v "$tool_name" >/dev/null 2>&1; then
+    command -v "$tool_name"
+    return 0
+  fi
+
+  if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -d "${ANDROID_SDK_ROOT:-}" ]; then
+    :
+  else
+    ANDROID_SDK_ROOT="$(resolve_android_sdk_root || true)"
+  fi
+
+  if [ -z "${ANDROID_SDK_ROOT:-}" ]; then
+    echo "ERROR: Android SDK root could not be found. Set ANDROID_SDK_ROOT or ANDROID_HOME." >&2
+    exit 1
+  fi
+
+  local build_tools_dir="$ANDROID_SDK_ROOT/build-tools"
+  if [ ! -d "$build_tools_dir" ]; then
+    echo "ERROR: Android build-tools were not found under $build_tools_dir" >&2
+    exit 1
+  fi
+
+  local resolved_path
+  resolved_path="$(
+    find "$build_tools_dir" -maxdepth 2 -type f \( -name "$tool_name" -o -name "${tool_name}.exe" -o -name "${tool_name}.bat" \) \
+      | sort -V \
+      | tail -1
+  )"
+
+  if [ -z "$resolved_path" ]; then
+    echo "ERROR: '$tool_name' was not found under $build_tools_dir" >&2
+    exit 1
+  fi
+
+  printf '%s' "$resolved_path"
 }
 
 normalize_fingerprint() {
@@ -74,7 +186,7 @@ verify_release_apk() {
   fi
 
   local signer_output
-  signer_output="$(apksigner verify --print-certs "$apk_path")"
+  signer_output="$("$APKSIGNER_BIN" verify --print-certs "$apk_path")"
 
   local actual_sha
   local actual_subject
@@ -93,7 +205,7 @@ verify_release_apk() {
   fi
 
   local keytool_output
-  keytool_output="$(keytool -list -v -keystore "$store_file" -alias "$key_alias" -storepass "$store_password" -keypass "$key_password")"
+  keytool_output="$("$KEYTOOL_BIN" -list -v -keystore "$store_file" -alias "$key_alias" -storepass "$store_password" -keypass "$key_password")"
 
   local expected_sha
   expected_sha="$(printf '%s\n' "$keytool_output" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"
@@ -111,7 +223,7 @@ verify_release_apk() {
   fi
 
   local badging
-  badging="$(aapt dump badging "$apk_path")"
+  badging="$("$AAPT_BIN" dump badging "$apk_path")"
 
   local package_name
   local version_name
@@ -159,9 +271,11 @@ upload_file() {
 
 require_command flutter
 require_command curl
-require_command keytool
-require_command apksigner
-require_command aapt
+
+KEYTOOL_BIN="$(resolve_java_tool keytool)"
+ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$(resolve_android_sdk_root || true)}"
+APKSIGNER_BIN="$(resolve_android_tool apksigner)"
+AAPT_BIN="$(resolve_android_tool aapt)"
 
 VERSION="$(grep '^version:' "$PUBSPEC" | head -1 | sed 's/version: *//;s/+.*//')"
 if [ -z "$VERSION" ]; then
