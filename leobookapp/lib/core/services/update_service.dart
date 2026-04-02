@@ -8,11 +8,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppUpdateInfo {
   final bool updateAvailable;
@@ -93,7 +94,7 @@ class UpdateService extends ChangeNotifier {
       final Map<String, dynamic> metadata = json.decode(jsonStr);
 
       final latestVersion = metadata['version'] as String? ?? currentVersion;
-      final downloadUrl = metadata['apk_url'] as String?;
+      final downloadUrl = await _resolveDownloadUrl(metadata);
 
       final isNewer = _isVersionNewer(latestVersion, currentVersion);
 
@@ -204,6 +205,99 @@ class UpdateService extends ChangeNotifier {
       if (r < l) return false;
     }
     return false;
+  }
+
+  Future<String?> _resolveDownloadUrl(Map<String, dynamic> metadata) async {
+    final directUrl = metadata['apk_url'] as String?;
+    final rawApkUrls = metadata['apk_urls'];
+
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return directUrl;
+    }
+
+    if (rawApkUrls is! Map) {
+      return directUrl;
+    }
+
+    final apkUrls = <String, String>{};
+    rawApkUrls.forEach((key, value) {
+      final url = value?.toString().trim();
+      if (url != null && url.isNotEmpty) {
+        apkUrls[key.toString()] = url;
+      }
+    });
+
+    if (apkUrls.isEmpty) {
+      return directUrl;
+    }
+
+    try {
+      final plugin = DeviceInfoPlugin();
+      final androidInfo = await plugin.androidInfo;
+
+      final abiCandidates = <String>[
+        ...androidInfo.supported64BitAbis,
+        ...androidInfo.supported32BitAbis,
+        ...androidInfo.supportedAbis,
+        metadata['default_abi']?.toString() ?? '',
+        'arm64-v8a',
+        'armeabi-v7a',
+        'x86_64',
+        'universal',
+      ];
+
+      for (final abi in abiCandidates) {
+        final normalizedAbi = _normalizeAbi(abi);
+        if (normalizedAbi == null) continue;
+
+        final matchedUrl = apkUrls[normalizedAbi];
+        if (matchedUrl != null && matchedUrl.isNotEmpty) {
+          return matchedUrl;
+        }
+      }
+    } catch (e) {
+      debugPrint('[UpdateService] ABI resolution failed: $e');
+    }
+
+    return directUrl ?? apkUrls['universal'] ?? _firstNonEmptyUrl(apkUrls);
+  }
+
+  String? _normalizeAbi(String abi) {
+    final normalized = abi.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+
+    switch (normalized) {
+      case 'arm64-v8a':
+      case 'arm64_v8a':
+      case 'arm64':
+      case 'aarch64':
+        return 'arm64-v8a';
+      case 'armeabi-v7a':
+      case 'armeabi_v7a':
+      case 'armeabi':
+      case 'armv7':
+        return 'armeabi-v7a';
+      case 'x86_64':
+      case 'x86-64':
+      case 'x64':
+        return 'x86_64';
+      case 'x86':
+        return 'x86';
+      case 'universal':
+      case 'fat':
+        return 'universal';
+      default:
+        return normalized;
+    }
+  }
+
+  String? _firstNonEmptyUrl(Map<String, String> apkUrls) {
+    for (final url in apkUrls.values) {
+      if (url.trim().isNotEmpty) {
+        return url;
+      }
+    }
+    return null;
   }
 
   String _friendlyErrorMessage(String? rawMessage) {

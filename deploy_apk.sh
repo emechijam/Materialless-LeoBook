@@ -10,6 +10,7 @@ set -euo pipefail
 SUPABASE_URL="https://jefoqzewyvscdqcpnjxu.supabase.co"
 BUCKET="app-releases"
 EXPECTED_APPLICATION_ID="com.materialless.leobookapp"
+DEFAULT_UPDATE_ABI="arm64-v8a"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$SCRIPT_DIR/leobookapp"
@@ -187,6 +188,11 @@ resolve_android_tool() {
   fi
 
   printf '%s' "$resolved_path"
+}
+
+public_url_for_name() {
+  local object_name="$1"
+  printf '%s/storage/v1/object/public/%s/%s' "$SUPABASE_URL" "$BUCKET" "$object_name"
 }
 
 first_non_empty_env() {
@@ -393,6 +399,28 @@ upload_file() {
   fi
 }
 
+stage_split_apk() {
+  local abi="$1"
+  local source_apk="$APK_OUTPUT/app-${abi}-release.apk"
+  if [ ! -f "$source_apk" ]; then
+    return 1
+  fi
+
+  local latest_name="LeoBook-latest-${abi}.apk"
+  local version_name="LeoBook-v${VERSION}-${abi}.apk"
+
+  cp "$source_apk" "$APK_OUTPUT/$latest_name"
+  cp "$source_apk" "$APK_OUTPUT/$version_name"
+
+  verify_release_apk "$APK_OUTPUT/$latest_name" "$VERSION"
+  verify_release_apk "$APK_OUTPUT/$version_name" "$VERSION"
+
+  upload_file "$APK_OUTPUT/$latest_name" "$latest_name" "application/vnd.android.package-archive"
+  upload_file "$APK_OUTPUT/$version_name" "$version_name" "application/vnd.android.package-archive"
+
+  return 0
+}
+
 require_command flutter
 require_command curl
 require_command base64
@@ -419,20 +447,34 @@ PUBLIC_URL="${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${LATEST_NAME}"
 if [ "${1:-}" != "--skip-build" ]; then
   echo "Building release APK..."
   cd "$APP_DIR"
-  flutter build apk --release
+  flutter build apk --release --split-per-abi
   cd "$SCRIPT_DIR"
 else
   echo "Skipping build (--skip-build)"
 fi
 
-SOURCE_APK="$APK_OUTPUT/app-release.apk"
-if [ ! -f "$SOURCE_APK" ]; then
-  echo "ERROR: APK not found at $SOURCE_APK"
+DEFAULT_SOURCE_APK=""
+for candidate_abi in "$DEFAULT_UPDATE_ABI" "armeabi-v7a" "x86_64"; do
+  candidate_apk="$APK_OUTPUT/app-${candidate_abi}-release.apk"
+  if [ -f "$candidate_apk" ]; then
+    DEFAULT_SOURCE_APK="$candidate_apk"
+    DEFAULT_SOURCE_ABI="$candidate_abi"
+    break
+  fi
+done
+
+if [ -z "$DEFAULT_SOURCE_APK" ] && [ -f "$APK_OUTPUT/app-release.apk" ]; then
+  DEFAULT_SOURCE_APK="$APK_OUTPUT/app-release.apk"
+  DEFAULT_SOURCE_ABI="universal"
+fi
+
+if [ -z "$DEFAULT_SOURCE_APK" ]; then
+  echo "ERROR: No APK was found in $APK_OUTPUT"
   exit 1
 fi
 
-cp "$SOURCE_APK" "$APK_OUTPUT/$APK_NAME"
-cp "$SOURCE_APK" "$APK_OUTPUT/$LATEST_NAME"
+cp "$DEFAULT_SOURCE_APK" "$APK_OUTPUT/$APK_NAME"
+cp "$DEFAULT_SOURCE_APK" "$APK_OUTPUT/$LATEST_NAME"
 
 verify_release_apk "$APK_OUTPUT/$LATEST_NAME" "$VERSION"
 verify_release_apk "$APK_OUTPUT/$APK_NAME" "$VERSION"
@@ -472,11 +514,39 @@ echo "Uploading APKs to Supabase..."
 upload_file "$APK_OUTPUT/$LATEST_NAME" "$LATEST_NAME" "application/vnd.android.package-archive"
 upload_file "$APK_OUTPUT/$APK_NAME" "$APK_NAME" "application/vnd.android.package-archive"
 
+APK_URLS_JSON=""
+if stage_split_apk "arm64-v8a"; then
+  APK_URLS_JSON="${APK_URLS_JSON}    \"arm64-v8a\": \"$(public_url_for_name "LeoBook-latest-arm64-v8a.apk")\""
+fi
+if stage_split_apk "armeabi-v7a"; then
+  if [ -n "$APK_URLS_JSON" ]; then
+    APK_URLS_JSON="${APK_URLS_JSON},\n"
+  fi
+  APK_URLS_JSON="${APK_URLS_JSON}    \"armeabi-v7a\": \"$(public_url_for_name "LeoBook-latest-armeabi-v7a.apk")\""
+fi
+if stage_split_apk "x86_64"; then
+  if [ -n "$APK_URLS_JSON" ]; then
+    APK_URLS_JSON="${APK_URLS_JSON},\n"
+  fi
+  APK_URLS_JSON="${APK_URLS_JSON}    \"x86_64\": \"$(public_url_for_name "LeoBook-latest-x86_64.apk")\""
+fi
+
+if [ "$DEFAULT_SOURCE_ABI" = "universal" ]; then
+  if [ -n "$APK_URLS_JSON" ]; then
+    APK_URLS_JSON="${APK_URLS_JSON},\n"
+  fi
+  APK_URLS_JSON="${APK_URLS_JSON}    \"universal\": \"$(public_url_for_name "$LATEST_NAME")\""
+fi
+
 METADATA_FILE="$APK_OUTPUT/metadata.json"
 cat > "$METADATA_FILE" << EOF
 {
   "version": "$VERSION",
   "apk_url": "$PUBLIC_URL",
+  "default_abi": "$DEFAULT_SOURCE_ABI",
+  "apk_urls": {
+$(printf '%b\n' "$APK_URLS_JSON")
+  },
   "updated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
