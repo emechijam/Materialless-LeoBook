@@ -27,7 +27,8 @@ _SCHEMA_SQL = """
         abbreviations       TEXT,
         search_terms        TEXT,
         date_updated        TEXT,
-        last_updated        TEXT DEFAULT (datetime('now'))
+        last_updated        TEXT DEFAULT (datetime('now')),
+        sport               TEXT DEFAULT 'football'
     );
 
     CREATE TABLE IF NOT EXISTS teams (
@@ -72,7 +73,8 @@ _SCHEMA_SQL = """
         url                 TEXT,
         country_league      TEXT,
         match_link          TEXT,
-        last_updated        TEXT DEFAULT (datetime('now'))
+        last_updated        TEXT DEFAULT (datetime('now')),
+        sport               TEXT DEFAULT 'football'
     );
 
     CREATE TABLE IF NOT EXISTS predictions (
@@ -124,6 +126,7 @@ _SCHEMA_SQL = """
         rec_qualifications  JSON,
         is_available        INTEGER DEFAULT 0,
         last_updated        TEXT DEFAULT (datetime('now')),
+        sport               TEXT DEFAULT 'football',
         PRIMARY KEY (fixture_id, user_id)
     );
 
@@ -185,10 +188,19 @@ _SCHEMA_SQL = """
         report_id           TEXT NOT NULL,
         user_id             TEXT NOT NULL DEFAULT '',
         timestamp           TEXT,
-        volume              INTEGER,
-        win_rate            REAL,
-        return_pct          REAL,
         period              TEXT,
+        sport               TEXT DEFAULT 'all',
+        volume              INTEGER DEFAULT 0,
+        win_rate            REAL DEFAULT 0.0,
+        return_pct          REAL DEFAULT 0.0,
+        avg_odds            REAL DEFAULT 0.0,
+        total_staked        REAL DEFAULT 0.0,
+        total_returned      REAL DEFAULT 0.0,
+        current_streak      INTEGER DEFAULT 0,
+        longest_win_streak  INTEGER DEFAULT 0,
+        market_breakdown    JSON,
+        roi_curve           JSON,
+        streak_data         JSON,
         last_updated        TEXT DEFAULT (datetime('now')),
         PRIMARY KEY (report_id, user_id)
     );
@@ -211,6 +223,10 @@ _SCHEMA_SQL = """
         avatar_url          TEXT,
         tier                TEXT,
         credits             REAL,
+        subscription_provider   TEXT,
+        subscription_status     TEXT DEFAULT 'none',
+        subscription_expires_at TEXT,
+        subscription_reference  TEXT,
         created_at          TEXT,
         updated_at          TEXT,
         last_updated        TEXT DEFAULT (datetime('now'))
@@ -293,6 +309,19 @@ _SCHEMA_SQL = """
         UNIQUE(user_id, platform, credential_key)
     );
 
+    -- Per-user ML/RL configuration (customizable prediction parameters).
+    CREATE TABLE IF NOT EXISTS user_rl_config (
+        user_id             TEXT PRIMARY KEY,
+        market_weights      JSON,
+        min_confidence      REAL DEFAULT 0.6,
+        min_odds            REAL DEFAULT 1.5,
+        max_odds            REAL DEFAULT 8.0,
+        risk_appetite       TEXT DEFAULT 'medium',
+        max_stake_pct       REAL DEFAULT 0.05,
+        enabled_sports      TEXT DEFAULT 'football,basketball',
+        last_updated        TEXT DEFAULT (datetime('now'))
+    );
+
     -- Indexes for hot-path queries
     CREATE INDEX IF NOT EXISTS idx_schedules_league ON schedules(league_id);
     CREATE INDEX IF NOT EXISTS idx_schedules_date ON schedules(date);
@@ -308,6 +337,8 @@ _SCHEMA_SQL = """
     CREATE INDEX IF NOT EXISTS idx_match_odds_fixture ON match_odds(fixture_id);
     CREATE INDEX IF NOT EXISTS idx_match_odds_market ON match_odds(market_id, extracted_at);
     CREATE INDEX IF NOT EXISTS idx_match_odds_site ON match_odds(site_match_id);
+    CREATE INDEX IF NOT EXISTS idx_schedules_sport ON schedules(sport, date);
+    CREATE INDEX IF NOT EXISTS idx_accuracy_reports_sport ON accuracy_reports(user_id, sport, period);
 """
 
 # ── ALTER TABLE migrations (idempotent) ───────────────────────────────────────
@@ -352,6 +383,25 @@ _ALTER_MIGRATIONS = [
     ("fb_matches",       "user_id", "TEXT NOT NULL DEFAULT ''"),
     ("accuracy_reports", "user_id", "TEXT NOT NULL DEFAULT ''"),
     ("log_segments",     "user_id", "TEXT NOT NULL DEFAULT ''"),
+    # v9.6.0 — sport column for multi-sport support
+    ("leagues",           "sport", "TEXT DEFAULT 'football'"),
+    ("schedules",         "sport", "TEXT DEFAULT 'football'"),
+    ("predictions",       "sport", "TEXT DEFAULT 'football'"),
+    # v9.6.0 — subscription fields on profiles
+    ("profiles", "subscription_provider",   "TEXT"),
+    ("profiles", "subscription_status",     "TEXT DEFAULT 'none'"),
+    ("profiles", "subscription_expires_at", "TEXT"),
+    ("profiles", "subscription_reference",  "TEXT"),
+    # v9.6.0 — expanded accuracy_reports fields
+    ("accuracy_reports", "sport",              "TEXT DEFAULT 'all'"),
+    ("accuracy_reports", "avg_odds",           "REAL DEFAULT 0.0"),
+    ("accuracy_reports", "total_staked",       "REAL DEFAULT 0.0"),
+    ("accuracy_reports", "total_returned",     "REAL DEFAULT 0.0"),
+    ("accuracy_reports", "current_streak",     "INTEGER DEFAULT 0"),
+    ("accuracy_reports", "longest_win_streak", "INTEGER DEFAULT 0"),
+    ("accuracy_reports", "market_breakdown",   "JSON"),
+    ("accuracy_reports", "roi_curve",          "JSON"),
+    ("accuracy_reports", "streak_data",        "JSON"),
 ]
 
 # ── CSV → SQLite import map REMOVED (v7.0) ───────────────────────────────────
