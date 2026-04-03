@@ -67,7 +67,7 @@ Leo.py operates via three sequential gates to ensure data integrity:
 
 **Readiness cache schema versioning**: `data_readiness.py` tracks `_CACHE_SCHEMA_VERSION = "9.3"`. Any schema change MUST increment this constant — stale cache entries from older versions are silently cleared and a fresh scan runs. Update `_CACHE_SCHEMA_VERSION` in `Core/System/data_readiness.py` on every release.
 
-### 2.4 Pipeline Structure (v8.0)
+### 2.5 Pipeline Structure (v8.0)
 
 ```
 Startup Sync: Push-only (local → Supabase, auto-bootstrap if empty)
@@ -93,13 +93,13 @@ Chapter 2:
 Live Streamer: Isolated parallel task — Live Scores + Outcome Review + Accuracy Reports
 ```
 
-### 2.5 Standings Table Is FORBIDDEN
+### 2.6 Standings Table Is FORBIDDEN
 
 - **Rule**: No persistent `standings` table allowed in SQLite or Supabase.
 - **Implementation**: Standings MUST be computed on-the-fly via the `computed_standings` VIEW in Supabase or `computed_standings()` in `league_db.py`.
 - **Reasoning**: Ensures zero-latency source-of-truth accuracy and removes redundant sync overhead.
 
-### 2.6 File Headers (MANDATORY)
+### 2.7 File Headers (MANDATORY)
 
 Every Python file MUST have this header format:
 
@@ -111,27 +111,27 @@ Every Python file MUST have this header format:
 # Called by: Leo.py (Chapter X Page Y) | other_module.py
 ```
 
-### 2.7 No Dead Code
+### 2.8 No Dead Code
 
 - No commented-out code blocks
 - No unused imports
 - No functions that are never called
 
-### 2.8 Concurrency Rules
+### 2.9 Concurrency Rules
 
 - **Max Concurrency**: strictly limited by `MAX_CONCURRENCY` in `.env`.
 - **Sequential Integrity**: Inside each match worker, steps must remain SEQUENTIAL.
 - **SQLite WAL**: Handles concurrent access. Never use manual locks for DB operations.
 - **Live Streamer Isolation**: Streamer runs in its own Playwright instance with an isolated user data directory.
 
-### 2.9 Timezone Consistency (Africa/Lagos)
+### 2.10 Timezone Consistency (Africa/Lagos)
 
 - **Rule**: Every timestamp MUST use the Nigerian timezone (**Africa/Lagos**, UTC+1).
 - **Tooling**: Use `Core.Utils.constants.now_ng()` for all time operations.
 - **Rationale**: Football.com operates exclusively in Nigeria/Ghana (WAT timezone). Developer location is WAT. Cross-league timezone normalization (UTC/CET for European leagues) is planned but deferred to avoid complexity during current testing phase.
 - **Edge case**: European daylight saving transitions may cause 1-hour misalignment in match time parsing during DST transition weeks.
 
-### 2.10 High-Velocity Data Ingestion (Selective Enrichment)
+### 2.11 High-Velocity Data Ingestion (Selective Enrichment)
 
 - **Rule**: When dealing with massive datasets (>1,000 leagues), developers and agents SHOULD use **selective enrichment** via range limits and season targeting.
 - **Implementation**:
@@ -139,7 +139,7 @@ Every Python file MUST have this header format:
     - Use `--season N` to target the most recent historical season (N=1) rather than multiple seasons at once.
 - **Reasoning**: Prevents memory exhaustion in constrained environments (e.g., Codespaces) and allows for distributed processing if multiple LeoBook instances are run in parallel.
 
-### 2.11 Selector Compliance (Zero Hardcoded Selectors)
+### 2.12 Selector Compliance (Zero Hardcoded Selectors)
 
 - **Rule**: ALL CSS selectors used for web scraping MUST be defined in `Config/knowledge.json` and accessed via `Core.Intelligence.selector_manager.SelectorManager`. **Zero hardcoded selectors** in Python or JavaScript code files.
 - **Implementation**:
@@ -148,7 +148,7 @@ Every Python file MUST have this header format:
     - In JS evaluation, pass the selectors dict as an argument and reference keys (e.g., `s.breadcrumb_links`, `s.match_link`).
 - **Reasoning**: Flashscore frequently changes class names and DOM structure. Centralizing selectors in one JSON file makes updates fast and auditable.
 
-### 2.12 Data Quality & Invalid ID Resolution
+### 2.13 Data Quality & Invalid ID Resolution
 
 - **Scanner**: `Data/Access/gap_scanner.py` (`GapScanner`) scans all three core tables — `leagues`, `teams`, `schedules` — at the individual cell level. Every gap is tracked to its originating `(league_id, season)` pair so enrichment is surgical, not wholesale.
 
@@ -182,7 +182,7 @@ Every Python file MUST have this header format:
     - `python -m Scripts.enrich_leagues --min-severity critical` — only fix pipeline-blocking gaps.
     - `python -m Scripts.enrich_leagues --min-severity enrichable` — fix everything including minor columns.
 
-### 2.13 Neuro-Symbolic Ensemble (Intelligence v8.0 "Stairway Engine")
+### 2.14 Neuro-Symbolic Ensemble (Intelligence v8.0 "Stairway Engine")
 
 - **Rule**: Predictions MUST combine Rule Engine (Symbolic) and RL (Neural) signals over a **30-dimensional action space**.
 - **Action Space**: Defined in `Core/Intelligence/rl/market_space.py` (Single Source of Truth). Includes 1X2, DC, OU (1.5, 2.5, 3.5), BTTS, and no_bet.
@@ -193,10 +193,11 @@ Every Python file MUST have this header format:
 - **Symbolic Baseline**: If `RL_Conf < 0.3` or model failure, fallback to `100% Rule Engine`. The system MUST NOT place bets based purely on low-confidence neural signals.
 - **Phase guidance**: The Rule Engine is the reliability backbone throughout Phase 1. RL weights should only be increased beyond 0.3 after Phase 2 completes and RL accuracy on odds-grounded data is verified to exceed the Rule Engine baseline on high-volume days (≥ 200 matches).
 
-### 2.14 Module Size Limit
+### 2.15 Module Size Limit
 
-**Rule**: All Python files MUST remain ≤500 lines. When a file approaches 500 lines, split it using the established pattern: extract a sub-module, keep the original as a façade that re-exports everything.
+**Rule**: All Python implementation files MUST remain ≤500 lines. When a file approaches 500 lines, split it using the established pattern: extract a sub-module, keep the original as a façade that re-exports everything.
 
+- **Façade exemption**: A façade file whose body is primarily `from sub_module import ...` re-exports may exceed 500 lines — it contains no logic. Its sub-modules must each be ≤500 lines.
 - Backward import compatibility is mandatory — no callers should need to change their imports.
 - Monoliths are a maintenance liability and violate this rule.
 - The initial modularisation (v9.1, 2026-03-14/15) split 9 files totalling 9,439 lines into 24 files all ≤500 lines.
@@ -209,7 +210,7 @@ Compliant split pattern:
 # large_module_helpers.py (≤500L) — extracted helpers
 ```
 
-### 2.15 Module Home Rule
+### 2.16 Module Home Rule
 
 **Rule**: Files belong in the module that matches their concern:
 - Flashscore scraping → `Modules/Flashscore/`
@@ -221,7 +222,7 @@ Compliant split pattern:
 
 `Scripts/` is a staging area, not a permanent home. If a script grows beyond a single concern, it MUST be moved to the appropriate module. The original path becomes a one-line shim for backward compatibility.
 
-### 2.16 Reuse First: Proven Components Are Assets
+### 2.17 Reuse First: Proven Components Are Assets
 
 **Rule**: Before writing ANY new component — scroll handler, collapse toggle, DB helper, image downloader — search the codebase first. Proven, battle-tested components **MUST** be reused and extended, not re-implemented.
 
@@ -234,7 +235,7 @@ Compliant split pattern:
 
 **Reasoning**: Re-implementing proven components wastes time, introduces new bugs, and fragments the codebase. Every line of new code is a liability. Reuse is a force-multiplier.
 
-### 2.17 Timezone: WAT Is the Backend Standard
+### 2.18 Timezone: WAT Is the Backend Standard
 
 **Rule**: All backend timestamps **MUST** be in WAT (`Africa/Lagos`, UTC+1).
 
@@ -244,7 +245,7 @@ Compliant split pattern:
 - **Match times**: Raw Flashscore match times are scraped in WAT context. No UTC offset is applied at backend level.
 - **Reasoning**: Football.com operates in Nigeria (WAT). Developer location is WAT. Consistent WAT throughout eliminates confusion and DST edge cases in the Nigerian market.
 
-### 2.18 Streamer Process Management
+### 2.19 Streamer Process Management
 
 **Rule**: `fs_live_streamer.py` runs as a fully independent OS process (`start_new_session=True`). It CANNOT be stopped by `Leo.py` or `Ctrl+C`. Use the platform command below.
 
@@ -417,6 +418,6 @@ All six Tier 1 guardrails are **LIVE as of March 10, 2026**. None may be disable
 
 ---
 
-*Last updated: 2026-03-31 (v9.5.7 — Chapter 1 Hardening: data_contract.py refactor, rich rationale JSONB, MatchRationaleSheet UI)*
+*Last updated: 2026-04-03 (v9.5.9 — Façade exemption added to §2.15; section numbering corrected §2.5–2.19)*
 *Previous: v9.5.0 — Authentication overhaul, increased heartbeat, Settings UI improvements*
 *Authored by: LeoBook Engineering Team — Materialless LLC*

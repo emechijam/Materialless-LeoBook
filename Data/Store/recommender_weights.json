@@ -1,0 +1,1036 @@
+{
+  "market_weights": {
+    "over_0.5": {
+      "ema_acc": 9.591863443057786e-07,
+      "n": 81
+    },
+    "home_to_score": {
+      "ema_acc": 0.5660635235376988,
+      "n": 12275
+    },
+    "dc_12": {
+      "ema_acc": 0.6069321161820403,
+      "n": 51494
+    },
+    "btts_yes": {
+      "ema_acc": 0.51125,
+      "n": 2
+    },
+    "home_win": {
+      "ema_acc": 0.6860285937499999,
+      "n": 5
+    },
+    "away_to_score": {
+      "ema_acc": 0.8012405987500985,
+      "n": 3229
+    },
+    "dc_1x": {
+      "ema_acc": 0.5895714737834195,
+      "n": 89
+    },
+    "btts_no": {
+      "ema_acc": 0.5721919596456856,
+      "n": 29
+    },
+    "away_ov2.5": {
+      "ema_acc": 0.00046130037754478796,
+      "n": 43
+    },
+    "cs_home": {
+      "ema_acc": 0.36124999999999996,
+      "n": 2
+    },
+    "over_1.5": {
+      "ema_acc": 0.7124402700829974,
+      "n": 9258
+    },
+    "under_3.5": {
+      "ema_acc": 0.582335421117147,
+      "n": 34233
+    },
+    "home_ov1.5": {
+      "ema_acc": 0.8939825180300073,
+      "n": 14
+    },
+    "under_2.5": {
+      "ema_acc": 0.7018498948594875,
+      "n": 256
+    },
+    "dc_x2": {
+      "ema_acc": 0.4965402075166015,
+      "n": 9
+    },
+    "over_2.5": {
+      "ema_acc": 0.6404025091470329,
+      "n": 22
+    },
+    "Home_To_Score": {
+      "ema_acc": 0.6635559403931305,
+      "n": 12184
+    },
+    "Dc_12": {
+      "ema_acc": 0.9938045095793321,
+      "n": 51272
+    },
+    "Under_3.5": {
+      "ema_acc": 0.9388412456097682,
+      "n": 34160
+    },
+    "Over_1.5": {
+      "ema_acc": 0.7000196734852775,
+      "n": 9250
+    },
+    "Away_To_Score": {
+      "ema_acc": 0.8649211871749951,
+      "n": 3209
+    },
+    "BTTS No": {
+      "ema_acc": 0.5721919596456856,
+      "n": 29
+    },
+    "Dc_1X": {
+      "ema_acc": 0.5876793479192608,
+      "n": 86
+    },
+    "Home_Win": {
+      "ema_acc": 0.646878125,
+      "n": 4
+    },
+    "Home_Ov1.5": {
+      "ema_acc": 0.8939825180300073,
+      "n": 14
+    },
+    "Under 2.5": {
+      "ema_acc": 0.7019532206149331,
+      "n": 258
+    },
+    "Dc_X2": {
+      "ema_acc": 0.4965402075166015,
+      "n": 9
+    },
+    "Over 2.5": {
+      "ema_acc": 0.6437455187030723,
+      "n": 21
+    }
+  },
+  "league_weights": {
+    "ARGENTINA: Liga Profesional": {
+      "ema_acc": 0.9491795667108252,
+      "n": 1992
+    },
+    "ARGENTINA: Primera Nacional": {
+      "ema_acc": 0.9483676071470579,
+      "n": 2752
+    },
+    "ARMENIA: First League": {
+      "ema_acc": 0.6632865206781702,
+      "n": 952
+    },
+    "BRAZIL: Serie B Superbet": {
+      "ema_acc": 0.4359848943647695,
+      "n": 1526
+    },
+    "BULGARIA: efbet League": {
+      "ema_acc": 0.8685477050507295,
+      "n": 1510
+    },
+    "BULGARIA: Vtora liga": {
+      "ema_acc": 0.7062311747099177,
+      "n": 1616
+    },
+    "CHILE: Liga de Primera": {
+      "ema_acc": 0.6058800400122691,
+      "n": 1014
+    },
+    "COLOMBIA: Primera A": {
+      "ema_acc": 0.5305642020076913,
+      "n": 1959
+    },
+    "ALGERIA: Ligue 1": {
+      "ema_acc": 0.793857540656065,
+      "n": 1246
+    },
+    "ARMENIA: Premier League": {
+      "ema_acc": 0.8143462241676805,
+      "n": 828
+    },
+    "COSTA RICA: Primera Division": {
+      "ema_acc": 0.8325389068834053,
+      "n": 1353
+    },
+    "COLOMBIA: Primera B": {
+      "ema_acc": 0.7841874175583737,
+      "n": 1340
+    },
+    "CHILE: Liga de Ascenso": {
+      "ema_acc": 0.6294027628903125,
+      "n": 979
+    },
+    "CHINA: Super League": {
+      "ema_acc": 0.82269469456433,
+      "n": 906
+    },
+    "BELARUS: Belarusian Cup": {
+      "ema_acc": 0.9644148613113821,
+      "n": 87
+    },
+    "BRAZIL: Serie A Betano": {
+      "ema_acc": 0.6578049098424519,
+      "n": 1645
+    },
+    "BRAZIL: Serie C": {
+      "ema_acc": 0.9949663389444622,
+      "n": 824
+    },
+    "BRAZIL: Paranaense 2": {
+      "ema_acc": 0.7427413651995873,
+      "n": 165
+    },
+    "CZECH REPUBLIC: Chance Liga": {
+      "ema_acc": 0.9114925832541729,
+      "n": 1458
+    },
+    "SINGAPORE: Premier League": {
+      "ema_acc": 0.6684530903025189,
+      "n": 544
+    },
+    "DOMINICAN REPUBLIC: LDF": {
+      "ema_acc": 0.535312635101945,
+      "n": 609
+    },
+    "EUROPE: Champions League": {
+      "ema_acc": 0.9482530264585173,
+      "n": 1250
+    },
+    "INDONESIA: Super League": {
+      "ema_acc": 0.6529141464860241,
+      "n": 1553
+    },
+    "EUROPE: Europa League": {
+      "ema_acc": 0.9437931470562755,
+      "n": 1290
+    },
+    "EUROPE: Conference League": {
+      "ema_acc": 0.824478164363942,
+      "n": 1660
+    },
+    "CZECH REPUBLIC: ChNL": {
+      "ema_acc": 0.6904451575626784,
+      "n": 1170
+    },
+    "RUSSIA: FNL": {
+      "ema_acc": 0.6518637374277113,
+      "n": 1506
+    },
+    "AZERBAIJAN: Premier League": {
+      "ema_acc": 0.9501793014648705,
+      "n": 944
+    },
+    "SLOVENIA: Prva liga": {
+      "ema_acc": 0.8470196826877047,
+      "n": 928
+    },
+    "DENMARK: Superliga": {
+      "ema_acc": 0.7976561142250651,
+      "n": 966
+    },
+    "ENGLAND: League One": {
+      "ema_acc": 0.7370974800388903,
+      "n": 3060
+    },
+    "ENGLAND: League Two": {
+      "ema_acc": 0.9868130427430127,
+      "n": 3030
+    },
+    "AUSTRIA: Bundesliga": {
+      "ema_acc": 0.7638115932755591,
+      "n": 1006
+    },
+    "CROATIA: HNL": {
+      "ema_acc": 0.7475387885575785,
+      "n": 940
+    },
+    "HUNGARY: NB II.": {
+      "ema_acc": 0.7573129278573416,
+      "n": 1308
+    },
+    "ENGLAND: EFL Cup": {
+      "ema_acc": 0.8487958906601004,
+      "n": 398
+    },
+    "GERMANY: Regionalliga Sudwest": {
+      "ema_acc": 0.7158373433433571,
+      "n": 1556
+    },
+    "GERMANY: Regionalliga Nordost": {
+      "ema_acc": 0.6363006086809092,
+      "n": 1554
+    },
+    "AUSTRIA: 2. Liga": {
+      "ema_acc": 0.7716747952163118,
+      "n": 1154
+    },
+    "BOSNIA AND HERZEGOVINA: WWIN Liga BiH": {
+      "ema_acc": 0.9216706091259363,
+      "n": 961
+    },
+    "GERMANY: 2. Bundesliga": {
+      "ema_acc": 0.938467030143576,
+      "n": 1643
+    },
+    "GERMANY: Regionalliga North": {
+      "ema_acc": 0.810948054139813,
+      "n": 1544
+    },
+    "GERMANY: Regionalliga West": {
+      "ema_acc": 0.8444032330806299,
+      "n": 1516
+    },
+    "SERBIA: Mozzart Bet Super Liga": {
+      "ema_acc": 0.6070336349974168,
+      "n": 1563
+    },
+    "SLOVAKIA: 2. liga": {
+      "ema_acc": 0.6372934429892703,
+      "n": 1060
+    },
+    "SWITZERLAND: Challenge League": {
+      "ema_acc": 0.8227025493653499,
+      "n": 931
+    },
+    "HUNGARY: NB I.": {
+      "ema_acc": 0.5973421202498608,
+      "n": 1052
+    },
+    "BELGIUM: Jupiler Pro League": {
+      "ema_acc": 0.6721454031873092,
+      "n": 1688
+    },
+    "ENGLAND: Championship": {
+      "ema_acc": 0.6986354901501644,
+      "n": 3060
+    },
+    "SLOVAKIA: Nike liga": {
+      "ema_acc": 0.9007703204888422,
+      "n": 1008
+    },
+    "SWITZERLAND: Super League": {
+      "ema_acc": 0.8529834141666713,
+      "n": 1229
+    },
+    "UKRAINE: Premier League": {
+      "ema_acc": 0.7409632942551939,
+      "n": 1178
+    },
+    "GUATEMALA: Liga Nacional": {
+      "ema_acc": 0.9165854139993836,
+      "n": 1300
+    },
+    "CYPRUS: Cyprus League": {
+      "ema_acc": 0.5429431517113269,
+      "n": 1323
+    },
+    "GERMANY: 3. Liga": {
+      "ema_acc": 0.8304007435554556,
+      "n": 2015
+    },
+    "SCOTLAND: Premiership": {
+      "ema_acc": 0.7812742408837718,
+      "n": 1246
+    },
+    "HONDURAS: Liga Nacional": {
+      "ema_acc": 0.9194477273844577,
+      "n": 1108
+    },
+    "ENGLAND: EFL Trophy": {
+      "ema_acc": 0.9768002086842319,
+      "n": 578
+    },
+    "EL SALVADOR: Primera Division": {
+      "ema_acc": 0.6948884065488202,
+      "n": 1437
+    },
+    "CZECH REPUBLIC: 3. MSFL": {
+      "ema_acc": 0.6466807451758669,
+      "n": 1440
+    },
+    "SERBIA: Mozzart Bet Prva Liga": {
+      "ema_acc": 0.9848482049685949,
+      "n": 1486
+    },
+    "SLOVENIA: 2. SNL": {
+      "ema_acc": 0.5322030508431407,
+      "n": 1168
+    },
+    "WALES: Cymru North": {
+      "ema_acc": 0.5540909377485952,
+      "n": 1228
+    },
+    "SWITZERLAND: Promotion League": {
+      "ema_acc": 0.9426410286230389,
+      "n": 1508
+    },
+    "SAUDI ARABIA: Saudi Professional League": {
+      "ema_acc": 0.7689412147502498,
+      "n": 1590
+    },
+    "CROATIA: Prva NL": {
+      "ema_acc": 0.9428212313612138,
+      "n": 998
+    },
+    "FRANCE: National": {
+      "ema_acc": 0.5715052370643978,
+      "n": 1428
+    },
+    "SPAIN: LaLiga2": {
+      "ema_acc": 0.8820640526156965,
+      "n": 2436
+    },
+    "PORTUGAL: Liga 3": {
+      "ema_acc": 0.8553892893600393,
+      "n": 1477
+    },
+    "ENGLAND: Premier League": {
+      "ema_acc": 0.7481900302892985,
+      "n": 2043
+    },
+    "FRANCE: Ligue 2": {
+      "ema_acc": 0.6346026071754522,
+      "n": 1754
+    },
+    "SCOTLAND: League One": {
+      "ema_acc": 0.7585023085320903,
+      "n": 968
+    },
+    "ITALY: Serie B": {
+      "ema_acc": 0.8802564061979783,
+      "n": 2090
+    },
+    "GREECE: Super League": {
+      "ema_acc": 0.7916408687818315,
+      "n": 1245
+    },
+    "ALBANIA: Abissnet Superiore": {
+      "ema_acc": 0.677714007121653,
+      "n": 942
+    },
+    "SAUDI ARABIA: Division 1": {
+      "ema_acc": 0.7866542508279256,
+      "n": 1552
+    },
+    "BELGIUM: Challenger Pro League": {
+      "ema_acc": 0.8515790270973372,
+      "n": 1309
+    },
+    "ITALY: Serie A": {
+      "ema_acc": 0.9456316593875795,
+      "n": 2026
+    },
+    "FRANCE: Ligue 1": {
+      "ema_acc": 0.6560856447873077,
+      "n": 1630
+    },
+    "GERMANY: Bundesliga": {
+      "ema_acc": 0.8247179006003108,
+      "n": 1644
+    },
+    "SCOTLAND: Championship": {
+      "ema_acc": 0.7974164628282457,
+      "n": 994
+    },
+    "SPAIN: LaLiga": {
+      "ema_acc": 0.9093916582830877,
+      "n": 1998
+    },
+    "TURKEY: 1. Lig": {
+      "ema_acc": 0.669368143752907,
+      "n": 1874
+    },
+    "THAILAND: Thai League 2": {
+      "ema_acc": 0.7939841978816968,
+      "n": 1624
+    },
+    "TURKEY: Super Lig": {
+      "ema_acc": 0.8589482868150429,
+      "n": 1825
+    },
+    "CAMBODIA: CPL": {
+      "ema_acc": 0.7900578119904954,
+      "n": 789
+    },
+    "THAILAND: Thai League 1": {
+      "ema_acc": 0.9627214543075954,
+      "n": 1268
+    },
+    "GERMANY: DFB Pokal": {
+      "ema_acc": 0.9564844714058743,
+      "n": 274
+    },
+    "CROATIA: Croatian Cup": {
+      "ema_acc": 0.74968413279623,
+      "n": 78
+    },
+    "CZECH REPUBLIC: 2. Liga Women": {
+      "ema_acc": 0.7733963843556778,
+      "n": 464
+    },
+    "ZAMBIA: Super League": {
+      "ema_acc": 0.859600997121372,
+      "n": 1526
+    },
+    "ITALY: Serie C - Group B": {
+      "ema_acc": 0.5695105310391689,
+      "n": 1964
+    },
+    "ITALY: Serie C - Group C": {
+      "ema_acc": 0.9745723764267294,
+      "n": 1991
+    },
+    "ASIA: AFC Champions League": {
+      "ema_acc": 0.822439273168297,
+      "n": 522
+    },
+    "SOUTH AFRICA: Motsepe Foundation Championship": {
+      "ema_acc": 0.8856139881325996,
+      "n": 1130
+    },
+    "ITALY: Primavera 1": {
+      "ema_acc": 0.5800694259493145,
+      "n": 1793
+    },
+    "RWANDA: Premier League": {
+      "ema_acc": 0.9918883584326194,
+      "n": 1265
+    },
+    "SPAIN: Tercera RFEF - Group 15": {
+      "ema_acc": 0.8028568508982485,
+      "n": 1599
+    },
+    "SPAIN: Tercera RFEF - Group 4": {
+      "ema_acc": 0.8448622704689797,
+      "n": 1585
+    },
+    "SPAIN: Tercera RFEF - Group 1": {
+      "ema_acc": 0.8032683313689681,
+      "n": 1580
+    },
+    "SPAIN: Tercera RFEF - Group 11": {
+      "ema_acc": 0.6110946160010494,
+      "n": 1558
+    },
+    "SPAIN: Tercera RFEF - Group 12": {
+      "ema_acc": 0.879459512605783,
+      "n": 1562
+    },
+    "SPAIN: Tercera RFEF - Group 13": {
+      "ema_acc": 0.9450598500610742,
+      "n": 1584
+    },
+    "SPAIN: Tercera RFEF - Group 14": {
+      "ema_acc": 0.8848743004081707,
+      "n": 1597
+    },
+    "SPAIN: Tercera RFEF - Group 16": {
+      "ema_acc": 0.6326377507397096,
+      "n": 1601
+    },
+    "SPAIN: Tercera RFEF - Group 2": {
+      "ema_acc": 0.5024555025534776,
+      "n": 1619
+    },
+    "SPAIN: Tercera RFEF - Group 3": {
+      "ema_acc": 0.8663370345560149,
+      "n": 1587
+    },
+    "SPAIN: Tercera RFEF - Group 5": {
+      "ema_acc": 0.7663728794740531,
+      "n": 1573
+    },
+    "SPAIN: Tercera RFEF - Group 6": {
+      "ema_acc": 0.8300663033806895,
+      "n": 1587
+    },
+    "SPAIN: Tercera RFEF - Group 7": {
+      "ema_acc": 0.8550805431401409,
+      "n": 1572
+    },
+    "SPAIN: Tercera RFEF - Group 8": {
+      "ema_acc": 0.6157458413166992,
+      "n": 1652
+    },
+    "SPAIN: Tercera RFEF - Group 17": {
+      "ema_acc": 0.9001328663289007,
+      "n": 1619
+    },
+    "SPAIN: Tercera RFEF - Group 9": {
+      "ema_acc": 0.8521385158493902,
+      "n": 1566
+    },
+    "SPAIN: Tercera RFEF - Group 10": {
+      "ema_acc": 0.8632091646403258,
+      "n": 1584
+    },
+    "SPAIN: Tercera RFEF - Group 18": {
+      "ema_acc": 0.9222750254767585,
+      "n": 1609
+    },
+    "SAN MARINO: Campionato Sammarinese": {
+      "ema_acc": 0.7774428198833367,
+      "n": 1347
+    },
+    "GHANA: Premier League": {
+      "ema_acc": 0.9121526383933775,
+      "n": 1562
+    },
+    "TUNISIA: Ligue Professionnelle 1": {
+      "ema_acc": 0.9522154264067069,
+      "n": 1066
+    },
+    "JORDAN: Premier League": {
+      "ema_acc": 0.6673524448892251,
+      "n": 636
+    },
+    "CYPRUS: Division 2": {
+      "ema_acc": 0.5390826244164756,
+      "n": 1202
+    },
+    "UNITED ARAB EMIRATES: UAE League": {
+      "ema_acc": 0.8164138576265024,
+      "n": 894
+    },
+    "GREECE: Super League 2": {
+      "ema_acc": 0.8609363557075537,
+      "n": 1550
+    },
+    "WALES: Premier Women": {
+      "ema_acc": 0.7209104944191748,
+      "n": 408
+    },
+    "SPAIN: Copa del Rey": {
+      "ema_acc": 0.7255049477694527,
+      "n": 330
+    },
+    "ITALY: Coppa Italia": {
+      "ema_acc": 0.7084573929753217,
+      "n": 210
+    },
+    "INDIA: ISL": {
+      "ema_acc": 0.6262012219093711,
+      "n": 602
+    },
+    "EGYPT: Premier League": {
+      "ema_acc": 0.830428238987097,
+      "n": 1344
+    },
+    "AFRICA: World Cup": {
+      "ema_acc": 0.6859118756242515,
+      "n": 820
+    },
+    "INDIA: I-League": {
+      "ema_acc": 0.8534795634306588,
+      "n": 518
+    },
+    "ALGERIA: Ligue 2": {
+      "ema_acc": 0.9303474539993885,
+      "n": 2387
+    },
+    "SCOTLAND: Scottish Cup": {
+      "ema_acc": 0.9869491637476641,
+      "n": 252
+    },
+    "JAMAICA: Premier League": {
+      "ema_acc": 0.6720907176582946,
+      "n": 1275
+    },
+    "AUSTRALIA: A-League Women": {
+      "ema_acc": 0.5752216149232188,
+      "n": 709
+    },
+    "ETHIOPIA: Premier League": {
+      "ema_acc": 0.9740928627653562,
+      "n": 1419
+    },
+    "AUSTRALIA: A-League": {
+      "ema_acc": 0.8311718299828079,
+      "n": 881
+    },
+    "SENEGAL: Ligue 1": {
+      "ema_acc": 0.8583275496948244,
+      "n": 1062
+    },
+    "VIETNAM: V.League 2": {
+      "ema_acc": 0.7244605938241048,
+      "n": 466
+    },
+    "VIETNAM: V.League 1": {
+      "ema_acc": 0.8936307987702201,
+      "n": 878
+    },
+    "BRAZIL: Pernambucano": {
+      "ema_acc": 0.7438402452716825,
+      "n": 204
+    },
+    "BRAZIL: Carioca": {
+      "ema_acc": 0.6951546709962654,
+      "n": 358
+    },
+    "BRAZIL: Goiano": {
+      "ema_acc": 0.6751032339307671,
+      "n": 352
+    },
+    "BRAZIL: Potiguar": {
+      "ema_acc": 0.5313822526329081,
+      "n": 178
+    },
+    "BRAZIL: Catarinense": {
+      "ema_acc": 0.753043476723178,
+      "n": 346
+    },
+    "BRAZIL: Gaucho": {
+      "ema_acc": 0.7973267101615114,
+      "n": 326
+    },
+    "BRAZIL: Paulista": {
+      "ema_acc": 0.8663714174208297,
+      "n": 434
+    },
+    "BRAZIL: Matogrossense": {
+      "ema_acc": 0.7199152673731299,
+      "n": 226
+    },
+    "BRAZIL: Sergipano": {
+      "ema_acc": 0.9293512560367916,
+      "n": 252
+    },
+    "BRAZIL: Amazonense": {
+      "ema_acc": 0.8708311634499127,
+      "n": 204
+    },
+    "BRAZIL: Paulista A3": {
+      "ema_acc": 0.8129064894742026,
+      "n": 654
+    },
+    "BRAZIL: Brasiliense": {
+      "ema_acc": 0.8461694017144242,
+      "n": 208
+    },
+    "BRAZIL: Mineiro": {
+      "ema_acc": 0.9127180337453068,
+      "n": 266
+    },
+    "BRAZIL: Paraense": {
+      "ema_acc": 0.6570074425786959,
+      "n": 222
+    },
+    "BRAZIL: Paulista A4": {
+      "ema_acc": 0.8624281537485539,
+      "n": 604
+    },
+    "SOUTH AMERICA: Copa Libertadores": {
+      "ema_acc": 0.784921056860698,
+      "n": 484
+    },
+    "BRAZIL: Paraibano": {
+      "ema_acc": 0.7459151745928652,
+      "n": 210
+    },
+    "BRAZIL: Cearense": {
+      "ema_acc": 0.6802446933528513,
+      "n": 172
+    },
+    "IRELAND: Premier Division": {
+      "ema_acc": 0.692173313685667,
+      "n": 746
+    },
+    "VENEZUELA: Liga FUTVE": {
+      "ema_acc": 0.8099351020561256,
+      "n": 986
+    },
+    "GEORGIA: Crystalbet Erovnuli Liga": {
+      "ema_acc": 0.7792605192503385,
+      "n": 684
+    },
+    "FAROE ISLANDS: Premier League": {
+      "ema_acc": 0.6718552859990714,
+      "n": 518
+    },
+    "SWEDEN: Svenska Cupen": {
+      "ema_acc": 0.9409071439373846,
+      "n": 210
+    },
+    "SOUTH KOREA: K League 1": {
+      "ema_acc": 0.6550814061952449,
+      "n": 918
+    },
+    "ECUADOR: Liga Pro": {
+      "ema_acc": 0.7832137106564684,
+      "n": 1071
+    },
+    "IRELAND: Division 1": {
+      "ema_acc": 0.8840594206955654,
+      "n": 736
+    },
+    "BRAZIL: Amapaense": {
+      "ema_acc": 0.5895004522731898,
+      "n": 128
+    },
+    "URUGUAY: Liga AUF Uruguaya": {
+      "ema_acc": 0.9339563643031157,
+      "n": 1210
+    },
+    "USA: MLS": {
+      "ema_acc": 0.5857869906537608,
+      "n": 2104
+    },
+    "SWEDEN: Allsvenskan": {
+      "ema_acc": 0.7397834556632027,
+      "n": 952
+    },
+    "ESTONIA: Meistriliiga": {
+      "ema_acc": 0.8379152755963883,
+      "n": 688
+    },
+    "JAPAN: J1 League": {
+      "ema_acc": 0.9711402349895358,
+      "n": 1520
+    },
+    "SOUTH KOREA: K League 2": {
+      "ema_acc": 0.777106781258472,
+      "n": 986
+    },
+    "USA: USL Championship": {
+      "ema_acc": 0.7050433921015051,
+      "n": 1518
+    },
+    "FAROE ISLANDS: 1. Deild": {
+      "ema_acc": 0.8802220220069735,
+      "n": 488
+    },
+    "VENEZUELA: Liga FUTVE 2": {
+      "ema_acc": 0.7017666662974927,
+      "n": 888
+    },
+    "USA: MLS Next Pro": {
+      "ema_acc": 0.8337508977694882,
+      "n": 1630
+    },
+    "KAZAKHSTAN: Premier League": {
+      "ema_acc": 0.5990561008067675,
+      "n": 618
+    },
+    "USA: USL League One": {
+      "ema_acc": 0.7644883275105376,
+      "n": 620
+    },
+    "USA: NWSL Women": {
+      "ema_acc": 0.7608000986692173,
+      "n": 718
+    },
+    "SCOTLAND: League Two": {
+      "ema_acc": 0.7687178948180778,
+      "n": 640
+    },
+    "BELGIUM: National Division 1 - ACFF": {
+      "ema_acc": 0.7373500671659785,
+      "n": 612
+    },
+    "USA: USL Super League Women": {
+      "ema_acc": 0.9281539196632062,
+      "n": 365
+    },
+    "BELGIUM: National Division 1 - VV": {
+      "ema_acc": 0.7726058477425031,
+      "n": 790
+    },
+    "FRANCE: Coupe de France": {
+      "ema_acc": 0.8451150329141297,
+      "n": 159
+    },
+    "ROMANIA: Romanian Cup": {
+      "ema_acc": 0.7700377422600736,
+      "n": 128
+    },
+    "HONG KONG: FA Cup": {
+      "ema_acc": 0.738996875,
+      "n": 4
+    },
+    "MOLDOVA: Super Liga": {
+      "ema_acc": 0.8279242923130693,
+      "n": 154
+    },
+    "ROMANIA: Superliga": {
+      "ema_acc": 0.7463012415188983,
+      "n": 483
+    },
+    "RUSSIA: Premier League": {
+      "ema_acc": 0.8505183719748011,
+      "n": 276
+    },
+    "ROMANIA: Liga 2": {
+      "ema_acc": 0.8857485855652188,
+      "n": 436
+    },
+    "LUXEMBOURG: BGL Ligue": {
+      "ema_acc": 0.6447622451607515,
+      "n": 280
+    },
+    "PORTUGAL: Liga Portugal": {
+      "ema_acc": 0.8805640890242693,
+      "n": 407
+    },
+    "NICARAGUA: Liga Primera": {
+      "ema_acc": 0.9185603985156625,
+      "n": 275
+    },
+    "NETHERLANDS: Eredivisie": {
+      "ema_acc": 0.8979310468923057,
+      "n": 421
+    },
+    "POLAND: Division 1": {
+      "ema_acc": 0.7206816576416311,
+      "n": 376
+    },
+    "GREECE: Greek Cup": {
+      "ema_acc": 0.5939168316629181,
+      "n": 110
+    },
+    "NORTHERN IRELAND: NIFL Premiership": {
+      "ema_acc": 0.7843814869347293,
+      "n": 352
+    },
+    "POLAND: Ekstraklasa": {
+      "ema_acc": 0.7235041889411445,
+      "n": 378
+    },
+    "MALTA: Premier League": {
+      "ema_acc": 0.7487137296074493,
+      "n": 277
+    },
+    "MEXICO: Liga MX": {
+      "ema_acc": 0.6564731030295935,
+      "n": 462
+    },
+    "KOSOVO: Superliga": {
+      "ema_acc": 0.9452044339182579,
+      "n": 229
+    },
+    "NORTH MACEDONIA: 1. MFL": {
+      "ema_acc": 0.8124599736618119,
+      "n": 240
+    },
+    "POLAND: Division 2": {
+      "ema_acc": 0.48910574515396266,
+      "n": 368
+    },
+    "POLAND: III Liga - Group II": {
+      "ema_acc": 0.6869882445241067,
+      "n": 330
+    },
+    "POLAND: III Liga - Group III": {
+      "ema_acc": 0.6802698026526262,
+      "n": 336
+    },
+    "POLAND: III Liga - Group IV": {
+      "ema_acc": 0.7328296407810525,
+      "n": 346
+    },
+    "PORTUGAL: Liga Portugal 2": {
+      "ema_acc": 0.8750180086096546,
+      "n": 402
+    },
+    "POLAND: Central Youth League": {
+      "ema_acc": 0.7052876865308553,
+      "n": 266
+    },
+    "MONTENEGRO: Druga Liga": {
+      "ema_acc": 0.45021951084216494,
+      "n": 210
+    },
+    "NETHERLANDS: Eerste Divisie": {
+      "ema_acc": 0.8653735691300544,
+      "n": 552
+    },
+    "NETHERLANDS: Derde Divisie": {
+      "ema_acc": 0.7243826292203909,
+      "n": 806
+    },
+    "SLOVAKIA: Slovak Cup": {
+      "ema_acc": 0.7713589889526163,
+      "n": 46
+    },
+    "MEXICO: Liga Premier Serie A": {
+      "ema_acc": 0.8350733642804402,
+      "n": 776
+    },
+    "NORTH MACEDONIA: 2. MFL": {
+      "ema_acc": 0.7841889812069458,
+      "n": 272
+    },
+    "MEXICO: Liga Premier Serie B": {
+      "ema_acc": 0.4574326964393397,
+      "n": 142
+    },
+    "ANDORRA: Primera Divisió": {
+      "ema_acc": 0.5454111653659548,
+      "n": 143
+    },
+    "PHILIPPINES: PFL": {
+      "ema_acc": 0.9205051836337025,
+      "n": 130
+    },
+    "MOROCCO: Botola Pro": {
+      "ema_acc": 0.8232872377997479,
+      "n": 136
+    },
+    "KENYA: Super League": {
+      "ema_acc": 0.8141373065190655,
+      "n": 416
+    },
+    "MOROCCO: Botola 2": {
+      "ema_acc": 0.840313119018863,
+      "n": 240
+    },
+    "MALI: Premiere Division": {
+      "ema_acc": 0.8709342045361911,
+      "n": 150
+    },
+    "PERU: Liga 1": {
+      "ema_acc": 0.9238537358835388,
+      "n": 58
+    },
+    "PANAMA: LPF": {
+      "ema_acc": 0.7448981987211376,
+      "n": 72
+    },
+    "LITHUANIA: TOPLYGA": {
+      "ema_acc": 0.7112720801506719,
+      "n": 24
+    },
+    "NORWAY: NM Cup": {
+      "ema_acc": 0.5693064921875,
+      "n": 6
+    },
+    "NORWAY: Eliteserien": {
+      "ema_acc": 0.6364944453125,
+      "n": 6
+    },
+    "LATVIA: Virsliga": {
+      "ema_acc": 0.6387499999999999,
+      "n": 2
+    }
+  },
+  "confidence_weights": {
+    "Low": {
+      "ema_acc": 0.9687683023992184,
+      "n": 178213
+    },
+    "Medium": {
+      "ema_acc": 0.8797068396155644,
+      "n": 43324
+    }
+  },
+  "meta": {
+    "last_learn": "2026-04-03 00:05",
+    "total_learned": 110496
+  }
+}

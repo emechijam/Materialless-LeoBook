@@ -6,6 +6,7 @@
 import asyncio
 import nest_asyncio
 import os
+import signal
 import sys
 from datetime import datetime as dt
 from dotenv import load_dotenv
@@ -78,6 +79,55 @@ from Data.Access.football_logos import download_all_logos, download_all_countrie
 # Configuration
 DEFAULT_CYCLE_HOURS = int(os.getenv('LEO_CYCLE_WAIT_HOURS', 6))
 LOCK_FILE = "leo.lock"
+
+# ── Graceful Shutdown ─────────────────────────────────────────────────────────
+# _log_session is set in the __main__ block so the signal handler can flush it.
+_log_session = None
+
+
+def _shutdown(sig, frame):
+    """
+    SIGTERM / SIGINT handler: rollback any pending SQLite transaction,
+    remove the lock file, and flush the log segment before exit.
+
+    Called by the OS when the process is asked to stop cleanly (e.g. systemd
+    stop, container orchestrator, Ctrl+C in non-interactive mode). Without this,
+    a SIGTERM would leave the lock file on disk and potentially a partially-open
+    SQLite WAL transaction.
+    """
+    sig_name = signal.Signals(sig).name
+    print(f"\n   [SHUTDOWN] {sig_name} received — shutting down gracefully...")
+
+    # 1. Rollback any open SQLite transaction to keep the DB consistent.
+    try:
+        from Data.Access.league_db import get_connection
+        conn = get_connection()
+        conn.rollback()
+        conn.close()
+    except Exception:
+        pass  # DB may not be open yet; that's fine.
+
+    # 2. Remove the process lock file so the next invocation isn't blocked.
+    if os.path.exists(LOCK_FILE):
+        try:
+            os.remove(LOCK_FILE)
+        except Exception:
+            pass
+
+    # 3. Flush and close the rotating log segment.
+    if _log_session is not None:
+        try:
+            _log_session.close_segment()
+        except Exception:
+            pass
+
+    print("   [SHUTDOWN] Clean exit complete.")
+    sys.exit(0)
+
+
+# Register handlers early so any startup exception is also handled cleanly.
+signal.signal(signal.SIGTERM, _shutdown)
+signal.signal(signal.SIGINT,  _shutdown)
 
 
 # ============================================================
@@ -366,6 +416,8 @@ async def main():
 if __name__ == "__main__":
     args = parse_args()
     _log_session, original_stdout, original_stderr = setup_terminal_logging(args)
+    # Expose to the module-level shutdown handler.
+    globals()['_log_session'] = _log_session
 
     # Determine which mode to run
     is_utility = any([args.sync, getattr(args, 'push', False), getattr(args, 'pull', False),

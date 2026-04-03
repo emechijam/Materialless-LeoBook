@@ -4,8 +4,8 @@
 # LeoBook Supabase Setup Guide
 
 **Schema version:** v6.0 (2026-03-24)  
-**Source of truth:** [`Data/Supabase/supabase_schema.sql`](file:///C:/Users/Admin/Desktop/ProProjection/LeoBook/Data/Supabase/supabase_schema.sql)  
-**SQLite schema:** [`Data/Access/league_db_schema.py`](file:///C:/Users/Admin/Desktop/ProProjection/LeoBook/Data/Access/league_db_schema.py)
+**Source of truth:** [`Data/Supabase/supabase_schema.sql`](../Data/Supabase/supabase_schema.sql)  
+**SQLite schema:** [`Data/Access/league_db_schema.py`](../Data/Access/league_db_schema.py)
 
 ---
 

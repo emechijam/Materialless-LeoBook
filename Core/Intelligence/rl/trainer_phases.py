@@ -6,6 +6,7 @@
 from typing import Dict, Any, Optional
 import torch
 
+from Core.Utils.constants import XG_HOME_FALLBACK, XG_AWAY_FALLBACK, XG_MIN_THRESHOLD
 from .feature_encoder import FeatureEncoder
 from .market_space import (
     ACTIONS, N_ACTIONS, SYNTHETIC_ODDS, STAIRWAY_BETTABLE,
@@ -135,10 +136,10 @@ class TrainerPhasesMixin:
         xg_home = FeatureEncoder._compute_xg(home_form, home_team, is_home=True)
         xg_away = FeatureEncoder._compute_xg(away_form, away_team, is_home=False)
 
-        if xg_home < 0.05:
-            xg_home = 1.4
-        if xg_away < 0.05:
-            xg_away = 1.1
+        if xg_home < XG_MIN_THRESHOLD:
+            xg_home = XG_HOME_FALLBACK
+        if xg_away < XG_MIN_THRESHOLD:
+            xg_away = XG_AWAY_FALLBACK
 
         raw_scores = None
         try:
@@ -183,10 +184,10 @@ class TrainerPhasesMixin:
         xg_home = FeatureEncoder._compute_xg(home_form, home_team, is_home=True)
         xg_away = FeatureEncoder._compute_xg(away_form, away_team, is_home=False)
 
-        if xg_home < 0.05:
-            xg_home = 1.4
-        if xg_away < 0.05:
-            xg_away = 1.1
+        if xg_home < XG_MIN_THRESHOLD:
+            xg_home = XG_HOME_FALLBACK
+        if xg_away < XG_MIN_THRESHOLD:
+            xg_away = XG_AWAY_FALLBACK
 
         probs = compute_poisson_probs(xg_home, xg_away, None)
         fair_odds: Dict[str, float] = {}
