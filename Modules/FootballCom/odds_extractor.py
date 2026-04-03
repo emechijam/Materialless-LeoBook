@@ -83,9 +83,9 @@ def _parse_fb_date(raw: str) -> Optional[str]:
     """Parse football.com header date like '17 Mar, Tuesday' into 'YYYY-MM-DD'.
     Falls back to None if parsing fails."""
     from datetime import datetime
-    # Remove day-of-week part: '17 Mar, Tuesday' -> '17 Mar'
+    from Core.Utils.constants import now_ng
     cleaned = raw.split(',')[0].strip() if ',' in raw else raw.strip()
-    now_year = datetime.now().year
+    now_year = now_ng().year
     for fmt in ("%d %b", "%d %B", "%b %d", "%B %d"):
         try:
             parsed = datetime.strptime(cleaned, fmt).replace(year=now_year)

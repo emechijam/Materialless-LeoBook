@@ -16,7 +16,8 @@ _current_dir = Path(__file__).parent.absolute()
 LOG_DIR = _current_dir.parent.parent / "Data" / "Logs"
 
 state = {
-    "cycle_start_time": None, 
+    "user_id": "",            # Set from --user-id CLI arg; required for all per-user ops
+    "cycle_start_time": None,
     "cycle_count": 0,
     "current_chapter": "Startup",
     "last_action": "Init",
@@ -24,12 +25,12 @@ state = {
     "why_this_step": "System initialization",
     "expected_outcome": "Ready to start",
     "ai_server_ready": False,
-    "llm_needed_for_this_cycle": False, 
+    "llm_needed_for_this_cycle": False,
     "pending_count": 0,
     "booked_this_cycle": 0,
     "failed_this_cycle": 0,
     "current_balance": 0.0,
-    "last_win_amount": 5000.0 * DEFAULT_STAKE, # Scalable
+    "last_win_amount": 5000.0 * DEFAULT_STAKE,
     "error_log": []
 }
 
@@ -46,16 +47,19 @@ def log_state(chapter=None, action=None, next_step=None, why=None, expect=None):
 
 def log_audit_state(chapter: str, action: str, details: str = ""):
     """Central state logger — prints to console and writes to audit_log table (SQLite)."""
-    timestamp = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    from Core.Utils.constants import now_ng
+    timestamp = now_ng().strftime("%Y-%m-%d %H:%M:%S")
     message = f"[{timestamp}] [STATE] {chapter} | Action: {action} | {details}"
     print(message)
 
     try:
         from Data.Access.db_helpers import log_audit_event
+        user_id = state.get("user_id", "")
         log_audit_event(
             event_type="STATE",
             description=f"{chapter} - {action} - {details}",
-            status="INFO"
+            status="INFO",
+            user_id=user_id,
         )
     except Exception:
         pass  # Never let audit logging crash the caller
@@ -297,6 +301,11 @@ Usage Examples:
                        help='Start date for backtest YYYY-MM-DD (use with --rule-engine --backtest)')
     parser.add_argument('--date', type=str, nargs='+', metavar='DATE',
                        help='Specific date(s) to process (DD.MM.YYYY)')
+
+    # --- Identity ---
+    parser.add_argument('--user-id', type=str, default='', metavar='UUID',
+                       help='User UUID for all per-user operations (predictions, bets, audit, stairway). '
+                            'Required for Chapter 1 P2, Chapter 2, and --recommend.')
 
     # --- Validation ---
     args = parser.parse_args()

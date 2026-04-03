@@ -58,7 +58,7 @@ class _LeagueArchiveTabState extends State<LeagueArchiveTab> {
                 const SizedBox(height: 16),
                 Text(
                   "No archived seasons found",
-                  style: GoogleFonts.lexend(color: AppColors.textGrey, fontSize: 14),
+                  style: GoogleFonts.dmSans(color: AppColors.textGrey, fontSize: 14),
                 ),
               ],
             ),
@@ -110,7 +110,7 @@ class _LeagueArchiveTabState extends State<LeagueArchiveTab> {
                         children: [
                           Text(
                             season,
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: isDark ? Colors.white : AppColors.textDark,
@@ -118,7 +118,7 @@ class _LeagueArchiveTabState extends State<LeagueArchiveTab> {
                           ),
                           Text(
                             widget.leagueName,
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               fontSize: 10,
                               color: AppColors.textGrey,
                             ),

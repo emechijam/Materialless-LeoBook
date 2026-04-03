@@ -81,7 +81,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                         .addRecentSearch(val);
                                   }
                                 },
-                                style: GoogleFonts.lexend(
+                                style: GoogleFonts.dmSans(
                                   fontSize: Responsive.sp(context, 13),
                                   fontWeight: FontWeight.w500,
                                   color: isDark
@@ -90,7 +90,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 ),
                                 decoration: InputDecoration(
                                   hintText: "Search teams, leagues...",
-                                  hintStyle: GoogleFonts.lexend(
+                                  hintStyle: GoogleFonts.dmSans(
                                     fontSize: Responsive.sp(context, 12),
                                     color: AppColors.textGrey
                                         .withValues(alpha: 0.5),
@@ -141,7 +141,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           onTap: () => Navigator.pop(context),
                           child: Text(
                             "Cancel",
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                               fontSize: Responsive.sp(context, 12),
@@ -192,7 +192,7 @@ class _SearchScreenState extends State<SearchScreen> {
               children: [
                 Text(
                   "RECENT SEARCHES",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: Responsive.sp(context, 9),
                     fontWeight: FontWeight.w900,
                     color: AppColors.textGrey,
@@ -204,7 +204,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       context.read<SearchCubit>().clearRecentSearches(),
                   child: Text(
                     "Clear All",
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: Responsive.sp(context, 10),
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -245,7 +245,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       SizedBox(width: Responsive.sp(context, 4)),
                       Text(
                         term,
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: Responsive.sp(context, 10),
                           fontWeight: FontWeight.w500,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -276,7 +276,7 @@ class _SearchScreenState extends State<SearchScreen> {
           padding: EdgeInsets.symmetric(horizontal: Responsive.sp(context, 12)),
           child: Text(
             "POPULAR TEAMS",
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: Responsive.sp(context, 9),
               fontWeight: FontWeight.w900,
               color: AppColors.textGrey,
@@ -329,7 +329,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             match.homeTeam
                                 .substring(0, min(3, match.homeTeam.length))
                                 .toUpperCase(),
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               fontSize: Responsive.sp(context, 9),
                               fontWeight: FontWeight.w900,
                               color: AppColors.primary,
@@ -343,7 +343,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: Responsive.sp(context, 9),
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white : AppColors.textDark,
@@ -381,7 +381,7 @@ class _SearchScreenState extends State<SearchScreen> {
             SizedBox(height: Responsive.sp(context, 12)),
             Text(
               "No results for \"${state.query}\"",
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: Responsive.sp(context, 13),
                 color: AppColors.textGrey,
                 fontWeight: FontWeight.w500,
@@ -390,7 +390,7 @@ class _SearchScreenState extends State<SearchScreen> {
             SizedBox(height: Responsive.sp(context, 4)),
             Text(
               "Try a different spelling or search term",
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: Responsive.sp(context, 10),
                 color: AppColors.textGrey.withValues(alpha: 0.6),
               ),
@@ -456,7 +456,7 @@ class _SearchScreenState extends State<SearchScreen> {
           SizedBox(width: Responsive.sp(context, 6)),
           Text(
             title,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: Responsive.sp(context, 10),
               fontWeight: FontWeight.w900,
               color: AppColors.primary,
@@ -476,7 +476,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               child: Text(
                 count.toString(),
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: Responsive.sp(context, 9),
                   fontWeight: FontWeight.w800,
                   color: AppColors.primary,
@@ -550,7 +550,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: Responsive.sp(context, 12),
                       fontWeight: FontWeight.w700,
                       color: isDark ? Colors.white : AppColors.textDark,
@@ -558,7 +558,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                   Text(
                     "Team",
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: Responsive.sp(context, 9),
                       fontWeight: FontWeight.w500,
                       color: AppColors.textGrey,
@@ -649,7 +649,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: Responsive.sp(context, 12),
                       fontWeight: FontWeight.w700,
                       color: isDark ? Colors.white : AppColors.textDark,
@@ -658,7 +658,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (region.isNotEmpty)
                     Text(
                       region,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: Responsive.sp(context, 9),
                         fontWeight: FontWeight.w500,
                         color: AppColors.textGrey,
@@ -687,7 +687,7 @@ class _SearchScreenState extends State<SearchScreen> {
             .map((w) => w.isNotEmpty ? w[0] : '')
             .join()
             .toUpperCase(),
-        style: GoogleFonts.lexend(
+        style: GoogleFonts.dmSans(
           fontSize: Responsive.sp(context, 10),
           fontWeight: FontWeight.w900,
           color: AppColors.primary,

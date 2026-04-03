@@ -56,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 24),
             Text(
               'Biometric Login',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Text(
               'Sign in quickly using your device credentials.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 color: AppColors.textSecondary,
                 fontSize: 14,
               ),
@@ -89,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
               },
               child: Text(
                 'Dismiss',
-                style: GoogleFonts.lexend(color: AppColors.textTertiary),
+                style: GoogleFonts.dmSans(color: AppColors.textTertiary),
               ),
             ),
           ],
@@ -125,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             Text(
               title,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -136,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
               isPhone
                   ? 'Enter your phone number to continue.'
                   : 'Enter your email to continue.',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                   color: AppColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 24),
@@ -224,7 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 }
               },
               child: Text('Continue',
-                  style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
+                  style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 32),
           ],
@@ -310,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
                 child: Text(
                   'Skip',
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: AppColors.textTertiary,
@@ -322,7 +322,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const Spacer(flex: 3),
           Text(
             'LeoBook',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 48,
               fontWeight: FontWeight.w800,
               color: Colors.white,
@@ -332,7 +332,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 20),
           Text(
             'Thanks for trying LeoBook.',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 16,
               fontWeight: FontWeight.w400,
               color: AppColors.textSecondary,
@@ -342,7 +342,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Text(
             'Sign in to unlock predictions, rules, and automation.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               fontWeight: FontWeight.w400,
               color: AppColors.textTertiary,
@@ -389,7 +389,7 @@ class _LoginScreenState extends State<LoginScreen> {
           RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 11,
                 color: AppColors.textDisabled,
               ),
@@ -418,7 +418,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 32),
           Text(
             'A Materialless Creation',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 11,
               fontWeight: FontWeight.w400,
               color: AppColors.textDisabled,
@@ -444,7 +444,7 @@ class _LoginScreenState extends State<LoginScreen> {
             },
             child: Text(
               'Skip',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textTertiary,
@@ -455,7 +455,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 40),
         Text(
           'LeoBook',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 48,
             fontWeight: FontWeight.w800,
             color: Colors.white,
@@ -465,7 +465,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 20),
         Text(
           'Thanks for trying LeoBook.',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 16,
             fontWeight: FontWeight.w400,
             color: AppColors.textSecondary,
@@ -475,7 +475,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Text(
           'Sign in to unlock predictions, rules, and automation.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.textTertiary,
@@ -522,7 +522,7 @@ class _LoginScreenState extends State<LoginScreen> {
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 11,
               color: AppColors.textDisabled,
             ),
@@ -551,7 +551,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 32),
         Text(
           'A Materialless Creation',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 11,
             fontWeight: FontWeight.w400,
             color: AppColors.textDisabled,
@@ -611,7 +611,7 @@ class _AuthButton extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               label,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Colors.white,

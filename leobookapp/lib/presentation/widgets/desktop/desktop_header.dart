@@ -69,7 +69,7 @@ class DesktopHeader extends StatelessWidget {
                       ),
                       child: Text(
                         'SUPER',
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
@@ -209,7 +209,7 @@ class DesktopHeader extends StatelessWidget {
   Widget _buildUsername(String name) {
     return Text(
       name,
-      style: GoogleFonts.lexend(
+      style: GoogleFonts.dmSans(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: Colors.white70,
@@ -233,7 +233,7 @@ class DesktopHeader extends StatelessWidget {
       child: Center(
         child: Text(
           initials,
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 14,
             fontWeight: FontWeight.w700,
             color: Colors.white54,

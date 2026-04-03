@@ -236,7 +236,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         children: [
           Text(
             'Just one last step!',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 26,
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -245,7 +245,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           const SizedBox(height: 10),
           Text(
             'To secure your LeoBook account, please complete your profile details.',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               color: AppColors.textSecondary,
               fontSize: 14,
               height: 1.4,
@@ -380,7 +380,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             child: SwitchListTile(
               title: Text(
                 'Enable Biometric Login',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
@@ -388,7 +388,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ),
               subtitle: Text(
                 'Sign in faster using your fingerprint or face.',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 12,
                   color: AppColors.textTertiary,
                 ),
@@ -423,7 +423,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       const SizedBox(width: 8),
                       Text(
                         'Send WhatsApp OTP',
-                        style: GoogleFonts.lexend(fontWeight: FontWeight.w500),
+                        style: GoogleFonts.dmSans(fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -440,7 +440,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               Expanded(
                 child: RichText(
                   text: TextSpan(
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       color: AppColors.textSecondary,
                       fontSize: 12,
                     ),
@@ -487,7 +487,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   )
                 : Text(
                     'Save & Finish',
-                    style: GoogleFonts.lexend(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
           ),
         ],
@@ -517,7 +517,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           appBar: AppBar(
             title: Text(
               'Complete Profile',
-              style: GoogleFonts.lexend(fontSize: 18, fontWeight: FontWeight.w600),
+              style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             backgroundColor: Colors.transparent,
             elevation: 0,

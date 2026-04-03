@@ -71,7 +71,7 @@ class MatchRationaleSheet extends StatelessWidget {
           children: [
             Text(
               "ANALYTICAL RATIONALE",
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 2,
@@ -81,7 +81,7 @@ class MatchRationaleSheet extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               "${match.homeTeam} vs ${match.awayTeam}",
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -111,7 +111,7 @@ class MatchRationaleSheet extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 "SMART ENSEMBLE DECISION",
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   color: AppColors.primary,
@@ -124,7 +124,7 @@ class MatchRationaleSheet extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             match.ruleExplanation ?? "AI analyzing historical patterns and current momentum...",
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               height: 1.5,
               fontWeight: FontWeight.w500,
@@ -152,7 +152,7 @@ class MatchRationaleSheet extends StatelessWidget {
       ),
       child: Text(
         "${score.toInt()}%",
-        style: GoogleFonts.lexend(
+        style: GoogleFonts.dmSans(
           fontSize: 12,
           fontWeight: FontWeight.w900,
           color: Colors.white,
@@ -171,7 +171,7 @@ class MatchRationaleSheet extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.lexend(
+        style: GoogleFonts.dmSans(
           fontSize: 10,
           fontWeight: FontWeight.bold,
           color: AppColors.textGrey,
@@ -207,7 +207,7 @@ class MatchRationaleSheet extends StatelessWidget {
       children: [
         Text(
           name.toUpperCase(),
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 10,
             fontWeight: FontWeight.w900,
             color: AppColors.textGrey,
@@ -232,7 +232,7 @@ class MatchRationaleSheet extends StatelessWidget {
               child: Center(
                 child: Text(
                   res,
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
                     color: _getResultColor(res),
@@ -287,12 +287,12 @@ class MatchRationaleSheet extends StatelessWidget {
                   children: [
                     Text(
                       m['date'] ?? '',
-                      style: GoogleFonts.lexend(fontSize: 10, color: AppColors.textGrey),
+                      style: GoogleFonts.dmSans(fontSize: 10, color: AppColors.textGrey),
                     ),
                     const Spacer(),
                     Text(
                       m['home'] ?? '',
-                      style: GoogleFonts.lexend(fontSize: 11, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 10),
@@ -303,12 +303,12 @@ class MatchRationaleSheet extends StatelessWidget {
                       ),
                       child: Text(
                         m['score'] ?? '0-0',
-                        style: GoogleFonts.lexend(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
+                        style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
                       ),
                     ),
                     Text(
                       m['away'] ?? '',
-                      style: GoogleFonts.lexend(fontSize: 11, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -351,11 +351,11 @@ class MatchRationaleSheet extends StatelessWidget {
           children: [
             Text(
               name,
-              style: GoogleFonts.lexend(fontSize: 12, fontWeight: FontWeight.bold),
+              style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold),
             ),
             Text(
               "Pts: ${std['points']} | GD: ${std['goal_difference']}",
-              style: GoogleFonts.lexend(fontSize: 10, color: AppColors.textGrey),
+              style: GoogleFonts.dmSans(fontSize: 10, color: AppColors.textGrey),
             ),
           ],
         ),
@@ -376,7 +376,7 @@ class MatchRationaleSheet extends StatelessWidget {
       child: Center(
         child: Text(
           pos,
-          style: GoogleFonts.lexend(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white),
+          style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white),
         ),
       ),
     );
@@ -385,7 +385,7 @@ class MatchRationaleSheet extends StatelessWidget {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: GoogleFonts.lexend(
+      style: GoogleFonts.dmSans(
         fontSize: 10,
         fontWeight: FontWeight.w900,
         color: AppColors.textGrey,

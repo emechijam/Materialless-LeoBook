@@ -105,7 +105,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
         const SizedBox(width: 8),
         Text(
           title,
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 12,
             fontWeight: FontWeight.w800,
             color: AppColors.primary,
@@ -190,7 +190,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
             width: 100,
             child: Text(
               "TEAM",
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textGrey,
@@ -215,7 +215,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
       width: width,
       child: Text(
         label,
-        style: GoogleFonts.lexend(
+        style: GoogleFonts.dmSans(
           fontSize: 10,
           fontWeight: FontWeight.bold,
           color: AppColors.textGrey,
@@ -257,7 +257,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
             width: 24,
             child: Text(
               pos.toString(),
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: isFirst ? AppColors.primary : AppColors.textGrey,
@@ -280,7 +280,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
                         errorWidget: (_, __, ___) => Center(
                           child: Text(
                             name.substring(0, 1),
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textGrey,
@@ -291,7 +291,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
                     : Center(
                         child: Text(
                           name.isNotEmpty ? name.substring(0, 1) : '?',
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: AppColors.textGrey,
@@ -306,7 +306,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white : AppColors.textDark,
@@ -321,7 +321,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
           _buildDataCell(goalsAgainst.toString()),
           _buildDataCell(
             gd >= 0 ? '+$gd' : '$gd',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: gd > 0
@@ -332,7 +332,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
           _buildDataCell(
             pts.toString(),
             width: 32,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               fontWeight: FontWeight.w900,
               color: isDark ? Colors.white : AppColors.textDark,
@@ -349,7 +349,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
       child: Text(
         value,
         style: style ??
-            GoogleFonts.lexend(
+            GoogleFonts.dmSans(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppColors.textGrey,
@@ -448,7 +448,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
                     _buildTeamColumn(homeCode, homeName, isDark),
                     Text(
                       "VS",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                         fontStyle: FontStyle.italic,
@@ -473,7 +473,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
                         children: [
                           Text(
                             "PREDICTION",
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textGrey,
@@ -481,7 +481,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
                           ),
                           Text(
                             prediction,
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                               color: color == AppColors.accentSecondary
@@ -496,7 +496,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
                         children: [
                           Text(
                             "ODDS",
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textGrey,
@@ -513,7 +513,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
                             ),
                             child: Text(
                               odds,
-                              style: GoogleFonts.lexend(
+                              style: GoogleFonts.dmSans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: color == AppColors.accentSecondary
@@ -554,7 +554,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
           child: Center(
             child: Text(
               code,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textGrey,
@@ -565,7 +565,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
         const SizedBox(height: 4),
         Text(
           name,
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 10,
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : AppColors.textDark,
@@ -627,7 +627,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
         children: [
           Text(
             title,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 10,
               fontWeight: FontWeight.bold,
               color: AppColors.textGrey,
@@ -636,7 +636,7 @@ class _LeagueOverviewTabState extends State<LeagueOverviewTab> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 24,
               fontWeight: FontWeight.w900,
               color: isDark ? Colors.white : AppColors.textDark,

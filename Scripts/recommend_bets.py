@@ -319,7 +319,7 @@ def load_data():
 def calculate_market_reliability(predictions):
     """Calculates accuracy for each market type based on historical results."""
     market_stats = {}
-    now = datetime.now()
+    now = now_ng()
     seven_days_ago = now - timedelta(days=7)
 
     for p in predictions:

@@ -2,8 +2,9 @@
 # Part of LeoBook Data — Access Layer
 #
 # Covers: standings, audit_log, live_scores, fb_matches, countries,
-#         accuracy_reports, match_odds, and generic query helpers.
+#         accuracy_reports, match_odds, user_credentials, generic query helpers.
 
+import os
 import sqlite3
 from typing import List, Dict, Any, Optional
 from Core.Utils.constants import now_ng
@@ -75,17 +76,19 @@ def get_standings(conn: sqlite3.Connection, country_league: str = None) -> List[
 # Audit log
 # ---------------------------------------------------------------------------
 
-def log_audit_event(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
-    """Insert an audit log entry."""
+def log_audit_event(conn: sqlite3.Connection, data: Dict[str, Any],
+                    user_id: str = '', commit: bool = True):
+    """Insert an audit log entry scoped to user_id."""
     now = now_ng().isoformat()
     conn.execute(
-        """INSERT INTO audit_log (id, timestamp, event_type, description,
+        """INSERT INTO audit_log (id, user_id, timestamp, event_type, description,
                balance_before, balance_after, stake, status, last_updated)
-           VALUES (:id, :timestamp, :event_type, :description,
+           VALUES (:id, :user_id, :timestamp, :event_type, :description,
                :balance_before, :balance_after, :stake, :status, :last_updated)
         """,
         {
             "id": data.get("id", now),
+            "user_id": user_id,
             "timestamp": data.get("timestamp", now),
             "event_type": data.get("event_type"),
             "description": data.get("description"),
@@ -150,15 +153,16 @@ def upsert_live_score(conn: sqlite3.Connection, data: Dict[str, Any], commit: bo
 # FB Matches
 # ---------------------------------------------------------------------------
 
-def upsert_fb_match(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
-    """Insert or update an fb_matches entry (sync-safe columns only)."""
+def upsert_fb_match(conn: sqlite3.Connection, data: Dict[str, Any],
+                    user_id: str, commit: bool = True):
+    """Insert or update an fb_matches entry scoped to user_id."""
     now = now_ng().isoformat()
     conn.execute(
-        """INSERT INTO fb_matches (site_match_id, date, time, home_team, away_team,
+        """INSERT INTO fb_matches (site_match_id, user_id, date, time, home_team, away_team,
                url, last_updated, fixture_id, matched)
-           VALUES (:site_match_id, :date, :time, :home_team, :away_team,
+           VALUES (:site_match_id, :user_id, :date, :time, :home_team, :away_team,
                :url, :last_updated, :fixture_id, :matched)
-           ON CONFLICT(site_match_id) DO UPDATE SET
+           ON CONFLICT(site_match_id, user_id) DO UPDATE SET
                date           = COALESCE(excluded.date, fb_matches.date),
                fixture_id     = COALESCE(excluded.fixture_id, fb_matches.fixture_id),
                matched        = COALESCE(excluded.matched, fb_matches.matched),
@@ -166,6 +170,7 @@ def upsert_fb_match(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool
         """,
         {
             "site_match_id": data["site_match_id"],
+            "user_id": user_id,
             "date": data.get("date"),
             "time": data.get("time", data.get("match_time")),
             "home_team": data.get("home_team"),
@@ -216,15 +221,16 @@ def upsert_country(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool 
 # Accuracy reports
 # ---------------------------------------------------------------------------
 
-def upsert_accuracy_report(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
-    """Insert or update an accuracy report."""
+def upsert_accuracy_report(conn: sqlite3.Connection, data: Dict[str, Any],
+                           user_id: str, commit: bool = True):
+    """Insert or update an accuracy report scoped to user_id."""
     now = now_ng().isoformat()
     conn.execute(
-        """INSERT INTO accuracy_reports (report_id, timestamp, volume, win_rate,
+        """INSERT INTO accuracy_reports (report_id, user_id, timestamp, volume, win_rate,
                return_pct, period, last_updated)
-           VALUES (:report_id, :timestamp, :volume, :win_rate,
+           VALUES (:report_id, :user_id, :timestamp, :volume, :win_rate,
                :return_pct, :period, :last_updated)
-           ON CONFLICT(report_id) DO UPDATE SET
+           ON CONFLICT(report_id, user_id) DO UPDATE SET
                volume     = excluded.volume,
                win_rate   = excluded.win_rate,
                return_pct = excluded.return_pct,
@@ -232,6 +238,7 @@ def upsert_accuracy_report(conn: sqlite3.Connection, data: Dict[str, Any], commi
         """,
         {
             "report_id": data["report_id"],
+            "user_id": user_id,
             "timestamp": data.get("timestamp"),
             "volume": data.get("volume"),
             "win_rate": data.get("win_rate"),
@@ -313,3 +320,83 @@ def query_all(conn: sqlite3.Connection, table: str, where: str = None,
 def count_rows(conn: sqlite3.Connection, table: str) -> int:
     """Count rows in a table."""
     return conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+
+# ---------------------------------------------------------------------------
+# User credentials (per-user platform credentials, encrypted at rest)
+# ---------------------------------------------------------------------------
+
+def _get_fernet():
+    """Return a Fernet cipher using CREDENTIAL_ENCRYPTION_KEY from .env.
+    Generates and prints a key if not set (Phase 1 convenience only)."""
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError:
+        raise RuntimeError(
+            "cryptography package required for credential storage. "
+            "Run: pip install cryptography"
+        )
+    raw_key = os.getenv("CREDENTIAL_ENCRYPTION_KEY")
+    if not raw_key:
+        key = Fernet.generate_key()
+        print(
+            "[CREDENTIALS] WARNING: CREDENTIAL_ENCRYPTION_KEY not set. "
+            f"Add this to .env: CREDENTIAL_ENCRYPTION_KEY={key.decode()}"
+        )
+        return Fernet(key)
+    return Fernet(raw_key.encode())
+
+
+def store_user_credential(conn: sqlite3.Connection, user_id: str, platform: str,
+                          credential_key: str, credential_value: str,
+                          commit: bool = True):
+    """Store an encrypted credential for user_id on platform."""
+    fernet = _get_fernet()
+    encrypted = fernet.encrypt(credential_value.encode()).decode()
+    now = now_ng().isoformat()
+    conn.execute(
+        """INSERT INTO user_credentials (user_id, platform, credential_key, credential_value, last_updated)
+           VALUES (:user_id, :platform, :credential_key, :credential_value, :last_updated)
+           ON CONFLICT(user_id, platform, credential_key) DO UPDATE SET
+               credential_value = excluded.credential_value,
+               last_updated     = excluded.last_updated
+        """,
+        {
+            "user_id": user_id,
+            "platform": platform,
+            "credential_key": credential_key,
+            "credential_value": encrypted,
+            "last_updated": now,
+        },
+    )
+    if commit:
+        conn.commit()
+
+
+def get_user_credential(conn: sqlite3.Connection, user_id: str, platform: str,
+                        credential_key: str) -> Optional[str]:
+    """Retrieve and decrypt a credential for user_id on platform.
+    Returns None if not found."""
+    row = conn.execute(
+        "SELECT credential_value FROM user_credentials "
+        "WHERE user_id = ? AND platform = ? AND credential_key = ?",
+        (user_id, platform, credential_key),
+    ).fetchone()
+    if not row:
+        return None
+    fernet = _get_fernet()
+    return fernet.decrypt(row[0].encode()).decode()
+
+
+def get_user_platform_credentials(conn: sqlite3.Connection, user_id: str,
+                                   platform: str) -> Dict[str, str]:
+    """Return all decrypted credentials for user_id on platform as a dict."""
+    rows = conn.execute(
+        "SELECT credential_key, credential_value FROM user_credentials "
+        "WHERE user_id = ? AND platform = ?",
+        (user_id, platform),
+    ).fetchall()
+    if not rows:
+        return {}
+    fernet = _get_fernet()
+    return {r[0]: fernet.decrypt(r[1].encode()).decode() for r in rows}

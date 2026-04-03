@@ -22,7 +22,7 @@ class SuperLeoBookScreen extends StatelessWidget {
             SnackBar(
               content: Text(
                 '🎉 Welcome to Super LeoBook!',
-                style: GoogleFonts.lexend(),
+                style: GoogleFonts.dmSans(),
               ),
               backgroundColor: AppColors.success,
             ),
@@ -49,7 +49,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                       onTap: () => Navigator.of(context).pop(),
                       child: Text(
                         'Skip',
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textTertiary,
@@ -71,7 +71,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                       // ── Title ──────────────────────────────────
                       Text(
                         'Super LeoBook',
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
@@ -80,7 +80,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                       const SizedBox(height: 6),
                       RichText(
                         text: TextSpan(
-                          style: GoogleFonts.lexend(fontSize: 15),
+                          style: GoogleFonts.dmSans(fontSize: 15),
                           children: [
                             const TextSpan(
                               text: 'Try ',
@@ -162,7 +162,7 @@ class SuperLeoBookScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -171,7 +171,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     color: AppColors.textTertiary,
                     height: 1.4,
@@ -210,7 +210,7 @@ class SuperLeoBookScreen extends StatelessWidget {
               children: [
                 Text(
                   'Monthly',
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: Colors.white,
@@ -225,7 +225,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                   ),
                   child: Text(
                     'FREE',
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -235,7 +235,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                 const Spacer(),
                 Text(
                   '₦48,500',
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
@@ -243,7 +243,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                 ),
                 Text(
                   '/month',
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     color: AppColors.textTertiary,
                   ),
@@ -284,7 +284,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                       SnackBar(
                         content: Text(
                           'Sign in to start your free trial',
-                          style: GoogleFonts.lexend(),
+                          style: GoogleFonts.dmSans(),
                         ),
                       ),
                     );
@@ -294,7 +294,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                       SnackBar(
                         content: Text(
                           'Super LeoBook cancelled.',
-                          style: GoogleFonts.lexend(),
+                          style: GoogleFonts.dmSans(),
                         ),
                       ),
                     );
@@ -313,7 +313,7 @@ class SuperLeoBookScreen extends StatelessWidget {
                   child: Center(
                     child: Text(
                       isSuperUser ? 'Cancel Subscription' : 'Start 15-day free trial',
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: isSuperUser ? Colors.white : AppColors.neutral900,
@@ -330,7 +330,7 @@ class SuperLeoBookScreen extends StatelessWidget {
           // Sub-text
           Text(
             'Renews at ₦48,500 a month, cancel anytime',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 11,
               color: AppColors.textDisabled,
             ),
@@ -344,7 +344,7 @@ class SuperLeoBookScreen extends StatelessWidget {
             children: [
               Text(
                 'Terms',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 11,
                   color: AppColors.textTertiary,
                   decoration: TextDecoration.underline,
@@ -353,14 +353,14 @@ class SuperLeoBookScreen extends StatelessWidget {
               ),
               Text(
                 ' | ',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 11,
                   color: AppColors.textDisabled,
                 ),
               ),
               Text(
                 'Privacy Policy',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 11,
                   color: AppColors.textTertiary,
                   decoration: TextDecoration.underline,

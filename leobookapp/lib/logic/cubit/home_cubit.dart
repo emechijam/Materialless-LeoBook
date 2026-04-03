@@ -79,6 +79,7 @@ class HomeCubit extends Cubit<HomeState> {
   final DataRepository _dataRepository;
   final NewsRepository _newsRepository;
   StreamSubscription? _predictionsSub;
+  StreamSubscription? _liveScoresSub;
   StreamSubscription? _schedulesSub;
   StreamSubscription? _teamCrestsSub;
   Timer? _refreshTimer;
@@ -213,8 +214,6 @@ class HomeCubit extends Cubit<HomeState> {
       emit(HomeError("Failed to load dashboard: $e"));
     }
   }
-
-  StreamSubscription? _liveScoresSub;
 
   /// Periodic background refresh — fetches latest data and upserts only changed matches.
   Future<void> _periodicRefresh() async {

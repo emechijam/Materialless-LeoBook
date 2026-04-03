@@ -260,7 +260,7 @@ class _TeamScreenState extends State<TeamScreen> {
               const SizedBox(height: 12),
               Text(
                 widget.teamName,
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
@@ -271,7 +271,7 @@ class _TeamScreenState extends State<TeamScreen> {
                     (_matches.isNotEmpty
                         ? _matches.first.league ?? ''
                         : 'League'),
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textGrey,
@@ -306,7 +306,7 @@ class _TeamScreenState extends State<TeamScreen> {
                     const SizedBox(width: 8),
                     Text(
                       "Follow",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -359,7 +359,7 @@ class _TeamScreenState extends State<TeamScreen> {
         children: [
           Text(
             label,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 9,
               fontWeight: FontWeight.bold,
               color: AppColors.textGrey,
@@ -369,7 +369,7 @@ class _TeamScreenState extends State<TeamScreen> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 18,
               fontWeight: FontWeight.w900,
               color: AppColors.accentPrimary,
@@ -386,7 +386,7 @@ class _TeamScreenState extends State<TeamScreen> {
       children: [
         Text(
           "RECENT FORM",
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 12,
             fontWeight: FontWeight.bold,
             color: AppColors.textGrey,
@@ -419,7 +419,7 @@ class _TeamScreenState extends State<TeamScreen> {
                   child: Center(
                     child: Text(
                       result,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: color,
@@ -435,7 +435,7 @@ class _TeamScreenState extends State<TeamScreen> {
                           ? _pastMatches[_form.indexOf(result)].awayTeam
                           : _pastMatches[_form.indexOf(result)].homeTeam)
                       : "OPP",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textGrey,
@@ -460,7 +460,7 @@ class _TeamScreenState extends State<TeamScreen> {
             const SizedBox(width: 8),
             Text(
               "NEXT MATCH PREDICTION",
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textGrey,
@@ -699,7 +699,7 @@ class _TeamScreenState extends State<TeamScreen> {
             const SizedBox(width: 8),
             Text(
               "ALL MATCHES",
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textGrey,
@@ -709,7 +709,7 @@ class _TeamScreenState extends State<TeamScreen> {
             const Spacer(),
             Text(
               '${_matches.length} total',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textGrey,
@@ -741,7 +741,7 @@ class _TeamScreenState extends State<TeamScreen> {
                 const SizedBox(width: 8),
                 Text(
                   section.key.toUpperCase(),
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: AppColors.primary,
@@ -751,7 +751,7 @@ class _TeamScreenState extends State<TeamScreen> {
                 const Spacer(),
                 Text(
                   '${section.value.length} match${section.value.length == 1 ? '' : 'es'}',
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textGrey,

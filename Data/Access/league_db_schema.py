@@ -76,7 +76,8 @@ _SCHEMA_SQL = """
     );
 
     CREATE TABLE IF NOT EXISTS predictions (
-        fixture_id          TEXT PRIMARY KEY,
+        fixture_id          TEXT NOT NULL,
+        user_id             TEXT NOT NULL DEFAULT '',
         date                TEXT,
         match_time          TEXT,
         country_league      TEXT,
@@ -122,7 +123,8 @@ _SCHEMA_SQL = """
         ensemble_weights    JSON,
         rec_qualifications  JSON,
         is_available        INTEGER DEFAULT 0,
-        last_updated        TEXT DEFAULT (datetime('now'))
+        last_updated        TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (fixture_id, user_id)
     );
 
     -- standings: REMOVED in v7.0 — computed on-the-fly from schedules table.
@@ -130,6 +132,7 @@ _SCHEMA_SQL = """
 
     CREATE TABLE IF NOT EXISTS audit_log (
         id                  TEXT PRIMARY KEY,
+        user_id             TEXT NOT NULL DEFAULT '',
         timestamp           TEXT,
         event_type          TEXT,
         description         TEXT,
@@ -141,7 +144,8 @@ _SCHEMA_SQL = """
     );
 
     CREATE TABLE IF NOT EXISTS fb_matches (
-        site_match_id       TEXT PRIMARY KEY,
+        site_match_id       TEXT NOT NULL,
+        user_id             TEXT NOT NULL DEFAULT '',
         date                TEXT,
         time                TEXT,
         home_team           TEXT,
@@ -157,7 +161,8 @@ _SCHEMA_SQL = """
         booking_code        TEXT,
         booking_url         TEXT,
         status              TEXT,
-        last_updated        TEXT DEFAULT (datetime('now'))
+        last_updated        TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (site_match_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS live_scores (
@@ -177,13 +182,15 @@ _SCHEMA_SQL = """
     );
 
     CREATE TABLE IF NOT EXISTS accuracy_reports (
-        report_id           TEXT PRIMARY KEY,
+        report_id           TEXT NOT NULL,
+        user_id             TEXT NOT NULL DEFAULT '',
         timestamp           TEXT,
         volume              INTEGER,
         win_rate            REAL,
         return_pct          REAL,
         period              TEXT,
-        last_updated        TEXT DEFAULT (datetime('now'))
+        last_updated        TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (report_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS countries (
@@ -253,6 +260,7 @@ _SCHEMA_SQL = """
 
     CREATE TABLE IF NOT EXISTS log_segments (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     TEXT NOT NULL DEFAULT '',
         path        TEXT NOT NULL UNIQUE,
         category    TEXT NOT NULL,
         started_at  TEXT NOT NULL,
@@ -262,13 +270,41 @@ _SCHEMA_SQL = """
         remote_path TEXT
     );
 
+    -- Per-user stairway compounding state (one row per user).
+    CREATE TABLE IF NOT EXISTS stairway_state (
+        user_id         TEXT PRIMARY KEY,
+        current_step    INTEGER DEFAULT 1,
+        last_updated    TEXT,
+        last_result     TEXT,
+        cycle_count     INTEGER DEFAULT 0
+    );
+
+    -- Per-user credentials for third-party betting platforms (encrypted at rest).
+    -- platform: e.g. 'football_com', 'betfair', 'smarkets'
+    -- credential_key: e.g. 'phone', 'password', 'api_key'
+    -- credential_value: encrypted via Fernet (CREDENTIAL_ENCRYPTION_KEY in .env)
+    CREATE TABLE IF NOT EXISTS user_credentials (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id         TEXT NOT NULL,
+        platform        TEXT NOT NULL,
+        credential_key  TEXT NOT NULL,
+        credential_value TEXT NOT NULL,
+        last_updated    TEXT DEFAULT (datetime('now')),
+        UNIQUE(user_id, platform, credential_key)
+    );
+
     -- Indexes for hot-path queries
     CREATE INDEX IF NOT EXISTS idx_schedules_league ON schedules(league_id);
     CREATE INDEX IF NOT EXISTS idx_schedules_date ON schedules(date);
     CREATE INDEX IF NOT EXISTS idx_schedules_fixture_id ON schedules(fixture_id);
     CREATE INDEX IF NOT EXISTS idx_leagues_league_id ON leagues(league_id);
-    CREATE INDEX IF NOT EXISTS idx_predictions_date ON predictions(date);
-    CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(status);
+    CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_predictions_date ON predictions(user_id, date);
+    CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_fb_matches_user ON fb_matches(user_id);
+    CREATE INDEX IF NOT EXISTS idx_accuracy_reports_user ON accuracy_reports(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_credentials_user ON user_credentials(user_id, platform);
     CREATE INDEX IF NOT EXISTS idx_match_odds_fixture ON match_odds(fixture_id);
     CREATE INDEX IF NOT EXISTS idx_match_odds_market ON match_odds(market_id, extracted_at);
     CREATE INDEX IF NOT EXISTS idx_match_odds_site ON match_odds(site_match_id);
@@ -310,6 +346,12 @@ _ALTER_MIGRATIONS = [
     ("predictions", "is_available", "INTEGER DEFAULT 0"),
     ("live_scores", "date", "TEXT"),
     ("live_scores", "match_time", "TEXT"),
+    # v9.5.9 — multi-user tenancy: user_id added to all per-user tables
+    ("predictions",      "user_id", "TEXT NOT NULL DEFAULT ''"),
+    ("audit_log",        "user_id", "TEXT NOT NULL DEFAULT ''"),
+    ("fb_matches",       "user_id", "TEXT NOT NULL DEFAULT ''"),
+    ("accuracy_reports", "user_id", "TEXT NOT NULL DEFAULT ''"),
+    ("log_segments",     "user_id", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 # ── CSV → SQLite import map REMOVED (v7.0) ───────────────────────────────────

@@ -19,19 +19,19 @@ nest_asyncio.apply()
 load_dotenv()
 
 def validate_config():
-    """Validate required environment variables and configurations."""
+    """Validate required environment variables and configurations.
+    FB_PHONE / FB_PASSWORD are no longer global env vars — credentials are
+    stored per-user in the user_credentials table."""
     required_vars = [
         'GROK_API_KEY',
         'GEMINI_API_KEY',
-        'FB_PHONE',
-        'FB_PASSWORD'
     ]
-    
+
     missing = []
     for var in required_vars:
         if not os.getenv(var):
             missing.append(var)
-    
+
     if missing:
         raise ValueError(f"Missing required environment variables: {', '.join(missing)}. Please check your .env file.")
     
@@ -418,6 +418,14 @@ if __name__ == "__main__":
     _log_session, original_stdout, original_stderr = setup_terminal_logging(args)
     # Expose to the module-level shutdown handler.
     globals()['_log_session'] = _log_session
+
+    # ── User identity — required for all per-user operations ──
+    user_id = getattr(args, 'user_id', '') or ''
+    state['user_id'] = user_id
+    if not user_id:
+        print("  [LEO] WARNING: No --user-id supplied. Per-user operations (predictions, "
+              "bets, audit, stairway) will use empty user_id. "
+              "Pass --user-id <UUID> for full multi-user isolation.")
 
     # Determine which mode to run
     is_utility = any([args.sync, getattr(args, 'push', False), getattr(args, 'pull', False),

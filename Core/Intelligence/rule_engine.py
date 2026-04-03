@@ -12,6 +12,7 @@ Handles main analysis combining rules, xG, ML, and market selection.
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import numpy as np
+from Core.Utils.constants import now_ng
 
 from Core.Utils.constants import (
     MIN_FORM_MATCHES, XG_ADVANTAGE_THRESHOLD, XG_DRAW_THRESHOLD,
@@ -64,7 +65,7 @@ class RuleEngine:
             }
 
         # Filter H2H based on config
-        cutoff = datetime.now() - timedelta(days=config.h2h_lookback_days)
+        cutoff = now_ng() - timedelta(days=config.h2h_lookback_days)
         h2h = []
         for m in h2h_raw:
             if not m:

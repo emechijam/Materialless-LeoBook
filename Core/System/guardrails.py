@@ -9,11 +9,10 @@
 """
 Safety Guardrails Module — Items 5-10
 All six guardrails that MUST pass before any real bet placement.
-Designed to be called from Leo.py dispatch and placement.py execution.
+Every guardrail is scoped to a user_id — no single-user fallback.
 """
 
 import os
-from datetime import datetime
 from pathlib import Path
 from Core.Utils.constants import now_ng
 
@@ -70,8 +69,9 @@ STAIRWAY_TABLE = [
 
 class StaircaseTracker:
     """
-    Tracks the current position in the 7-step Stairway compounding sequence.
-    Persists state in SQLite `stairway_state` table (single row, id=1).
+    Tracks the current position in the 7-step Stairway compounding sequence
+    for a specific user. Persists state in SQLite `stairway_state` table
+    (one row per user_id).
 
     Rules (from PROJECT_STAIRWAY.md):
       - Win  → advance to next step (stake = previous payout)
@@ -79,39 +79,32 @@ class StaircaseTracker:
       - Step 7 win → cycle complete, withdraw + reset
     """
 
-    def __init__(self):
+    def __init__(self, user_id: str):
+        if not user_id:
+            raise ValueError("StaircaseTracker requires a non-empty user_id.")
+        self._user_id = user_id
         from Data.Access.league_db import get_connection
         self._conn = get_connection()
-        self._ensure_table()
         self._ensure_row()
-
-    def _ensure_table(self):
-        self._conn.execute("""
-            CREATE TABLE IF NOT EXISTS stairway_state (
-                id INTEGER PRIMARY KEY DEFAULT 1,
-                current_step INTEGER DEFAULT 1,
-                last_updated TEXT,
-                last_result TEXT,
-                cycle_count INTEGER DEFAULT 0
-            )
-        """)
-        self._conn.commit()
 
     def _ensure_row(self):
         row = self._conn.execute(
-            "SELECT current_step FROM stairway_state WHERE id = 1"
+            "SELECT current_step FROM stairway_state WHERE user_id = ?",
+            (self._user_id,),
         ).fetchone()
         if not row:
             self._conn.execute(
-                "INSERT INTO stairway_state (id, current_step, last_updated, cycle_count) VALUES (1, 1, ?, 0)",
-                (now_ng().isoformat(),)
+                "INSERT INTO stairway_state (user_id, current_step, last_updated, cycle_count) "
+                "VALUES (?, 1, ?, 0)",
+                (self._user_id, now_ng().isoformat()),
             )
             self._conn.commit()
 
     @property
     def current_step(self) -> int:
         row = self._conn.execute(
-            "SELECT current_step FROM stairway_state WHERE id = 1"
+            "SELECT current_step FROM stairway_state WHERE user_id = ?",
+            (self._user_id,),
         ).fetchone()
         return row[0] if row else 1
 
@@ -135,20 +128,20 @@ class StaircaseTracker:
         now = now_ng().isoformat()
 
         if step >= 7:
-            # Cycle complete — reset and bump cycle count
             self._conn.execute(
                 "UPDATE stairway_state SET current_step = 1, last_updated = ?, "
-                "last_result = 'CYCLE_COMPLETE', cycle_count = cycle_count + 1 WHERE id = 1",
-                (now,)
+                "last_result = 'CYCLE_COMPLETE', cycle_count = cycle_count + 1 "
+                "WHERE user_id = ?",
+                (now, self._user_id),
             )
-            print(f"  [STAIRWAY] 🎉 CYCLE COMPLETE! 7-step streak achieved. Resetting to step 1.")
+            print(f"  [STAIRWAY] CYCLE COMPLETE! 7-step streak achieved. Resetting to step 1.")
         else:
             self._conn.execute(
                 "UPDATE stairway_state SET current_step = ?, last_updated = ?, "
-                "last_result = 'WIN' WHERE id = 1",
-                (step + 1, now)
+                "last_result = 'WIN' WHERE user_id = ?",
+                (step + 1, now, self._user_id),
             )
-            next_info = STAIRWAY_TABLE[step]  # step is 0-indexed after +1
+            next_info = STAIRWAY_TABLE[step]
             print(f"  [STAIRWAY] WIN at step {step}. Advancing to step {step + 1} "
                   f"(stake: ₦{next_info['stake']:,})")
 
@@ -160,8 +153,8 @@ class StaircaseTracker:
         step = self.current_step
         self._conn.execute(
             "UPDATE stairway_state SET current_step = 1, last_updated = ?, "
-            "last_result = 'LOSS_RESET' WHERE id = 1",
-            (now,)
+            "last_result = 'LOSS_RESET' WHERE user_id = ?",
+            (now, self._user_id),
         )
         self._conn.commit()
         print(f"  [STAIRWAY] LOSS at step {step}. Reset to step 1 (₦{STAIRWAY_TABLE[0]['stake']:,})")
@@ -187,11 +180,13 @@ def check_balance_sanity(balance: float) -> bool:
 
 # ── Item 10: Daily Loss Limit ────────────────────────────────────────────────
 
-def check_daily_loss_limit(conn=None) -> bool:
+def check_daily_loss_limit(user_id: str, conn=None) -> bool:
     """
-    Sum today's BET_PLACEMENT losses from audit_log.
-    Returns True if we are still within the daily limit.
+    Sum today's BET_PLACEMENT losses from audit_log for user_id.
+    Returns True if still within the daily limit.
     """
+    if not user_id:
+        raise ValueError("check_daily_loss_limit requires a non-empty user_id.")
     if conn is None:
         from Data.Access.league_db import get_connection
         conn = get_connection()
@@ -207,9 +202,10 @@ def check_daily_loss_limit(conn=None) -> bool:
                 END
             ), 0) as total_loss
             FROM audit_log
-            WHERE event_type = 'BET_PLACEMENT'
+            WHERE user_id = ?
+              AND event_type = 'BET_PLACEMENT'
               AND timestamp LIKE ?
-        """, (f"{today}%",)).fetchone()
+        """, (user_id, f"{today}%")).fetchone()
 
         total_loss = float(row[0]) if row else 0.0
 
@@ -222,8 +218,6 @@ def check_daily_loss_limit(conn=None) -> bool:
         return True
 
     except Exception as e:
-        # If audit_log table doesn't exist or query fails, allow betting
-        # but warn — don't silently fail in the dangerous direction
         print(f"  [GUARDRAIL WARNING] Could not check daily loss limit: {e}")
         print(f"  [GUARDRAIL WARNING] Proceeding with caution — ensure audit_log table exists.")
         return True
@@ -231,12 +225,15 @@ def check_daily_loss_limit(conn=None) -> bool:
 
 # ── Master Pre-Bet Check ─────────────────────────────────────────────────────
 
-def run_all_pre_bet_checks(conn=None, balance: float = 0.0) -> tuple:
+def run_all_pre_bet_checks(user_id: str, conn=None, balance: float = 0.0) -> tuple:
     """
-    Run all safety guardrails in sequence.
+    Run all safety guardrails in sequence for user_id.
     Returns (ok: bool, reason: str).
     If ok is False, betting MUST NOT proceed.
     """
+    if not user_id:
+        return False, "NO_USER: user_id is required for all guardrail checks."
+
     # 1. Dry-run check
     if is_dry_run():
         return False, "DRY_RUN: Dry-run mode is active"
@@ -245,17 +242,17 @@ def run_all_pre_bet_checks(conn=None, balance: float = 0.0) -> tuple:
     if check_kill_switch():
         return False, "KILL_SWITCH: STOP_BETTING file detected"
 
-    # 3. Balance sanity (skip if balance not yet fetched — will be checked later)
+    # 3. Balance sanity
     if balance is not None and not check_balance_sanity(balance):
         return False, f"LOW_BALANCE: Balance ₦{balance:,.0f} below minimum ₦{MIN_BALANCE:,.0f}"
 
     # 4. Daily loss limit
-    if not check_daily_loss_limit(conn):
+    if not check_daily_loss_limit(user_id, conn):
         return False, "DAILY_LOSS_LIMIT: Today's loss limit exceeded"
 
-    # 5. Staircase sanity (verify tracker can init)
+    # 5. Staircase sanity
     try:
-        tracker = StaircaseTracker()
+        tracker = StaircaseTracker(user_id)
         print(f"  [GUARDRAIL] Stairway status: {tracker.status()}")
     except Exception as e:
         return False, f"STAIRWAY_ERROR: Cannot initialize staircase tracker: {e}"

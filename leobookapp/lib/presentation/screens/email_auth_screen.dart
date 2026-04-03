@@ -219,7 +219,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
           const SizedBox(width: 10),
           Text(
             _isSignUp ? 'Create Account' : 'Sign In',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 17,
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -238,7 +238,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
         const SizedBox(height: 32),
         Text(
           _isSignUp ? 'Create your account' : 'Welcome back',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.white,
@@ -249,7 +249,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
           _isSignUp
               ? 'Enter your email and choose a password.'
               : 'Sign in with your email and password.',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 13,
             color: AppColors.textTertiary,
           ),
@@ -279,10 +279,10 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                 child: TextField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  style: GoogleFonts.lexend(fontSize: 15, color: Colors.white),
+                  style: GoogleFonts.dmSans(fontSize: 15, color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'Password',
-                    hintStyle: GoogleFonts.lexend(
+                    hintStyle: GoogleFonts.dmSans(
                       color: AppColors.textDisabled,
                       fontSize: 15,
                     ),
@@ -329,7 +329,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
               },
               child: Text(
                 'Forgot Password?',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                     fontSize: 13, color: AppColors.textTertiary),
               ),
             ),
@@ -359,7 +359,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                         )
                       : Text(
                           _isSignUp ? 'Create Account' : 'Sign In',
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -390,7 +390,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
               },
               child: Text(
                 'Sign in with Magic Link',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 13,
                   color: AppColors.primary.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w500,
@@ -404,7 +404,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
             onTap: () => setState(() => _isSignUp = !_isSignUp),
             child: RichText(
               text: TextSpan(
-                style: GoogleFonts.lexend(fontSize: 13),
+                style: GoogleFonts.dmSans(fontSize: 13),
                 children: [
                   TextSpan(
                     text: _isSignUp
@@ -450,10 +450,10 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
             child: TextField(
               controller: controller,
               keyboardType: keyboardType,
-              style: GoogleFonts.lexend(fontSize: 15, color: Colors.white),
+              style: GoogleFonts.dmSans(fontSize: 15, color: Colors.white),
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: GoogleFonts.lexend(
+                hintStyle: GoogleFonts.dmSans(
                   color: AppColors.textDisabled,
                   fontSize: 15,
                 ),
