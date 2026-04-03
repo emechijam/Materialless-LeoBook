@@ -377,6 +377,29 @@ async def run_utility(args):
         from Scripts.rl_diagnose import main as run_rl_diagnose
         run_rl_diagnose(args)
 
+    elif getattr(args, 'deploy_apk', False):
+        print("\n  --- LEO: Deploy APK → Supabase Storage ---")
+        import subprocess
+        from pathlib import Path
+
+        script = Path(__file__).parent / "infra" / "deploy_apk.sh"
+        if not script.exists():
+            print(f"  [Error] deploy_apk.sh not found at: {script}")
+            return
+
+        cmd = ["bash", str(script)]
+        if getattr(args, 'skip_build', False):
+            cmd.append("--skip-build")
+
+        print(f"  [APK] Running: {' '.join(cmd)}")
+        result = subprocess.run(cmd, cwd=str(Path(__file__).parent))
+        if result.returncode == 0:
+            print("  [SUCCESS] APK deployment complete.")
+            log_audit_event("DEPLOY_APK", "APK built and uploaded to Supabase Storage", status="success")
+        else:
+            print(f"  [ERROR] APK deployment failed (exit code {result.returncode}).")
+            log_audit_event("DEPLOY_APK", f"Failed with exit code {result.returncode}", status="failed")
+
 
 # ============================================================
 # DISPATCH — Routes CLI args to the appropriate functions
@@ -438,7 +461,8 @@ if __name__ == "__main__":
                       args.train_rl, args.backtest_rl,
                       args.diagnose_rl,
                       getattr(args, 'push_models', False),
-                      getattr(args, 'pull_models', False)])
+                      getattr(args, 'pull_models', False),
+                      getattr(args, 'deploy_apk', False)])
     is_granular = args.prologue or args.chapter is not None
 
     try:

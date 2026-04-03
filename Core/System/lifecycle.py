@@ -302,6 +302,12 @@ Usage Examples:
     parser.add_argument('--date', type=str, nargs='+', metavar='DATE',
                        help='Specific date(s) to process (DD.MM.YYYY)')
 
+    # --- APK Deployment ---
+    parser.add_argument('--deploy-apk', action='store_true',
+                        help='Build, sign, and upload the LeoBook Android APK to Supabase Storage')
+    parser.add_argument('--skip-build', action='store_true',
+                        help='Skip flutter build step during --deploy-apk (re-use existing APK)')
+
     # --- Identity ---
     parser.add_argument('--user-id', type=str, default='', metavar='UUID',
                        help='User UUID for all per-user operations (predictions, bets, audit, stairway). '

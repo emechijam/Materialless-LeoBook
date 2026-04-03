@@ -106,33 +106,122 @@ class Supervisor:
         
         return False
 
+    # ── Agentic sequencing helpers ────────────────────────────────────────────
+
+    def _chapter_plan(self) -> dict:
+        """
+        Decide which chapters to run this cycle based on time-of-day and
+        data availability.  Returns a dict with boolean flags:
+
+            run_prologue   — always True (data gates are cheap)
+            run_chapter1   — True if within the prediction window (06:00–20:00)
+                             AND we haven't run Ch1 already today
+            run_chapter2   — True if within the booking window (08:00–22:00)
+                             AND booking is not already done today
+                             AND Ch1 produced booking codes this session
+
+        The plan is logged so operators can see why a chapter was skipped.
+        """
+        now = now_ng()
+        hour = now.hour
+        today = now.strftime("%Y-%m-%d")
+
+        last_ch1_date = self.get_state("last_ch1_date")
+        last_ch2_date = self.get_state("last_ch2_date")
+
+        # Chapter 1: prediction pipeline — run once per day, 06:00–20:00
+        ch1_window    = 6 <= hour < 20
+        ch1_done_today = last_ch1_date == today
+        run_ch1 = ch1_window and not ch1_done_today
+
+        # Chapter 2: automated booking — run once per day, 08:00–22:00
+        ch2_window    = 8 <= hour < 22
+        ch2_done_today = last_ch2_date == today
+        run_ch2 = ch2_window and not ch2_done_today
+
+        plan = {
+            "run_prologue": True,
+            "run_chapter1": run_ch1,
+            "run_chapter2": run_ch2,
+            "hour": hour,
+            "ch1_done_today": ch1_done_today,
+            "ch2_done_today": ch2_done_today,
+        }
+
+        reasons = []
+        if not run_ch1:
+            if ch1_done_today:
+                reasons.append("Ch1 already ran today")
+            if not ch1_window:
+                reasons.append(f"Ch1 outside window (hour={hour}, window=06-20)")
+        if not run_ch2:
+            if ch2_done_today:
+                reasons.append("Ch2 already ran today")
+            if not ch2_window:
+                reasons.append(f"Ch2 outside window (hour={hour}, window=08-22)")
+
+        if reasons:
+            logger.info(f"[Supervisor] Agentic plan: {plan}  Skip reasons: {reasons}")
+        else:
+            logger.info(f"[Supervisor] Agentic plan: {plan}")
+
+        return plan
+
     async def run_cycle(self, scheduler, p) -> bool:
         """
         Executes a sequence of chapters/workers as a single autonomous cycle.
+
+        Chapter sequencing is agentic: time-of-day and prior-run state
+        determine which chapters are attempted this cycle.
         """
         from Core.System.pipeline_workers import StartupWorker, PrologueWorker, Chapter1Worker, Chapter2Worker
-        
+
         self.state["status"] = "running"
         self.capture_state("global_state", self.state)
-        
+
         logger.info(f"=== Starting Autonomous Cycle #{self.state['cycle_count']} (ID: {self.run_id}) ===")
 
-        # 1. Startup/Audit
+        # 1. Startup/Audit — always run
         if not await self.dispatch(StartupWorker):
             return False
 
-        # 2. Data Readiness Gates
+        # ── Agentic decision: which chapters to run? ──────────────────────────
+        plan = self._chapter_plan()
+        today = now_ng().strftime("%Y-%m-%d")
+
+        # 2. Data Readiness Gates — always run (cheap; guards Ch1/Ch2)
         if not await self.dispatch(PrologueWorker):
+            logger.warning("[Supervisor] Prologue failed — skipping Chapter 1 & 2")
+            self.state["status"] = "prologue_failed"
+            self.state["last_run"] = now_ng().isoformat()
+            self.capture_state("global_state", self.state)
             return False
 
         # 3. Prediction Pipeline
-        fb_healthy = await self.dispatch(Chapter1Worker, scheduler, playwright_instance=p)
+        ch1_success = False
+        if plan["run_chapter1"]:
+            ch1_success = await self.dispatch(Chapter1Worker, scheduler, playwright_instance=p)
+            if ch1_success:
+                self.capture_state("last_ch1_date", today)
+                logger.info("[Supervisor] Chapter 1 complete — date checkpointed.")
+            else:
+                logger.warning("[Supervisor] Chapter 1 returned False.")
+        else:
+            logger.info("[Supervisor] Chapter 1 skipped (agentic plan).")
 
         # 4. Betting Automation
-        if fb_healthy:
-            await self.dispatch(Chapter2Worker, playwright_instance=p)
+        # Gate: Ch2 runs if plan allows AND either Ch1 ran this cycle (fresh codes)
+        # or codes already exist from a prior successful Ch1 today.
+        ch1_ran_today = ch1_success or plan["ch1_done_today"]
+        if plan["run_chapter2"] and ch1_ran_today:
+            ch2_ok = await self.dispatch(Chapter2Worker, playwright_instance=p)
+            if ch2_ok:
+                self.capture_state("last_ch2_date", today)
+                logger.info("[Supervisor] Chapter 2 complete — date checkpointed.")
+        elif plan["run_chapter2"] and not ch1_ran_today:
+            logger.warning("[Supervisor] Skipping Chapter 2 — no Ch1 data for today yet.")
         else:
-            logger.warning("[Supervisor] Skipping Chapter 2 (unhealthy session)")
+            logger.info("[Supervisor] Chapter 2 skipped (agentic plan).")
 
         self.state["status"] = "completed"
         self.state["last_run"] = now_ng().isoformat()
