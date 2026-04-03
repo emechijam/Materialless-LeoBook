@@ -6,29 +6,29 @@ echo "=== LeoBook Codespace Auto-Setup (API 36) ==="
 export DEBIAN_FRONTEND=noninteractive
 
 # ---- 0. System dependencies ----
-echo "[0/7] Installing system dependencies..."
+echo "[0/8] Installing system dependencies..."
 sudo apt-get update -qq
 sudo apt-get install -y -qq wget unzip curl git > /dev/null 2>&1 || true
 
 # ---- 1. Python Dependencies ----
-echo "[1/7] Installing Python dependencies..."
+echo "[1/8] Installing Python dependencies..."
 pip install --upgrade pip -q 2>/dev/null || true
 [ -f requirements.txt ] && pip install -r requirements.txt -q || true
 [ -f requirements-rl.txt ] && pip install -r requirements-rl.txt -q || true
 
 # ---- 2. Playwright ----
-echo "[2/7] Installing Playwright browsers..."
+echo "[2/8] Installing Playwright browsers..."
 python -m playwright install-deps 2>/dev/null || true
 python -m playwright install chromium 2>/dev/null || true
 
 # ---- 3. Data Directories ----
-echo "[3/7] Creating data directories..."
+echo "[3/8] Creating data directories..."
 mkdir -p Data/Store/{models,Assets}
 mkdir -p Data/Store/crests/{teams,leagues,flags}
 mkdir -p Modules/Assets/{logos,crests}
 
 # ---- 4. Flutter SDK ----
-echo "[4/7] Installing Flutter SDK..."
+echo "[4/8] Installing Flutter SDK..."
 FLUTTER_HOME="/home/vscode/flutter"
 if [ ! -d "$FLUTTER_HOME" ]; then
     echo "  Cloning Flutter stable..."
@@ -44,7 +44,7 @@ else
 fi
 
 # ---- 5. Android SDK ----
-echo "[5/7] Installing Android SDK..."
+echo "[5/8] Installing Android SDK..."
 export ANDROID_HOME="/home/vscode/android-sdk"
 mkdir -p "$ANDROID_HOME"
 
@@ -76,7 +76,7 @@ if [ -f "$SDKMANAGER" ]; then
 fi
 
 # ---- 6. Flutter config ----
-echo "[6/7] Configuring Flutter..."
+echo "[6/8] Configuring Flutter..."
 if [ -f "$FLUTTER_HOME/bin/flutter" ]; then
     "$FLUTTER_HOME/bin/flutter" config --android-sdk "$ANDROID_HOME" 2>/dev/null || true
 fi
@@ -90,7 +90,7 @@ if [ -d "leobookapp" ]; then
 fi
 
 # ---- 7. VS Code settings ----
-echo "[7/7] Configuring VS Code..."
+echo "[7/8] Configuring VS Code..."
 mkdir -p .vscode
 [ ! -f .vscode/settings.json ] && cat > .vscode/settings.json << 'EOF'
 {
@@ -102,6 +102,20 @@ mkdir -p .vscode
 }
 EOF
 
+# ---- 8. Claude Code ----
+echo "[8/8] Verifying Claude Code..."
+if command -v claude &> /dev/null; then
+    echo "  ✓ Claude Code is available: $(claude --version 2>/dev/null || echo 'installed')"
+    if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+        echo "  ⚠ ANTHROPIC_API_KEY is not set. Add it as a Codespace secret at:"
+        echo "    https://github.com/settings/codespaces"
+    else
+        echo "  ✓ ANTHROPIC_API_KEY is set"
+    fi
+else
+    echo "  ⚠ Claude Code not found — devcontainer feature may need a rebuild"
+fi
+
 echo ""
 echo "============================================"
 echo "  ✓ LeoBook Setup Complete!"
@@ -111,4 +125,5 @@ echo "  Android SDK: $ANDROID_HOME"
 echo "  API Level:   36"
 echo ""
 echo "  Verify: flutter doctor"
+echo "  Claude: claude"
 echo ""

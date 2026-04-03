@@ -11,14 +11,16 @@
     "ghcr.io/devcontainers/features/java:1": {
       "version": "17",
       "jdkDistro": "ms"
-    }
+    },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
   "remoteUser": "vscode",
   "remoteEnv": {
     "PYTHONDONTWRITEBYTECODE": "1",
     "PYTHONUNBUFFERED": "1",
     "ANDROID_HOME": "/home/vscode/android-sdk",
-    "PATH": "/home/vscode/flutter/bin:/home/vscode/android-sdk/cmdline-tools/latest/bin:/home/vscode/android-sdk/platform-tools:${containerEnv:PATH}"
+    "PATH": "/home/vscode/flutter/bin:/home/vscode/android-sdk/cmdline-tools/latest/bin:/home/vscode/android-sdk/platform-tools:${containerEnv:PATH}",
+    "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}"
   },
   "customizations": {
     "vscode": {
