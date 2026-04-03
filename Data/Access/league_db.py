@@ -91,9 +91,10 @@ def get_connection() -> sqlite3.Connection:
     Auto-recovers from corrupted DB by deleting and recreating."""
     os.makedirs(DB_DIR, exist_ok=True)
     try:
-        conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=60)
         conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=10000")
+        conn.execute("PRAGMA busy_timeout=60000")  # 60s — handles multi-process contention
+        conn.execute("PRAGMA wal_autocheckpoint=1000")
         conn.row_factory = sqlite3.Row
         return conn
     except sqlite3.DatabaseError as e:
@@ -107,9 +108,10 @@ def get_connection() -> sqlite3.Connection:
                 path = DB_PATH + suffix
                 if os.path.exists(path):
                     os.remove(path)
-            conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
+            conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=60)
             conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=10000")
+            conn.execute("PRAGMA busy_timeout=60000")
+            conn.execute("PRAGMA wal_autocheckpoint=1000")
             conn.row_factory = sqlite3.Row
             return conn
         raise

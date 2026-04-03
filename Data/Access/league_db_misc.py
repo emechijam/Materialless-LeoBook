@@ -259,12 +259,21 @@ def upsert_match_odds_batch(
     conn: sqlite3.Connection,
     odds_list: List[Dict[str, Any]],
     commit: bool = True,
+    _retries: int = 5,
 ) -> int:
-    """Bulk upsert match odds. Returns rows written."""
+    """Bulk upsert match odds. Returns rows written.
+
+    Retries up to _retries times on 'database is locked' with exponential
+    backoff (1s, 2s, 4s, 8s, 16s). This handles multi-process contention
+    where two Leo.py sessions (e.g. --chapter 1 and live streamer) share
+    the same SQLite file.
+    """
+    import time as _time
+
     if not odds_list:
         return 0
-    conn.executemany(
-        """
+
+    _SQL = """
         INSERT INTO match_odds (
             fixture_id, site_match_id, market_id, base_market,
             category, exact_outcome, line, odds_value,
@@ -278,27 +287,39 @@ def upsert_match_odds_batch(
         DO UPDATE SET
             odds_value   = excluded.odds_value,
             extracted_at = excluded.extracted_at
-        """,
-        [
-            {
-                "fixture_id":     o["fixture_id"],
-                "site_match_id":  o["site_match_id"],
-                "market_id":      o["market_id"],
-                "base_market":    o["base_market"],
-                "category":       o.get("category", ""),
-                "exact_outcome":  o["exact_outcome"],
-                "line":           o.get("line") or "",
-                "odds_value":     o["odds_value"],
-                "likelihood_pct": o.get("likelihood_pct", 0),
-                "rank_in_list":   o.get("rank_in_list", 0),
-                "extracted_at":   o["extracted_at"],
-            }
-            for o in odds_list
-        ],
-    )
-    if commit:
-        conn.commit()
-    return len(odds_list)
+    """
+    _rows = [
+        {
+            "fixture_id":     o["fixture_id"],
+            "site_match_id":  o["site_match_id"],
+            "market_id":      o["market_id"],
+            "base_market":    o["base_market"],
+            "category":       o.get("category", ""),
+            "exact_outcome":  o["exact_outcome"],
+            "line":           o.get("line") or "",
+            "odds_value":     o["odds_value"],
+            "likelihood_pct": o.get("likelihood_pct", 0),
+            "rank_in_list":   o.get("rank_in_list", 0),
+            "extracted_at":   o["extracted_at"],
+        }
+        for o in odds_list
+    ]
+
+    for attempt in range(_retries):
+        try:
+            conn.executemany(_SQL, _rows)
+            if commit:
+                conn.commit()
+            return len(odds_list)
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e).lower() and attempt < _retries - 1:
+                wait = 2 ** attempt  # 1, 2, 4, 8, 16 seconds
+                print(f"  [DB] upsert_match_odds_batch: locked, retry {attempt + 1}/{_retries - 1} in {wait}s")
+                _time.sleep(wait)
+            else:
+                raise
+
+    return 0  # unreachable — raise above exits first
 
 
 # ---------------------------------------------------------------------------

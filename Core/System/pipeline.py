@@ -354,8 +354,47 @@ async def execute_scheduled_tasks(scheduler: TaskScheduler, p=None):
 
 async def dispatch(args):
     """Route CLI arguments to the correct execution path."""
+    import os, sys
     from playwright.async_api import async_playwright
+
+    # ── Single-instance guard for chapter runs ────────────────────────────────
+    # Prevents two simultaneous `--chapter 1` processes from racing on SQLite.
+    # The main Leo.py supervisor loop has its own lock; this guard covers
+    # granular invocations (python Leo.py --chapter 1 --page 1).
+    LOCK_FILE = "leo_chapter.lock"
+    if args.chapter is not None:
+        if os.path.exists(LOCK_FILE):
+            try:
+                with open(LOCK_FILE) as _lf:
+                    old_pid = int(_lf.read().strip())
+                import psutil
+                if psutil.pid_exists(old_pid):
+                    print(
+                        f"  [LOCK] Another chapter run is already active (PID {old_pid}). "
+                        f"Aborting to prevent SQLite contention. "
+                        f"Kill that process or delete '{LOCK_FILE}' to proceed."
+                    )
+                    sys.exit(1)
+            except Exception:
+                pass  # stale lock — proceed
+        with open(LOCK_FILE, "w") as _lf:
+            _lf.write(str(os.getpid()))
+
     init_csvs()
+
+    try:
+        await _dispatch_inner(args)
+    finally:
+        if args.chapter is not None and os.path.exists(LOCK_FILE):
+            try:
+                os.remove(LOCK_FILE)
+            except Exception:
+                pass
+
+
+async def _dispatch_inner(args):
+    """Inner dispatch — runs after lock is acquired."""
+    from playwright.async_api import async_playwright
 
     async with async_playwright() as p:
         if args.prologue:

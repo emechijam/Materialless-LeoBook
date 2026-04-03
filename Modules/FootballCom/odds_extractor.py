@@ -453,9 +453,11 @@ class OddsExtractor:
                         "extracted_at": extracted_at,
                     })
 
-                # IMMEDIATE save after each market
+                # Accumulate per market; commit=False so the outer
+                # fb_manager batch COMMIT owns the transaction.
+                # This prevents "database is locked" from concurrent workers.
                 if batch:
-                    written = upsert_match_odds_batch(self.conn, batch)
+                    written = upsert_match_odds_batch(self.conn, batch, commit=False)
                     outcomes_written += written
 
             # ── Step 5: Debug screenshot on zero outcomes ──
