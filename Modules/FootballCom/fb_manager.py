@@ -1,38 +1,40 @@
 # fb_manager.py: Orchestration layer for Football.com odds + booking.
 # Part of LeoBook Modules — Football.com
 #
-# Functions: _create_session(), _create_session_no_login(), run_odds_harvesting(), run_automated_booking()
+# Functions: run_odds_harvesting(), run_automated_booking()
 # Called by: Leo.py (Chapter 1 Page 1, Chapter 2 Page 1)
 #
-# v4.1 (2026-03-26): Fixed NameError typo (all_resolved), forced Semaphore(1)
-#   for sequential extraction (race condition fix), Phase 0 now returns empty
-#   league URLs for pre-filtering batch phase (zero-resolution fix).
+# Worker functions have been split into focused sub-modules:
+#   fb_workers.py  — _odds_worker, _league_worker  (semaphore-bounded page workers)
+#   fb_phase0.py   — run_league_calendar_fixtures_sync  (Phase 0 fixture discovery)
 
 """
-Football.com Orchestrator — v4.1 (Sequential extraction, Phase 0 empty-league filter)
-Two exported functions with shared session setup.
+Football.com Orchestrator — v4.2 (Sequential extraction, Phase 0 empty-league filter)
 """
 
 import asyncio
 import json
 import os
 import sqlite3
-import time
 from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from playwright.async_api import Playwright, Page
 
-from Core.Utils.constants import MAX_CONCURRENCY, now_ng, WAIT_FOR_LOAD_STATE_TIMEOUT, FB_MOBILE_USER_AGENT, FB_MOBILE_VIEWPORT
+from Core.Utils.constants import (
+    MAX_CONCURRENCY, now_ng, WAIT_FOR_LOAD_STATE_TIMEOUT,
+    FB_MOBILE_USER_AGENT, FB_MOBILE_VIEWPORT,
+    ODDS_HARVEST_BATCH_SIZE, IMMINENT_MATCH_CUTOFF_HOURS,
+)
 from Core.Utils.utils import log_error_state
 from Core.System.lifecycle import log_state
 from Core.Intelligence.aigo_suite import AIGOSuite
-from .odds_extractor import OddsExtractor, OddsResult
+from .odds_extractor import OddsResult
 from .fb_session import launch_browser_with_retry
 from .navigator import load_or_create_session, extract_balance, hide_overlays
-from .extractor import extract_league_matches, validate_match_data
-from .fb_contract import FBDataContract, DataContractViolation
+from .fb_workers import _odds_worker, _league_worker
+from .fb_phase0 import run_league_calendar_fixtures_sync, _load_fb_league_lookup
 from Data.Access.db_helpers import (
     get_site_match_id, save_site_matches, save_match_odds,
     update_site_match_status, get_connection,
@@ -40,11 +42,9 @@ from Data.Access.db_helpers import (
 from Data.Access.league_db import LEAGUES_JSON_PATH
 
 
-
-
-
-# ── Batch resume checkpoint ─────────────────────────────────────────────
+# ── Batch resume checkpoint ─────────────────────────────────────────────────
 _CHECKPOINT_PATH = Path("Data/Logs/batch_checkpoint.json")
+
 
 def _load_checkpoint() -> int:
     """Return last completed batch index for today (0 = start fresh)."""
@@ -57,6 +57,7 @@ def _load_checkpoint() -> int:
             pass
     return 0
 
+
 def _save_checkpoint(batch_idx: int) -> None:
     """Persist last completed batch index for today."""
     _CHECKPOINT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -66,114 +67,7 @@ def _save_checkpoint(batch_idx: int) -> None:
     )
 
 
-
-async def run_league_calendar_fixtures_sync(playwright: Playwright, league_ids: Optional[List[str]] = None) -> set:
-    """
-    Phase 0: Fixture Discovery — primary via schedule extractor, calendar fallback.
-
-    v2 (2026-03-26): Reordered — extract_league_matches (fast, proven) is now
-    the primary path. extract_league_calendar is fallback only when primary
-    returns 0 matches.
-
-    Returns: set of fb_urls that confirmed NO fixtures (empty leagues).
-    """
-    print("\n--- Running League Calendar Fixture Sync (Phase 0) ---")
-    
-    fb_lookup = _load_fb_league_lookup()
-    if not fb_lookup:
-        print("  [Warning] No fb_url mappings found. Skipping calendar sync.")
-        return set()
-
-    # Filter by league_ids if provided
-    to_sync = {lid: entry for lid, entry in fb_lookup.items() if not league_ids or lid in league_ids}
-    if not to_sync:
-        print("  [Info] No leagues to sync calendar for.")
-        return set()
-
-    print(f"  [Calendar] Syncing {len(to_sync)} league hub calendars...")
-
-    # Auto-detect headless: Codespaces / CI have no display
-    is_headless = os.getenv("CODESPACES") == "true" or (os.name != "nt" and not os.environ.get("DISPLAY"))
-
-    async with await playwright.chromium.launch(headless=is_headless) as browser:
-        # Use a fresh context for fixture discovery (no login/state needed)
-        context = await browser.new_context(
-            user_agent=FB_MOBILE_USER_AGENT,
-            viewport=FB_MOBILE_VIEWPORT
-        )
-        page = await context.new_page()
-        
-        total_discovered = 0
-        empty_urls: set = set()  # BUG 2+5: track confirmed-empty league URLs
-        for lid, entry in to_sync.items():
-            country = entry.get('fb_country')
-            league_name = entry.get('fb_league_name')
-            fb_url = entry.get('fb_url')
-            
-            if not country or not league_name:
-                continue
-
-            matches = []
-            source = "none"
-            was_crash = False  # BUG 7 FIX: track crash vs genuinely empty
-
-            # ── Primary: extract_league_matches (fast schedule extractor) ──
-            if fb_url:
-                try:
-                    raw = await extract_league_matches(
-                        page,
-                        target_league_name=league_name,
-                        fb_url=fb_url,
-                    )
-                    if raw:
-                        raw = await validate_match_data(raw)
-                    if raw:
-                        matches = raw
-                        source = "schedule"
-                except Exception as e:
-                    err_lower = str(e).lower()
-                    was_crash = "crashed" in err_lower or "target closed" in err_lower
-                    if was_crash:
-                        print(f"    [Primary] {league_name}: browser crashed — recreating page...")
-                        try:
-                            await page.close()
-                        except Exception:
-                            pass
-                        page = await context.new_page()
-                    else:
-                        print(f"    [Primary] {league_name}: extract failed: {e}")
-
-            # ── Save results ──
-            if matches:
-                normalized = [{
-                    'home': m.get('home', ''),
-                    'away': m.get('away', ''),
-                    'date': m.get('date', 'Unknown'),
-                    'time': m.get('time', 'Unknown'),
-                    'league': league_name,
-                    'url': m.get('url', ''),
-                    'status': m.get('status', ''),
-                    'score': 'N/A',
-                } for m in matches]
-
-                save_site_matches(normalized)
-                total_discovered += len(normalized)
-                print(f"    ✓ {league_name}: {len(normalized)} fixtures saved (via {source}).")
-            else:
-                print(f"    ! {league_name}: No fixtures found.")
-                # BUG 7 FIX: Only mark as empty if NOT a crash — crashed leagues
-                # may have fixtures but the page died before we could check.
-                if fb_url and not was_crash:
-                    empty_urls.add(fb_url)
-
-        await context.close()
-    
-    print(f"  [Calendar] Sync complete. Total fixtures discovered: {total_discovered}, empty leagues: {len(empty_urls)}")
-    return empty_urls
-
-
-
-# ── Shared session helpers ──────────────────────────────────────────────
+# ── Shared session helpers ──────────────────────────────────────────────────
 
 async def _create_session(playwright: Playwright):
     """Full session setup: launch browser, login, extract balance. For bet placement."""
@@ -191,11 +85,7 @@ async def _create_session(playwright: Playwright):
 
 
 async def _create_session_no_login(playwright: Playwright):
-    """Lightweight session: fresh browser, NO login, NO saved state.
-    Ch1P1 is anonymous — no ChromeData, no cookies, no session persistence."""
-    from Core.Utils.constants import WAIT_FOR_LOAD_STATE_TIMEOUT
-
-    # Auto-detect headless: Codespaces / CI have no display
+    """Lightweight session: fresh browser, NO login, NO saved state."""
     is_headless = os.getenv("CODESPACES") == "true" or (os.name != "nt" and not os.environ.get("DISPLAY"))
 
     browser = await playwright.chromium.launch(
@@ -213,29 +103,17 @@ async def _create_session_no_login(playwright: Playwright):
     )
     page = await context.new_page()
 
-    # Stash browser ref on context so we can close it later
     context._browser_ref = browser
     return context, page
 
 
-# ── League fb_url loader ────────────────────────────────────────────────
+# ── Time filter ─────────────────────────────────────────────────────────────
 
-def _load_fb_league_lookup() -> Dict[str, dict]:
-    """Load leagues.json and return {league_id: entry} for entries with fb_url."""
-    try:
-        with open(LEAGUES_JSON_PATH, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return {l['league_id']: l for l in data if l.get('fb_url')}
-    except Exception as e:
-        print(f"  [Error] Failed to load leagues.json: {e}")
-        return {}
+def _filter_imminent_matches(fixtures: List[dict], cutoff_hours: float = IMMINENT_MATCH_CUTOFF_HOURS) -> List[dict]:
+    """Remove matches whose start time is within cutoff_hours of now_ng()."""
+    from datetime import datetime
+    from Core.Utils.constants import TZ_NG
 
-
-# ── Time filter ─────────────────────────────────────────────────────────
-
-def _filter_imminent_matches(fixtures: List[dict], cutoff_hours: float = 0.5) -> List[dict]:
-    """Remove matches whose start time is within cutoff_hours of now_ng().
-    Returns only matches that are far enough in the future to extract odds for."""
     now = now_ng()
     cutoff = now + timedelta(hours=cutoff_hours)
     kept = []
@@ -244,16 +122,13 @@ def _filter_imminent_matches(fixtures: List[dict], cutoff_hours: float = 0.5) ->
         date_str = f.get('date', '')
         time_str = f.get('time', '') or '00:00'
         try:
-            from datetime import datetime
             match_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-            # Attach WAT timezone
-            from Core.Utils.constants import TZ_NG
             match_dt = match_dt.replace(tzinfo=TZ_NG)
             if match_dt < cutoff:
                 skipped += 1
                 continue
         except (ValueError, TypeError):
-            pass  # Can't parse -> keep it (don't drop on uncertainty)
+            pass  # Can't parse → keep it (don't drop on uncertainty)
         kept.append(f)
 
     if skipped:
@@ -261,239 +136,7 @@ def _filter_imminent_matches(fixtures: List[dict], cutoff_hours: float = 0.5) ->
     return kept
 
 
-# ── Concurrent odds worker (semaphore-bounded) ─────────────────────────
-
-async def _odds_worker(
-    sem: asyncio.Semaphore,
-    context,
-    match_row: Dict,
-    conn,
-) -> Optional[OddsResult]:
-    """
-    Semaphore-bounded odds extractor worker.
-    Opens its own page, extracts, closes page.
-
-    v5.0 (2026-03-17): Handles context-closed errors gracefully,
-    takes debug screenshot on 0 outcomes after final retry.
-    """
-    async with sem:
-        odds_page = None
-        try:
-            odds_page = await context.new_page()
-            await odds_page.set_viewport_size({"width": 500, "height": 640})
-
-            match_url  = match_row.get("url", "")
-            fixture_id = match_row.get("fixture_id", "")
-            site_id    = match_row.get("site_match_id", "")
-
-            if not match_url:
-                return None
-
-            await odds_page.goto(
-                match_url,
-                wait_until="domcontentloaded",
-                timeout=25000,
-            )
-            await asyncio.sleep(1.5)
-
-            result: Optional[OddsResult] = None
-            # Retry loop: up to 3 attempts if 0 outcomes extracted
-            for attempt in range(3):
-                extractor = OddsExtractor(odds_page, conn)
-                result = await extractor.extract(fixture_id, site_id)
-
-                if result.outcomes_extracted > 0:
-                    break  # Success — all done
-
-                if attempt < 2:
-                    delay = 2 * (attempt + 1)  # 2s, 4s
-                    print(
-                        f"    [Odds] {fixture_id}: 0 outcomes on attempt {attempt + 1}/3. "
-                        f"Reloading page in {delay}s..."
-                    )
-                    await asyncio.sleep(delay)
-                    try:
-                        await odds_page.reload(
-                            wait_until="domcontentloaded", timeout=25000
-                        )
-                        await asyncio.sleep(1.5)
-                    except Exception as reload_err:
-                        print(f"    [Odds] {fixture_id}: reload failed: {reload_err}")
-                        break
-
-            # Debug screenshot on final 0-outcome result
-            if result and result.outcomes_extracted == 0:
-                try:
-                    ss_name = f"debug_odds_final_{fixture_id}_{int(time.time())}.png"
-                    await odds_page.screenshot(path=ss_name)
-                    print(f"    [Debug] Final 0-outcome screenshot: {ss_name}")
-                except Exception:
-                    pass
-
-            print(
-                f"    [Odds] {fixture_id} -> "
-                f"{result.markets_found} markets, "
-                f"{result.outcomes_extracted} outcomes "
-                f"({result.duration_ms}ms)"
-            )
-
-            # Save extracted date/time to fb_matches
-            if result.match_date or result.match_time:
-                try:
-                    update_kwargs = {}
-                    if result.match_date:
-                        update_kwargs["date"] = result.match_date
-                    if result.match_time:
-                        update_kwargs["match_time"] = result.match_time
-                    if site_id and update_kwargs:
-                        update_site_match_status(
-                            site_id, "odds_extracted",
-                            fixture_id=fixture_id,
-                            commit=False, # Atomic batch: no intermediate commit
-                            **update_kwargs,
-                        )
-                        print(f"    [Odds] {fixture_id}: saved date={result.match_date} time={result.match_time}")
-                except Exception as dt_save_err:
-                    print(f"    [Odds] {fixture_id}: date/time save skipped: {dt_save_err}")
-
-            return result
-
-
-        except Exception as e:
-            err_str = str(e)
-            is_closed = "closed" in err_str.lower()
-            if is_closed:
-                print(f"    [Odds] {match_row.get('fixture_id')}: context/page closed — skipping gracefully")
-            else:
-                print(f"    [Odds] ERROR {match_row.get('fixture_id')}: {e}")
-            # Try screenshot before giving up
-            if odds_page:
-                try:
-                    ss_name = f"debug_odds_crash_{match_row.get('fixture_id', 'unknown')}_{int(time.time())}.png"
-                    await odds_page.screenshot(path=ss_name)
-                except Exception:
-                    pass
-            return OddsResult(
-                fixture_id=match_row.get("fixture_id", ""),
-                site_match_id=match_row.get("site_match_id", ""),
-                markets_found=0, outcomes_extracted=0,
-                duration_ms=0, error=err_str,
-            )
-        finally:
-            if odds_page:
-                try:
-                    await odds_page.close()
-                except Exception:
-                    pass
-
-
-
-# ── Concurrent league worker (semaphore-bounded) ───────────────────────
-
-async def _league_worker(
-    semaphore: asyncio.Semaphore,
-    browser_context,
-    league_id: str,
-    league_name: str,
-    fs_fixtures: List[Dict],
-    fb_url: str,
-    conn: sqlite3.Connection,
-    matcher,
-) -> List[Dict]:
-    """
-    Semaphore-bounded worker: one league → one page.
-    EXTRACTION ONLY — opens a fresh page, extracts all matches from
-    football.com, pairs each FS fixture with its candidate fb matches,
-    then closes the page and returns the pairs.
-
-    Resolution (fuzzy + LLM) is intentionally NOT done here.
-    It runs in a dedicated sequential phase AFTER all leagues have
-    been extracted, so that:
-      - All browser pages are closed before any LLM quota is consumed.
-      - LLM health checks and resolver calls never interleave with
-        concurrent page extraction.
-
-    Returns: list of dicts, each with keys:
-        'fs_fix'      — original FS fixture dict
-        'candidates'  — list of fb match dicts from the page
-        'league_name' — for logging in the resolution phase
-    """
-    async with semaphore:
-        page = None
-        try:
-            page = await browser_context.new_page()
-            await page.set_viewport_size({"width": 500, "height": 640})
-
-            print(f"\n  [League] {league_name} ({len(fs_fixtures)} fixtures) → {fb_url}")
-            
-
-            first_date = fs_fixtures[0].get('date', '') if fs_fixtures else ''
-            all_page_matches = await extract_league_matches(
-                page,
-                first_date,
-                target_league_name=league_name,
-                fb_url=fb_url,
-                expected_count=len(fs_fixtures),
-            )
-
-            if not all_page_matches:
-                print(f"  [League] {league_name}: no matches on page")
-                return []
-
-            all_page_matches = await validate_match_data(all_page_matches)
-
-            # ── Deterministic Resolution (Instant) ─────────────────────────
-            resolved_matches = []
-            
-            for fs_fix in fs_fixtures:
-                # 1. Deterministic Match Look-up (In-memory)
-                match_row, score, method = await matcher.resolve_deterministic(
-                    fs_fix, all_page_matches
-                )
-                
-                if match_row:
-                    # 2. Strict Data Contract Enforcement
-                    try:
-                        # Normalize keys for contract
-                        match_row['home'] = match_row.get('home', match_row.get('home_team'))
-                        match_row['away'] = match_row.get('away', match_row.get('away_team'))
-                        FBDataContract.validate_match(match_row)
-                    except DataContractViolation as dcv:
-                        print(f"    [Contract] {league_name}: skipping fixture due to violation: {dcv}")
-                        continue
-
-                    # 3. Enrich with Flashscore linkage
-                    match_row["fixture_id"] = fs_fix.get("fixture_id", "")
-                    match_row["home_id"] = fs_fix.get("home_team_id") or fs_fix.get("home_id")
-                    match_row["away_id"] = fs_fix.get("away_team_id") or fs_fix.get("away_id")
-                    match_row["resolution_method"] = method
-                    
-                    # 4. Instant Perspective: Save to local DB immediately (Atomic Batch: NO commit)
-                    save_site_matches([match_row], commit=False)
-                    resolved_matches.append(match_row)
-
-            if resolved_matches:
-                print(f"    ✓ {league_name}: {len(resolved_matches)}/{len(fs_fixtures)} fixtures resolved and saved.")
-            else:
-                print(f"    ! {league_name}: 0/{len(fs_fixtures)} fixtures resolved.")
-
-            return resolved_matches
-
-        except Exception as e:
-            print(f"  [League] ERROR {league_name}: {e}")
-            return []
-        finally:
-            if page:
-                try:
-                    await page.close()
-                except Exception:
-                    pass
-
-
-
-
-
-# ── CHAPTER 1 PAGE 1 — Odds Harvesting ─────────────────────────────────
+# ── CHAPTER 1 PAGE 1 — Odds Harvesting ─────────────────────────────────────
 
 @AIGOSuite.aigo_retry(max_retries=2, delay=5.0)
 async def run_odds_harvesting(playwright: Playwright):
@@ -522,14 +165,14 @@ async def run_odds_harvesting(playwright: Playwright):
         print("  [Info] No scheduled fixtures found for the next 7 days.")
         return
 
-    # 1. Time filter — drop matches starting within 30 min
-    weekly_fixtures = _filter_imminent_matches(weekly_fixtures, cutoff_hours=0.5)
+    # 1. Time filter — drop matches starting within cutoff
+    weekly_fixtures = _filter_imminent_matches(weekly_fixtures)
     if not weekly_fixtures:
-        print("  [Info] All remaining fixtures are too imminent (<30 min). Nothing to extract.")
+        print("  [Info] All remaining fixtures are too imminent. Nothing to extract.")
         return
 
     # 2. Load fb_url lookup
-    fb_lookup = _load_fb_league_lookup()
+    fb_lookup = _load_fb_league_lookup(LEAGUES_JSON_PATH)
     if not fb_lookup:
         print("  [Warning] No fb_url mappings found in leagues.json. Cannot extract odds.")
         return
@@ -554,26 +197,17 @@ async def run_odds_harvesting(playwright: Playwright):
 
     total_fixtures = sum(len(v) for v in leagues_to_extract.values())
     total_leagues = len(leagues_to_extract)
-    print(f"  [Pipeline] {total_fixtures} fixtures across "
-          f"{total_leagues} leagues to process "
-          f"({total_leagues} page loads, was {total_fixtures}).")
+    print(f"  [Pipeline] {total_fixtures} fixtures across {total_leagues} leagues to process.")
 
-    # -----------------------------------------------------------------------
-    # PHASE 0: Calendar Fixture Discovery
-    # -----------------------------------------------------------------------
-    # If not a dry-run, we perform a multi-league calendar sync first to
-    # find all upcoming fixtures and match IDs from the most complete source.
+    # ── PHASE 0: Calendar Fixture Discovery ────────────────────────────────
     # BUG 2+5 FIX: Track which leagues Phase 0 confirmed have no fixtures.
-    # These are excluded from the batch phase to avoid wasted navigations
-    # and the "no matches on page" false-empty problem.
-    phase0_empty_leagues: set = set()  # league fb_urls with no fixtures
+    phase0_empty_leagues: set = set()
     from Core.System.guardrails import is_dry_run
     if not is_dry_run():
         try:
-            phase0_empty_leagues = await run_league_calendar_fixtures_sync(playwright)
+            phase0_empty_leagues = await run_league_calendar_fixtures_sync(playwright, LEAGUES_JSON_PATH)
         except Exception as e:
             print(f"  [Warning] Phase 0 Calendar Sync failed: {e}")
-    # -----------------------------------------------------------------------
 
     # 4. Launch matcher
     matcher = FixtureResolver()
@@ -581,11 +215,10 @@ async def run_odds_harvesting(playwright: Playwright):
     total_session_odds_count = 0
 
     # 5. Process in batches to prevent OOM
-    BATCH_SIZE = 25
+    BATCH_SIZE = ODDS_HARVEST_BATCH_SIZE
     league_ids = list(leagues_to_extract.keys())
     batches = [league_ids[i:i + BATCH_SIZE] for i in range(0, len(league_ids), BATCH_SIZE)]
 
-    # Resume from last completed batch (same calendar day only)
     resume_from = _load_checkpoint()
     if resume_from > 0:
         print(f"  [Resume] Checkpoint found — skipping batches 1–{resume_from}, "
@@ -601,7 +234,6 @@ async def run_odds_harvesting(playwright: Playwright):
         skipped_empty = pre_filter_count - len(leagues_to_extract)
         if skipped_empty:
             print(f"  [Filter] Skipped {skipped_empty} leagues confirmed empty by Phase 0.")
-        # Recalculate totals and batches after filtering
         total_fixtures = sum(len(v) for v in leagues_to_extract.values())
         total_leagues = len(leagues_to_extract)
         league_ids = list(leagues_to_extract.keys())
@@ -610,42 +242,35 @@ async def run_odds_harvesting(playwright: Playwright):
 
     print(f"  [System] Processing {total_leagues} leagues in {len(batches)} batches (Size: {BATCH_SIZE})...")
 
-    # 4.1 Launch persistent browser for the entire session (Hardening Fix)
-    # This prevents "Connection closed" errors from frequent context creation.
     session_context, _ = await _create_session_no_login(playwright)
-    
+
     try:
         for batch_idx, batch_ids in enumerate(batches):
-            if batch_idx < resume_from:   # already completed today
+            if batch_idx < resume_from:
                 continue
             batch_num = batch_idx + 1
             print(f"\n  [Batch {batch_num}/{len(batches)}] Starting extraction for {len(batch_ids)} leagues...")
-            
-            # --- START TRANSACTION: All-or-Nothing for Batch ---
+
             conn.execute("BEGIN")
-            
+
             try:
-                # BUG 3 FIX: Force semaphore=1 to prevent concurrent pages
-                # from racing (Phase 1 Sequential Hardening).
+                # BUG 3 FIX: Force semaphore=1 to prevent concurrent pages from racing.
                 league_sem = asyncio.Semaphore(1)
-                
-                league_tasks = []
-                for lid in batch_ids:
-                    league_entry = fb_lookup[lid]
-                    fb_url = league_entry['fb_url']
-                    lname = league_entry.get('fb_league_name', league_entry.get('name', lid))
-                    fs_fixtures = leagues_to_extract[lid]
-                    league_tasks.append(
-                        _league_worker(
-                            league_sem, session_context, # Use persistent context
-                            lid, lname,
-                            fs_fixtures, fb_url, conn, matcher,
-                        )
+
+                league_tasks = [
+                    _league_worker(
+                        league_sem, session_context,
+                        lid,
+                        fb_lookup[lid].get('fb_league_name', fb_lookup[lid].get('name', lid)),
+                        leagues_to_extract[lid],
+                        fb_lookup[lid]['fb_url'],
+                        conn, matcher,
                     )
+                    for lid in batch_ids
+                ]
 
                 batch_extraction_results = await asyncio.gather(*league_tasks, return_exceptions=True)
-                
-                # 6. Collect resolved matches from batch tasks
+
                 batch_resolved: List[Dict] = []
                 for res in batch_extraction_results:
                     if isinstance(res, list):
@@ -655,28 +280,22 @@ async def run_odds_harvesting(playwright: Playwright):
 
                 if not batch_resolved:
                     print(f"    [Batch {batch_num}] No matches resolved in this batch.")
-                    conn.execute("COMMIT") 
+                    conn.execute("COMMIT")
                     continue
 
                 all_resolved_matches.extend(batch_resolved)
 
-                # 7. Extract odds for batch (using same persistent context)
                 if batch_resolved:
                     print(f"    [Batch {batch_num}] Extracting odds for {len(batch_resolved)} matches...")
                     odds_sem = asyncio.Semaphore(MAX_CONCURRENCY)
                     results = await asyncio.gather(
-                        *[
-                            _odds_worker(odds_sem, session_context, m, conn)
-                            for m in batch_resolved
-                        ],
+                        *[_odds_worker(odds_sem, session_context, m, conn) for m in batch_resolved],
                         return_exceptions=True,
                     )
-                    
+
                     batch_outcomes = 0
                     for r in results:
                         if isinstance(r, OddsResult) and r.outcomes_extracted > 0:
-                            # ENFORCE CONTRACT: Validate odds batch (if applicable/needed)
-                            # (OddsExtractor already does some validation, but we check outcomes here)
                             batch_outcomes += r.outcomes_extracted
                         elif isinstance(r, Exception):
                             print(f"    [Batch {batch_num}] Odds task failed: {r}")
@@ -684,37 +303,26 @@ async def run_odds_harvesting(playwright: Playwright):
                     total_session_odds_count += batch_outcomes
                     print(f"    [Batch {batch_num}] Odds extracted: {batch_outcomes} outcomes.")
 
-                # --- COMMIT TRANSACTION: Batch Succcess ---
                 conn.execute("COMMIT")
                 print(f"    ✓ [Batch {batch_num}] Atomic commit successful.")
 
             except Exception as e:
-                # --- ROLLBACK TRANSACTION: Batch Failure ---
                 conn.execute("ROLLBACK")
                 print(f"    ⚠ [Batch {batch_num}] BATCH FAILED -> ROLLED BACK. Error: {e}")
-            
-            # Small cooldown between batches
+
             await asyncio.sleep(2)
-            _save_checkpoint(batch_idx + 1)  # mark this batch complete
+            _save_checkpoint(batch_idx + 1)
 
     finally:
-        # Close persistent browser context at the end of all batches
         if session_context:
             await session_context.close()
             if hasattr(session_context, '_browser_ref'):
                 await session_context._browser_ref.close()
 
-
-    # Full session completed — clear checkpoint so next day starts fresh
     _CHECKPOINT_PATH.unlink(missing_ok=True)
 
-    # 8. Post-Harvest Processing (SearchDict + Sync)
     print("\n  [Post-Harvest] Starting global enrichment and sync...")
-    
-    # ── SearchDict: one-shot batch enrichment ──────────────
-    # Skipped per directive: search_dict fallbacks removed
-    
-    # ── Supabase Sync ──────────────────────────────────────
+
     if all_resolved_matches or total_session_odds_count > 0:
         try:
             from Data.Access.sync_manager import SyncManager, TABLE_CONFIG
@@ -725,10 +333,9 @@ async def run_odds_harvesting(playwright: Playwright):
         except Exception as e:
             print(f"  [Sync] [Warning] Supabase push failed: {e}")
 
-    # Session Summary
     method_counts = {
-        "sql_v2":       sum(1 for m in all_resolved_matches if m.get("resolution_method") == "sql_v2.0"),
-        "failed":       sum(1 for m in all_resolved_matches if m.get("resolution_method") == "failed"),
+        "sql_v2":  sum(1 for m in all_resolved_matches if m.get("resolution_method") == "sql_v2.0"),
+        "failed":  sum(1 for m in all_resolved_matches if m.get("resolution_method") == "failed"),
     }
     resolved_count = method_counts["sql_v2"]
 
@@ -742,8 +349,7 @@ async def run_odds_harvesting(playwright: Playwright):
     print(f"    [Ch1 P1] -------------------------------------------------\n")
 
 
-
-# ── CHAPTER 2 PAGE 1 — Automated Booking (unchanged) ───────────────────
+# ── CHAPTER 2 PAGE 1 — Automated Booking ───────────────────────────────────
 
 @AIGOSuite.aigo_retry(max_retries=2, delay=5.0)
 async def run_automated_booking(playwright: Playwright):
@@ -751,7 +357,6 @@ async def run_automated_booking(playwright: Playwright):
     Chapter 2 Page 1: Automated Booking.
     Reads harvested codes and places multi-bets. Does NOT harvest.
     """
-    # ── Safety Guardrails ──
     from Core.System.guardrails import check_kill_switch, is_dry_run
     if check_kill_switch():
         print("  [KILL SWITCH] STOP_BETTING file detected. Aborting booking.")

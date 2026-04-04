@@ -92,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
               const SizedBox(height: 16),
               Text(
                 'LEOBOOK',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,

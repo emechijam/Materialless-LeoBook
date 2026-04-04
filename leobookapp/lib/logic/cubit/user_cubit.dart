@@ -385,6 +385,35 @@ class UserCubit extends Cubit<UserState> {
     emit(UserAuthenticated(user: downgraded));
   }
 
+  /// Activate a paid subscription via [provider] ('paystack' or 'stripe').
+  /// [reference] is the payment provider's transaction/subscription ID.
+  /// Stub: persists metadata to Supabase and upgrades tier to Pro.
+  void activateSubscription({required String provider, required String reference}) {
+    final now = DateTime.now();
+    final expiresAt = DateTime(now.year, now.month + 1, now.day).toIso8601String();
+
+    _authRepo.updateUserMetadata({
+      'subscription_provider': provider,
+      'subscription_status': 'active',
+      'subscription_expires_at': expiresAt,
+      'subscription_reference': reference,
+    }).then((_) {
+      _authRepo.triggerEmailEdgeFunction('subscription_active', {
+        'provider': provider,
+        'reference': reference,
+        'expires_at': expiresAt,
+      });
+    }).catchError((e) {
+      debugPrint('[UserCubit] Failed to persist subscription: $e');
+    });
+
+    final upgraded = state.user.copyWith(
+      isSuperLeoBook: true,
+      tier: UserTier.pro,
+    );
+    emit(UserAuthenticated(user: upgraded));
+  }
+
   Future<void> logout() async {
     try {
       await _authRepo.signOut();

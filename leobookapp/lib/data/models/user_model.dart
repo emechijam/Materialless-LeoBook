@@ -19,6 +19,19 @@ class UserModel {
   final bool isSuperLeoBook; // UI-level subscription flag
   final bool isProfileComplete;
 
+  // ─── Subscription Fields ─────────────────────────────────────
+  /// Payment provider: 'paystack', 'stripe', 'trial', or null
+  final String? subscriptionProvider;
+
+  /// Lifecycle status: 'active', 'expired', 'cancelled', or 'none'
+  final String subscriptionStatus;
+
+  /// UTC timestamp when the current billing period ends
+  final DateTime? subscriptionExpiresAt;
+
+  /// Payment provider's transaction/subscription reference ID
+  final String? subscriptionReference;
+
   const UserModel({
     required this.id,
     this.email,
@@ -30,6 +43,10 @@ class UserModel {
     this.isBiometricsEnabled = false,
     this.isSuperLeoBook = false,
     this.isProfileComplete = false,
+    this.subscriptionProvider,
+    this.subscriptionStatus = 'none',
+    this.subscriptionExpiresAt,
+    this.subscriptionReference,
   });
 
   // ─── Access Control ──────────────────────────────────────────────

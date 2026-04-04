@@ -51,7 +51,7 @@ class LeagueStatsTab extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           title,
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 12,
             fontWeight: FontWeight.w800,
             color: AppColors.primary,
@@ -83,7 +83,7 @@ class LeagueStatsTab extends StatelessWidget {
                 children: [
                   Text(
                     "AVG GOALS PER HALF",
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textGrey,
@@ -91,7 +91,7 @@ class LeagueStatsTab extends StatelessWidget {
                   ),
                   Text(
                     "2.84 Total",
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -160,7 +160,7 @@ class LeagueStatsTab extends StatelessWidget {
           children: [
             Text(
               label,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white : AppColors.textDark,
@@ -168,7 +168,7 @@ class LeagueStatsTab extends StatelessWidget {
             ),
             Text(
               value,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white : AppColors.textDark,
@@ -215,7 +215,7 @@ class LeagueStatsTab extends StatelessWidget {
         children: [
           Text(
             title,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 10,
               fontWeight: FontWeight.bold,
               color: AppColors.textGrey,
@@ -224,7 +224,7 @@ class LeagueStatsTab extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 24,
               fontWeight: FontWeight.w900,
               color: isDark ? Colors.white : AppColors.textDark,
@@ -295,7 +295,7 @@ class LeagueStatsTab extends StatelessWidget {
           child: Center(
             child: Text(
               value,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
                 color: Colors.black,
@@ -305,7 +305,7 @@ class LeagueStatsTab extends StatelessWidget {
         ),
         Text(
           label,
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 10,
             fontWeight: FontWeight.bold,
             color: Colors.white.withValues(alpha: 0.5),
@@ -351,7 +351,7 @@ class LeagueStatsTab extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textGrey,
@@ -359,7 +359,7 @@ class LeagueStatsTab extends StatelessWidget {
                 ),
                 Text(
                   "View All",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -380,7 +380,7 @@ class LeagueStatsTab extends StatelessWidget {
               children: [
                 Text(
                   "1",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textGrey,
@@ -399,7 +399,7 @@ class LeagueStatsTab extends StatelessWidget {
                   child: Center(
                     child: Text(
                       code,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textGrey,
@@ -411,7 +411,7 @@ class LeagueStatsTab extends StatelessWidget {
                 Expanded(
                   child: Text(
                     name,
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : AppColors.textDark,
@@ -420,7 +420,7 @@ class LeagueStatsTab extends StatelessWidget {
                 ),
                 Text(
                   value,
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                     color: AppColors.primary,

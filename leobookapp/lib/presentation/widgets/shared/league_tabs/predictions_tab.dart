@@ -54,7 +54,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                 const SizedBox(height: 16),
                 Text(
                   "No predictions available for this league yet.",
-                  style: GoogleFonts.lexend(color: AppColors.textGrey),
+                  style: GoogleFonts.dmSans(color: AppColors.textGrey),
                 ),
               ],
             ),
@@ -78,7 +78,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                   const SizedBox(width: 8),
                   Text(
                     "PREDICTION OF THE MATCHDAY",
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       color: AppColors.primary,
@@ -98,7 +98,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                 children: [
                   Text(
                     "Upcoming Tips",
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : AppColors.textDark,
@@ -108,7 +108,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                     children: [
                       Text(
                         "Sort by: ",
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textGrey,
@@ -116,7 +116,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                       ),
                       Text(
                         "VALUE",
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
@@ -190,7 +190,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                       children: [
                         Text(
                           "VS",
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                             color: Colors.white.withValues(alpha: 0.6),
@@ -209,7 +209,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                           ),
                           child: Text(
                             match.time,
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               color: Colors.white.withValues(alpha: 0.9),
@@ -242,7 +242,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                             children: [
                               Text(
                                 "ANALYTICAL VERDICT",
-                                style: GoogleFonts.lexend(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white.withValues(alpha: 0.6),
@@ -251,7 +251,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                               const SizedBox(height: 4),
                               Text(
                                 match.prediction ?? "No Verdict",
-                                style: GoogleFonts.lexend(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
@@ -270,7 +270,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                             ),
                             child: Text(
                               match.odds ?? "-",
-                              style: GoogleFonts.lexend(
+                              style: GoogleFonts.dmSans(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
                                 color: AppColors.neutral900,
@@ -293,7 +293,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                               match.ruleExplanation ?? "AI Confidence: Low",
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.lexend(
+                              style: GoogleFonts.dmSans(
                                 fontSize: 10,
                                 color: Colors.white.withValues(alpha: 0.6),
                               ),
@@ -325,7 +325,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
           child: Center(
             child: Text(
               code,
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
@@ -336,7 +336,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
         const SizedBox(height: 8),
         Text(
           name,
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 12,
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -391,7 +391,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   "vs",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: AppColors.textGrey,
@@ -408,7 +408,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                 ),
                 child: Text(
                   confidence.toUpperCase(),
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 8,
                     fontWeight: FontWeight.w900,
                     color: accentColor,
@@ -426,7 +426,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                   children: [
                     Text(
                       "RECOMMENDED TIP",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textGrey,
@@ -435,7 +435,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                     const SizedBox(height: 2),
                     Text(
                       tip,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
                         color: isDark ? Colors.white : AppColors.textDark,
@@ -453,7 +453,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
                 ),
                 child: Text(
                   odds,
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                     color: accentColor,
@@ -472,7 +472,7 @@ class _LeaguePredictionsTabState extends State<LeaguePredictionsTab> {
       child: Text(
         name,
         overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.lexend(
+        style: GoogleFonts.dmSans(
           fontSize: 12,
           fontWeight: FontWeight.bold,
         ),

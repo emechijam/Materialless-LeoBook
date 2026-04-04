@@ -6,6 +6,7 @@
 import asyncio
 import nest_asyncio
 import os
+import signal
 import sys
 from datetime import datetime as dt
 from dotenv import load_dotenv
@@ -18,19 +19,19 @@ nest_asyncio.apply()
 load_dotenv()
 
 def validate_config():
-    """Validate required environment variables and configurations."""
+    """Validate required environment variables and configurations.
+    FB_PHONE / FB_PASSWORD are no longer global env vars — credentials are
+    stored per-user in the user_credentials table."""
     required_vars = [
         'GROK_API_KEY',
         'GEMINI_API_KEY',
-        'FB_PHONE',
-        'FB_PASSWORD'
     ]
-    
+
     missing = []
     for var in required_vars:
         if not os.getenv(var):
             missing.append(var)
-    
+
     if missing:
         raise ValueError(f"Missing required environment variables: {', '.join(missing)}. Please check your .env file.")
     
@@ -78,6 +79,55 @@ from Data.Access.football_logos import download_all_logos, download_all_countrie
 # Configuration
 DEFAULT_CYCLE_HOURS = int(os.getenv('LEO_CYCLE_WAIT_HOURS', 6))
 LOCK_FILE = "leo.lock"
+
+# ── Graceful Shutdown ─────────────────────────────────────────────────────────
+# _log_session is set in the __main__ block so the signal handler can flush it.
+_log_session = None
+
+
+def _shutdown(sig, frame):
+    """
+    SIGTERM / SIGINT handler: rollback any pending SQLite transaction,
+    remove the lock file, and flush the log segment before exit.
+
+    Called by the OS when the process is asked to stop cleanly (e.g. systemd
+    stop, container orchestrator, Ctrl+C in non-interactive mode). Without this,
+    a SIGTERM would leave the lock file on disk and potentially a partially-open
+    SQLite WAL transaction.
+    """
+    sig_name = signal.Signals(sig).name
+    print(f"\n   [SHUTDOWN] {sig_name} received — shutting down gracefully...")
+
+    # 1. Rollback any open SQLite transaction to keep the DB consistent.
+    try:
+        from Data.Access.league_db import get_connection
+        conn = get_connection()
+        conn.rollback()
+        conn.close()
+    except Exception:
+        pass  # DB may not be open yet; that's fine.
+
+    # 2. Remove the process lock file so the next invocation isn't blocked.
+    if os.path.exists(LOCK_FILE):
+        try:
+            os.remove(LOCK_FILE)
+        except Exception:
+            pass
+
+    # 3. Flush and close the rotating log segment.
+    if _log_session is not None:
+        try:
+            _log_session.close_segment()
+        except Exception:
+            pass
+
+    print("   [SHUTDOWN] Clean exit complete.")
+    sys.exit(0)
+
+
+# Register handlers early so any startup exception is also handled cleanly.
+signal.signal(signal.SIGTERM, _shutdown)
+signal.signal(signal.SIGINT,  _shutdown)
 
 
 # ============================================================
@@ -327,6 +377,29 @@ async def run_utility(args):
         from Scripts.rl_diagnose import main as run_rl_diagnose
         run_rl_diagnose(args)
 
+    elif getattr(args, 'deploy_apk', False):
+        print("\n  --- LEO: Deploy APK → Supabase Storage ---")
+        import subprocess
+        from pathlib import Path
+
+        script = Path(__file__).parent / "infra" / "deploy_apk.sh"
+        if not script.exists():
+            print(f"  [Error] deploy_apk.sh not found at: {script}")
+            return
+
+        cmd = ["bash", str(script)]
+        if getattr(args, 'skip_build', False):
+            cmd.append("--skip-build")
+
+        print(f"  [APK] Running: {' '.join(cmd)}")
+        result = subprocess.run(cmd, cwd=str(Path(__file__).parent))
+        if result.returncode == 0:
+            print("  [SUCCESS] APK deployment complete.")
+            log_audit_event("DEPLOY_APK", "APK built and uploaded to Supabase Storage", status="success")
+        else:
+            print(f"  [ERROR] APK deployment failed (exit code {result.returncode}).")
+            log_audit_event("DEPLOY_APK", f"Failed with exit code {result.returncode}", status="failed")
+
 
 # ============================================================
 # DISPATCH — Routes CLI args to the appropriate functions
@@ -366,6 +439,16 @@ async def main():
 if __name__ == "__main__":
     args = parse_args()
     _log_session, original_stdout, original_stderr = setup_terminal_logging(args)
+    # Expose to the module-level shutdown handler.
+    globals()['_log_session'] = _log_session
+
+    # ── User identity — required for all per-user operations ──
+    user_id = getattr(args, 'user_id', '') or ''
+    state['user_id'] = user_id
+    if not user_id:
+        print("  [LEO] WARNING: No --user-id supplied. Per-user operations (predictions, "
+              "bets, audit, stairway) will use empty user_id. "
+              "Pass --user-id <UUID> for full multi-user isolation.")
 
     # Determine which mode to run
     is_utility = any([args.sync, getattr(args, 'push', False), getattr(args, 'pull', False),
@@ -378,7 +461,8 @@ if __name__ == "__main__":
                       args.train_rl, args.backtest_rl,
                       args.diagnose_rl,
                       getattr(args, 'push_models', False),
-                      getattr(args, 'pull_models', False)])
+                      getattr(args, 'pull_models', False),
+                      getattr(args, 'deploy_apk', False)])
     is_granular = args.prologue or args.chapter is not None
 
     try:

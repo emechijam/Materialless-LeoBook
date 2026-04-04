@@ -14,6 +14,7 @@ import 'package:leobookapp/presentation/screens/account_screen.dart';
 import 'package:leobookapp/presentation/screens/rule_engine/backtest_dashboard.dart';
 import 'package:leobookapp/presentation/screens/top_predictions_screen.dart';
 import 'package:leobookapp/presentation/widgets/shared/main_top_bar.dart';
+import 'package:leobookapp/presentation/widgets/shared/tier_gate.dart';
 import 'package:leobookapp/logic/cubit/search_cubit.dart';
 import 'package:leobookapp/logic/cubit/home_cubit.dart';
 import 'package:leobookapp/data/models/match_model.dart';
@@ -47,7 +48,13 @@ class _MainScreenState extends State<MainScreen> {
                       onViewAllPredictions: () =>
                           setState(() => _currentIndex = 2),
                     ),
-                    const BacktestDashboard(),
+                    const TierGate(
+                      requirement: TierRequirement.canAutomateBetting,
+                      featureName: 'Rule Engine & Backtesting',
+                      featureDescription:
+                          'Build custom rules, run backtests, and automate betting. Pro only.',
+                      child: BacktestDashboard(),
+                    ),
                     const TopPredictionsScreen(),
                     if (!isDesktop) const AccountScreen(),
                   ];

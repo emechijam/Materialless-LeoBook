@@ -178,7 +178,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           title: Text(
             'Verification Code',
             style:
-                GoogleFonts.lexend(fontSize: 18, fontWeight: FontWeight.w600),
+                GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -206,7 +206,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     Text(
                       'Enter verification code',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -216,7 +216,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     Text(
                       'We sent a 6-digit code to\n${widget.phone}',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 14,
                         color: AppColors.textSecondary,
                         height: 1.4,
@@ -239,7 +239,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           LengthLimitingTextInputFormatter(6),
                         ],
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -247,7 +247,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         ),
                         decoration: InputDecoration(
                           hintText: '000000',
-                          hintStyle: GoogleFonts.lexend(
+                          hintStyle: GoogleFonts.dmSans(
                             color: AppColors.textDisabled,
                             fontSize: 28,
                             letterSpacing: 16,
@@ -288,7 +288,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             )
                           : Text(
                               'Verify Code',
-                              style: GoogleFonts.lexend(
+                              style: GoogleFonts.dmSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -300,7 +300,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       children: [
                         Text(
                           'Didn\'t receive code?',
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             color: AppColors.textSecondary,
                             fontSize: 14,
                           ),
@@ -314,7 +314,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                     ? 'Send via SMS'
                                     : 'Resend via WhatsApp')
                                 : 'Resend in ${_countdown}s',
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               color: _canResend
                                   ? AppColors.primary
                                   : AppColors.textDisabled,

@@ -8,13 +8,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:provider/provider.dart';
 import 'package:leobookapp/core/constants/app_colors.dart';
+import 'package:leobookapp/core/theme/leo_typography.dart';
 import 'package:leobookapp/core/services/update_service.dart';
 import 'package:leobookapp/data/models/user_model.dart';
 import 'package:leobookapp/logic/cubit/user_cubit.dart';
 import 'package:leobookapp/presentation/screens/login_screen.dart';
 import 'package:leobookapp/presentation/screens/super_leobook_screen.dart';
+import 'package:leobookapp/presentation/screens/subscription_screen.dart';
+import 'package:leobookapp/presentation/screens/stairway_screen.dart';
+import 'package:leobookapp/presentation/screens/accuracy_dashboard_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -67,6 +70,52 @@ class AccountScreen extends StatelessWidget {
 
                       // ── Super LeoBook Upsell ──────────────────
                       _buildSuperUpsell(context),
+                      const SizedBox(height: 28),
+
+                      // ── Pro Features ───────────────────────────
+                      _sectionLabel('Pro Features'),
+                      const SizedBox(height: 8),
+                      _glassGroup([
+                        _settingsTile(
+                          icon: Icons.stairs_rounded,
+                          title: 'Project Stairway',
+                          subtitle: 'ROI & cycle dashboard',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<UserCubit>(),
+                                child: const StairwayScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        _settingsTile(
+                          icon: Icons.analytics_outlined,
+                          title: 'Accuracy Dashboard',
+                          subtitle: 'Win rates & ROI history',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<UserCubit>(),
+                                child: const AccuracyDashboardScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        _settingsTile(
+                          icon: Icons.workspace_premium_rounded,
+                          title: 'Manage Subscription',
+                          subtitle: 'Paystack · Stripe',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<UserCubit>(),
+                                child: const SubscriptionScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ]),
                       const SizedBox(height: 28),
 
                       // ── General ────────────────────────────────
@@ -128,7 +177,8 @@ class AccountScreen extends StatelessWidget {
                             context: context,
                             applicationName: 'LeoBook',
                             applicationVersion: context
-                                .read<UpdateService>()
+                                .read<UpdateCubit>()
+                                .state
                                 .info
                                 .currentVersion,
                           ),
@@ -203,7 +253,7 @@ class AccountScreen extends StatelessWidget {
                       .substring(
                           0, (user.displayName ?? user.id).length >= 2 ? 2 : 1)
                       .toUpperCase(),
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     color: AppColors.primary,
@@ -218,7 +268,7 @@ class AccountScreen extends StatelessWidget {
                     Text(
                       user.displayName ??
                           (user.isGuest ? 'Guest' : 'LeoBook User'),
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
@@ -227,7 +277,7 @@ class AccountScreen extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       user.email ?? user.phone ?? user.id,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 12,
                         color: AppColors.textTertiary,
                       ),
@@ -247,7 +297,7 @@ class AccountScreen extends StatelessWidget {
                   ),
                   child: Text(
                     'SUPER',
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -294,7 +344,7 @@ class AccountScreen extends StatelessWidget {
                     children: [
                       Text(
                         'Try Super LeoBook free',
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
@@ -302,7 +352,7 @@ class AccountScreen extends StatelessWidget {
                       ),
                       Text(
                         'Unlimited rules, automation, priority access',
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 11,
                           color: AppColors.textTertiary,
                         ),
@@ -319,7 +369,7 @@ class AccountScreen extends StatelessWidget {
                   ),
                   child: Text(
                     'Try Now',
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
@@ -388,14 +438,14 @@ class AccountScreen extends StatelessWidget {
           backgroundColor: AppColors.neutral800,
           title: Text(
             'App Access',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
           ),
           content: Text(
             'Biometric access is not available on this device yet.',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               color: AppColors.textTertiary,
               fontSize: 13,
             ),
@@ -405,7 +455,7 @@ class AccountScreen extends StatelessWidget {
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: Text(
                 'Close',
-                style: GoogleFonts.lexend(color: AppColors.primary),
+                style: GoogleFonts.dmSans(color: AppColors.primary),
               ),
             ),
           ],
@@ -422,14 +472,14 @@ class AccountScreen extends StatelessWidget {
           backgroundColor: AppColors.neutral800,
           title: Text(
             'Disable App Access?',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
           ),
           content: Text(
             'LeoBook will stop offering fingerprint or face sign-in on this device.',
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               color: AppColors.textTertiary,
               fontSize: 13,
             ),
@@ -439,14 +489,14 @@ class AccountScreen extends StatelessWidget {
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.lexend(color: AppColors.textTertiary),
+                style: GoogleFonts.dmSans(color: AppColors.textTertiary),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               child: Text(
                 'Turn Off',
-                style: GoogleFonts.lexend(color: AppColors.liveRed),
+                style: GoogleFonts.dmSans(color: AppColors.liveRed),
               ),
             ),
           ],
@@ -508,7 +558,7 @@ class AccountScreen extends StatelessWidget {
         backgroundColor: AppColors.neutral800,
         title: Text(
           'Enable App Access',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
@@ -519,7 +569,7 @@ class AccountScreen extends StatelessWidget {
           children: [
             Text(
               'Enter your current LeoBook password to use fingerprint or face sign-in on this device.',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 color: AppColors.textTertiary,
                 fontSize: 13,
                 height: 1.4,
@@ -529,10 +579,10 @@ class AccountScreen extends StatelessWidget {
             TextField(
               controller: controller,
               obscureText: true,
-              style: GoogleFonts.lexend(color: Colors.white),
+              style: GoogleFonts.dmSans(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Current password',
-                hintStyle: GoogleFonts.lexend(color: AppColors.textDisabled),
+                hintStyle: GoogleFonts.dmSans(color: AppColors.textDisabled),
                 filled: true,
                 fillColor: AppColors.neutral900,
                 border: OutlineInputBorder(
@@ -558,7 +608,7 @@ class AccountScreen extends StatelessWidget {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Cancel',
-              style: GoogleFonts.lexend(color: AppColors.textTertiary),
+              style: GoogleFonts.dmSans(color: AppColors.textTertiary),
             ),
           ),
           TextButton(
@@ -566,7 +616,7 @@ class AccountScreen extends StatelessWidget {
                 Navigator.of(dialogContext).pop(controller.text.trim()),
             child: Text(
               'Enable',
-              style: GoogleFonts.lexend(color: AppColors.primary),
+              style: GoogleFonts.dmSans(color: AppColors.primary),
             ),
           ),
         ],
@@ -617,7 +667,7 @@ class AccountScreen extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         label,
-        style: GoogleFonts.lexend(
+        style: GoogleFonts.dmSans(
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: AppColors.textTertiary,
@@ -679,7 +729,7 @@ class AccountScreen extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: titleColor ?? Colors.white,
@@ -689,7 +739,7 @@ class AccountScreen extends StatelessWidget {
             if (subtitle != null) ...[
               Text(
                 subtitle,
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 12,
                   color: AppColors.textTertiary,
                 ),
@@ -713,18 +763,17 @@ class AccountScreen extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════════════
 
   Widget _buildVersionFooter(BuildContext context) {
-    return Consumer<UpdateService>(
-      builder: (context, updateService, _) {
-        final info = updateService.info;
-        final dlState = updateService.downloadState;
+    return BlocBuilder<UpdateCubit, UpdateState>(
+      builder: (context, updateState) {
+        final info = updateState.info;
+        final dlState = updateState.downloadState;
+        final cubit = context.read<UpdateCubit>();
         return Center(
           child: Column(
             children: [
               Text(
                 'LeoBook v${info.currentVersion.isNotEmpty ? info.currentVersion : "..."}',
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
+                style: LeoTypography.bodySmall.copyWith(
                   color: AppColors.textDisabled,
                   fontFeatures: [const FontFeature.tabularFigures()],
                 ),
@@ -741,7 +790,7 @@ class AccountScreen extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
-                            value: updateService.downloadProgress,
+                            value: updateState.downloadProgress,
                             backgroundColor: AppColors.neutral700,
                             color: AppColors.primary,
                             minHeight: 6,
@@ -749,9 +798,8 @@ class AccountScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${(updateService.downloadProgress * 100).toStringAsFixed(0)}%',
-                          style: GoogleFonts.lexend(
-                            fontSize: 11,
+                          '${(updateState.downloadProgress * 100).toStringAsFixed(0)}%',
+                          style: LeoTypography.labelSmall.copyWith(
                             color: AppColors.textTertiary,
                           ),
                         ),
@@ -764,8 +812,7 @@ class AccountScreen extends StatelessWidget {
                 else if (dlState == UpdateDownloadState.installing) ...[
                   Text(
                     'Installing…',
-                    style: GoogleFonts.lexend(
-                      fontSize: 13,
+                    style: LeoTypography.bodySmall.copyWith(
                       color: AppColors.primary,
                     ),
                   ),
@@ -774,22 +821,20 @@ class AccountScreen extends StatelessWidget {
                 // ── Error: show message + retry ────────────────
                 else if (dlState == UpdateDownloadState.error) ...[
                   Text(
-                    updateService.errorMessage ?? 'Update failed',
-                    style: GoogleFonts.lexend(
-                      fontSize: 11,
+                    updateState.errorMessage ?? 'Update failed',
+                    style: LeoTypography.labelSmall.copyWith(
                       color: AppColors.liveRed,
                     ),
                   ),
                   const SizedBox(height: 4),
                   GestureDetector(
                     onTap: () {
-                      updateService.resetDownloadState();
-                      updateService.downloadAndInstall();
+                      cubit.resetDownloadState();
+                      cubit.downloadAndInstall();
                     },
                     child: Text(
                       'Retry',
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
+                      style: LeoTypography.bodySmall.copyWith(
                         fontWeight: FontWeight.w600,
                         color: AppColors.primary,
                         decoration: TextDecoration.underline,
@@ -802,10 +847,10 @@ class AccountScreen extends StatelessWidget {
                 // ── Idle: show "Update" tap target ─────────────
                 else ...[
                   GestureDetector(
-                    onTap: () => updateService.downloadAndInstall(),
+                    onTap: () => cubit.downloadAndInstall(),
                     child: RichText(
                       text: TextSpan(
-                        style: GoogleFonts.lexend(fontSize: 13),
+                        style: LeoTypography.bodySmall,
                         children: [
                           TextSpan(
                             text: 'v${info.latestVersion} available — ',
@@ -829,9 +874,7 @@ class AccountScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'A Materialless Creation',
-                style: GoogleFonts.lexend(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
+                style: LeoTypography.labelSmall.copyWith(
                   color: AppColors.textDisabled,
                   letterSpacing: 0.5,
                 ),

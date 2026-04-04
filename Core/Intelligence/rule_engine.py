@@ -12,7 +12,14 @@ Handles main analysis combining rules, xG, ML, and market selection.
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import numpy as np
+from Core.Utils.constants import now_ng
 
+from Core.Utils.constants import (
+    MIN_FORM_MATCHES, XG_ADVANTAGE_THRESHOLD, XG_DRAW_THRESHOLD,
+    XG_CONTRADICTION_THRESHOLD, REC_SCORE_BASE_WEIGHT, XG_HIGH_TOTAL_THRESHOLD,
+    BTTS_YES_THRESHOLD, BTTS_NO_THRESHOLD, OVER25_YES_THRESHOLD, OVER25_NO_THRESHOLD,
+    CORRECT_SCORE_MIN_PROB,
+)
 from .learning_engine import LearningEngine
 from .tag_generator import TagGenerator
 from .goal_predictor import GoalPredictor
@@ -50,15 +57,15 @@ class RuleEngine:
         hfn = len(home_form)
         afn = len(away_form)
         st_n = len(standings)
-        if hfn < 5 or afn < 5 or st_n == 0:
+        if hfn < MIN_FORM_MATCHES or afn < MIN_FORM_MATCHES or st_n == 0:
             return {
-                "type": "SKIP", 
-                "confidence": "Low", 
+                "type": "SKIP",
+                "confidence": "Low",
                 "reason": f"Contract violation: Incomplete analytical context (Home:{hfn}, Away:{afn}, St:{st_n})"
             }
 
         # Filter H2H based on config
-        cutoff = datetime.now() - timedelta(days=config.h2h_lookback_days)
+        cutoff = now_ng() - timedelta(days=config.h2h_lookback_days)
         h2h = []
         for m in h2h_raw:
             if not m:
@@ -103,13 +110,13 @@ class RuleEngine:
         reasoning = []
 
         # Incorporate xG into voting (learned weights with config fallback)
-        if home_xg > away_xg + 0.5:
+        if home_xg > away_xg + XG_ADVANTAGE_THRESHOLD:
             home_score += weights.get("xg_advantage", config.xg_advantage)
             reasoning.append(f"{home_team} has xG advantage")
-        elif away_xg > home_xg + 0.5:
+        elif away_xg > home_xg + XG_ADVANTAGE_THRESHOLD:
             away_score += weights.get("xg_advantage", config.xg_advantage)
             reasoning.append(f"{away_team} has xG advantage")
-        elif abs(home_xg - away_xg) < 0.3:
+        elif abs(home_xg - away_xg) < XG_DRAW_THRESHOLD:
             draw_score += weights.get("xg_draw", config.xg_draw)
             reasoning.append("Close xG suggests draw")
 
@@ -172,7 +179,7 @@ class RuleEngine:
         for hg in "01233+":
             for ag in "01233+":
                 p = home_dist["goals_scored"].get(hg, 0) * away_dist["goals_scored"].get(ag, 0)
-                if p > 0.03:
+                if p > CORRECT_SCORE_MIN_PROB:
                     scores.append({"score": f"{hg.replace('3+', '3+')}-{ag.replace('3+', '3+')}", "prob": round(p, 3)})
         scores.sort(key=lambda x: x["prob"], reverse=True)
 
@@ -238,7 +245,7 @@ class RuleEngine:
         # 1. Contradiction Check: Heavily favored by xG vs Prediction
         primary_pred = prediction_text.lower()
         if f"{away_team.lower()} to win" in primary_pred or f"{away_team.lower()} or draw" in primary_pred:
-            if home_xg > away_xg + 1.25 and "over 0.5" not in primary_pred: # Allow over markets, block win markets
+            if home_xg > away_xg + XG_CONTRADICTION_THRESHOLD and "over 0.5" not in primary_pred:
                 reasoning.append(f"WARNING: Contradicts xG ({home_xg} vs {away_xg})")
                 final_confidence = "Low"
                 # Optionally forceful SKIP
@@ -246,7 +253,7 @@ class RuleEngine:
                      return {"type": "SKIP", "confidence": "Low", "reason": [f"Contradiction: Pred Away Win but {home_team} xG dominance"]}
 
         if f"{home_team.lower()} to win" in primary_pred or f"{home_team.lower()} or draw" in primary_pred:
-            if away_xg > home_xg + 1.25 and "over 0.5" not in primary_pred:
+            if away_xg > home_xg + XG_CONTRADICTION_THRESHOLD and "over 0.5" not in primary_pred:
                  reasoning.append(f"WARNING: Contradicts xG ({home_xg} vs {away_xg})")
                  final_confidence = "Low"
                  if "win" in primary_pred:
@@ -262,8 +269,8 @@ class RuleEngine:
         # Calculate final recommendation_score for the UI "TOP PREDICTIONS" section
         # Formula: Confidence Score (0-1) * 100, plus bonuses for xG clarity
         raw_confidence = raw_conf
-        rec_score = int(raw_confidence * 85) # Base weight
-        if (home_xg + away_xg) > 2.5: rec_score += 10
+        rec_score = int(raw_confidence * REC_SCORE_BASE_WEIGHT)
+        if (home_xg + away_xg) > XG_HIGH_TOTAL_THRESHOLD: rec_score += 10
         if final_confidence == "Very High": rec_score += 5
         
 
@@ -288,8 +295,8 @@ class RuleEngine:
             "reason": reasoning[:3],
             "xg_home": round(home_xg, 2),
             "xg_away": round(away_xg, 2),
-            "btts": "YES" if btts_prob > 0.6 else "NO" if btts_prob < 0.4 else "50/50",
-            "over_2.5": "YES" if over25_prob > 0.65 else "NO" if over25_prob < 0.45 else "50/50",
+            "btts": "YES" if btts_prob > BTTS_YES_THRESHOLD else "NO" if btts_prob < BTTS_NO_THRESHOLD else "50/50",
+            "over_2.5": "YES" if over25_prob > OVER25_YES_THRESHOLD else "NO" if over25_prob < OVER25_NO_THRESHOLD else "50/50",
             "best_score": scores[0]["score"] if scores else "1-1",
             "top_scores": scores[:5],
             "home_tags": home_tags,

@@ -96,9 +96,11 @@ LeoBook/
 │   │   ├── rule_engine.py
 │   │   ├── rule_engine_manager.py
 │   │   └── rl/
-│   │       ├── trainer.py
-│   │       ├── trainer_phases.py
-│   │       ├── trainer_io.py
+│   │       ├── trainer.py         # façade — RLTrainer core + mixin inheritance
+│   │       ├── trainer_phases.py  # Phase 1/2/3 reward functions (mixin)
+│   │       ├── trainer_io.py      # save/load/checkpoint (mixin)
+│   │       ├── trainer_context.py # build_fixture_context()
+│   │       ├── trainer_seasons.py # SeasonsMixin — season discovery & date selection
 │   │       ├── feature_encoder.py
 │   │       └── market_space.py
 │   └── Utils/
@@ -112,7 +114,9 @@ LeoBook/
 │   │   ├── fs_live_streamer.py     # Independent process (subprocess.Popen)
 │   │   └── fs_extractor.py
 │   ├── FootballCom/
-│   │   ├── fb_manager.py           # Batch resume checkpoint
+│   │   ├── fb_manager.py           # façade — batch resume checkpoint
+│   │   ├── fb_workers.py           # _odds_worker(), _league_worker()
+│   │   ├── fb_phase0.py            # Phase 0 calendar fixture discovery
 │   │   ├── match_resolver.py       # FixtureResolver — Deterministic SQL matcher
 │   │   ├── navigator.py
 │   │   ├── odds_extractor.py
@@ -121,8 +125,13 @@ LeoBook/
 │   │       └── booking_code.py
 ├── Data/
 │   ├── Access/
-│   │   ├── league_db.py
-│   │   ├── league_db_schema.py
+│   │   ├── league_db.py            # façade — re-exports all entity CRUD
+│   │   ├── league_db_schema.py     # DDL, migrations, get_connection()
+│   │   ├── league_db_leagues.py    # league CRUD
+│   │   ├── league_db_teams.py      # team CRUD
+│   │   ├── league_db_fixtures.py   # fixture CRUD
+│   │   ├── league_db_predictions.py # prediction CRUD
+│   │   ├── league_db_misc.py       # standings, audit_log, live_scores, helpers
 │   │   ├── db_helpers.py
 │   │   ├── market_evaluator.py
 │   │   ├── paper_trade_helpers.py
@@ -132,6 +141,7 @@ LeoBook/
 │   │   ├── sync_schema.py
 │   │   ├── season_completeness.py
 │   │   ├── supabase_client.py
+│   │   ├── supabase_rls_setup.sql  # RLS setup — run once in Supabase SQL editor
 │   │   ├── metadata_linker.py
 │   │   └── outcome_reviewer.py
 │   └── Store/
@@ -142,7 +152,7 @@ LeoBook/
 │   ├── recommend_bets.py
 │   └── rl_diagnose.py
 ├── leobookapp/                     # Flutter dashboard
-│   ├── pubspec.yaml                # version: 9.5.6+1
+│   ├── pubspec.yaml                # version: aligned with LEOBOOK_VERSION in constants.py
 │   └── lib/
 │       ├── presentation/screens/   # search, league (6 tabs), match (3-col), team
 │       ├── core/widgets/           # LeoLoadingIndicator, LeoShimmer, GlassContainer

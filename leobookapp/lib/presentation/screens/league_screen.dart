@@ -178,7 +178,7 @@ class _LeagueScreenState extends State<LeagueScreen>
                       children: [
                         Text(
                           displayTitle,
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: isDark ? Colors.white : AppColors.textDark,
@@ -189,7 +189,7 @@ class _LeagueScreenState extends State<LeagueScreen>
                         ),
                         Text(
                           (_league?.currentSeason ?? widget.season ?? '').toUpperCase(),
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textGrey,

@@ -9,6 +9,7 @@ import 'package:leobookapp/core/constants/responsive_constants.dart';
 import 'package:leobookapp/core/widgets/glass_container.dart';
 import 'package:leobookapp/data/models/rule_config_model.dart';
 import 'package:leobookapp/data/services/leo_service.dart';
+import 'package:leobookapp/data/services/rl_config_service.dart';
 import 'package:leobookapp/core/widgets/leo_loading_indicator.dart';
 
 class RuleEditorScreen extends StatefulWidget {
@@ -28,6 +29,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   late TextEditingController _nameCtrl;
   late TextEditingController _descCtrl;
 
+  // ML filter config (synced to user_rl_config in Supabase)
+  final RlConfigService _rlService = RlConfigService();
+  RlConfig? _rlConfig;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +49,12 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     }
     _nameCtrl = TextEditingController(text: _config.name);
     _descCtrl = TextEditingController(text: _config.description);
+    _loadRlConfig();
+  }
+
+  Future<void> _loadRlConfig() async {
+    final cfg = await _rlService.load();
+    if (mounted) setState(() => _rlConfig = cfg);
   }
 
   @override
@@ -65,7 +76,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     _config.description = _descCtrl.text.trim();
 
     try {
+      // Save rule engine to local file
       await _service.saveEngine(_config);
+      // Sync ML filter preferences to Supabase
+      if (_rlConfig != null) await _rlService.save(_rlConfig!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${_config.name} saved!')),
@@ -161,6 +175,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             _SliderDef('Beats Top Teams', _config.formVsTopWin,
                 (v) => _config.formVsTopWin = v),
           ]),
+          const SizedBox(height: 16),
+          _buildMlFilterSection(),
           const SizedBox(height: 80), // Padding for FAB
         ],
       ),
@@ -362,6 +378,197 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             max: 10,
             divisions: 20,
             onChanged: (v) => setState(() => def.setter(v)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── ML Filter (user_rl_config) ────────────────────
+
+  Widget _buildMlFilterSection() {
+    final cfg = _rlConfig;
+    if (cfg == null) {
+      return const SizedBox(
+        height: 60,
+        child: Center(child: LeoLoadingIndicator()),
+      );
+    }
+
+    return GlassContainer(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.tune, size: 18, color: AppColors.accentPrimary),
+                const SizedBox(width: 8),
+                Text(
+                  'ML Filter (Supabase)',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'These thresholds filter predictions before they reach your feed.',
+              style: TextStyle(fontSize: 12, color: AppColors.textGrey),
+            ),
+            const SizedBox(height: 16),
+
+            // Risk appetite
+            Row(
+              children: [
+                Icon(Icons.shield_outlined, size: 16, color: AppColors.textGrey),
+                const SizedBox(width: 8),
+                Text('Risk Appetite',
+                    style: TextStyle(color: AppColors.textGrey)),
+                const Spacer(),
+                DropdownButton<String>(
+                  value: cfg.riskAppetite,
+                  items: const [
+                    DropdownMenuItem(value: 'low',    child: Text('Low')),
+                    DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                    DropdownMenuItem(value: 'high',   child: Text('High')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _rlConfig = cfg.copyWith(riskAppetite: v));
+                    }
+                  },
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+
+            // Min confidence slider (0.35 – 0.90)
+            _buildDoubleSliderRow(
+              label: 'Min Confidence',
+              value: cfg.minConfidence,
+              min: 0.35,
+              max: 0.90,
+              divisions: 11,
+              format: (v) => '${(v * 100).round()}%',
+              onChanged: (v) =>
+                  setState(() => _rlConfig = cfg.copyWith(minConfidence: v)),
+            ),
+            const SizedBox(height: 8),
+
+            // Min odds slider (1.0 – 3.0)
+            _buildDoubleSliderRow(
+              label: 'Min Odds',
+              value: cfg.minOdds,
+              min: 1.0,
+              max: 3.0,
+              divisions: 20,
+              format: (v) => v.toStringAsFixed(2),
+              onChanged: (v) =>
+                  setState(() => _rlConfig = cfg.copyWith(minOdds: v)),
+            ),
+            const SizedBox(height: 8),
+
+            // Max odds slider (2.0 – 12.0)
+            _buildDoubleSliderRow(
+              label: 'Max Odds',
+              value: cfg.maxOdds,
+              min: 2.0,
+              max: 12.0,
+              divisions: 20,
+              format: (v) => v.toStringAsFixed(2),
+              onChanged: (v) =>
+                  setState(() => _rlConfig = cfg.copyWith(maxOdds: v)),
+            ),
+            const SizedBox(height: 8),
+
+            // Max stake % slider (1% – 20%)
+            _buildDoubleSliderRow(
+              label: 'Max Stake %',
+              value: cfg.maxStakePct,
+              min: 0.01,
+              max: 0.20,
+              divisions: 19,
+              format: (v) => '${(v * 100).round()}%',
+              onChanged: (v) =>
+                  setState(() => _rlConfig = cfg.copyWith(maxStakePct: v)),
+            ),
+            const Divider(height: 20),
+
+            // Enabled sports toggles
+            Text('Enabled Sports',
+                style: TextStyle(color: AppColors.textGrey, fontSize: 13)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: ['football', 'basketball'].map((sport) {
+                final enabled = cfg.enabledSports.contains(sport);
+                return FilterChip(
+                  label: Text(sport[0].toUpperCase() + sport.substring(1)),
+                  selected: enabled,
+                  onSelected: (v) {
+                    final next = List<String>.from(cfg.enabledSports);
+                    if (v) {
+                      next.add(sport);
+                    } else {
+                      next.remove(sport);
+                    }
+                    setState(() =>
+                        _rlConfig = cfg.copyWith(enabledSports: next));
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDoubleSliderRow({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required String Function(double) format,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                style: TextStyle(fontSize: 13, color: AppColors.textGrey)),
+            Text(
+              format(value),
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary),
+            ),
+          ],
+        ),
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 3,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            activeTrackColor: AppColors.accentPrimary,
+            inactiveTrackColor: AppColors.glassBorder.withValues(alpha: 0.2),
+            thumbColor: AppColors.accentPrimary,
+          ),
+          child: Slider(
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
           ),
         ),
       ],

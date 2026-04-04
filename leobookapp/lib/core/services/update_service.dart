@@ -10,10 +10,13 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+// ── State ────────────────────────────────────────────────────────────────────
 
 class AppUpdateInfo {
   final bool updateAvailable;
@@ -31,27 +34,45 @@ class AppUpdateInfo {
 
 enum UpdateDownloadState { idle, downloading, downloaded, installing, error }
 
-class UpdateService extends ChangeNotifier {
+class UpdateState {
+  final AppUpdateInfo info;
+  final UpdateDownloadState downloadState;
+  final double downloadProgress;
+  final String? errorMessage;
+
+  const UpdateState({
+    this.info = const AppUpdateInfo(),
+    this.downloadState = UpdateDownloadState.idle,
+    this.downloadProgress = 0.0,
+    this.errorMessage,
+  });
+
+  UpdateState copyWith({
+    AppUpdateInfo? info,
+    UpdateDownloadState? downloadState,
+    double? downloadProgress,
+    String? errorMessage,
+  }) =>
+      UpdateState(
+        info: info ?? this.info,
+        downloadState: downloadState ?? this.downloadState,
+        downloadProgress: downloadProgress ?? this.downloadProgress,
+        errorMessage: errorMessage ?? this.errorMessage,
+      );
+}
+
+// ── Cubit ────────────────────────────────────────────────────────────────────
+
+class UpdateCubit extends Cubit<UpdateState> {
   static const String _bucket = 'app-releases';
   static const String _metadataFile = 'metadata.json';
 
-  AppUpdateInfo _info = const AppUpdateInfo();
-  AppUpdateInfo get info => _info;
-
-  UpdateDownloadState _downloadState = UpdateDownloadState.idle;
-  UpdateDownloadState get downloadState => _downloadState;
-
-  double _downloadProgress = 0.0;
-  double get downloadProgress => _downloadProgress;
-
-  String? _errorMessage;
-  String? get errorMessage => _errorMessage;
-
+  Timer? _timer;
   String? _downloadedApkPath;
 
-  Timer? _timer;
-
   static String? _cachedAppVersion;
+
+  UpdateCubit() : super(const UpdateState());
 
   /// Dynamically fetches current app version from pubspec.yaml.
   static Future<String> getAppVersion() async {
@@ -67,7 +88,7 @@ class UpdateService extends ChangeNotifier {
 
   /// Start periodic checking (every [intervalSeconds]).
   void startPeriodicCheck({int intervalSeconds = 3}) {
-    checkForUpdate(); // Immediate first check
+    checkForUpdate();
     _timer?.cancel();
     _timer = Timer.periodic(
       Duration(seconds: intervalSeconds),
@@ -95,60 +116,56 @@ class UpdateService extends ChangeNotifier {
 
       final latestVersion = metadata['version'] as String? ?? currentVersion;
       final downloadUrl = await _resolveDownloadUrl(metadata);
-
       final isNewer = _isVersionNewer(latestVersion, currentVersion);
 
-      _info = AppUpdateInfo(
-        updateAvailable: isNewer,
-        currentVersion: currentVersion,
-        latestVersion: latestVersion,
-        downloadUrl: downloadUrl,
-      );
-      notifyListeners();
+      emit(state.copyWith(
+        info: AppUpdateInfo(
+          updateAvailable: isNewer,
+          currentVersion: currentVersion,
+          latestVersion: latestVersion,
+          downloadUrl: downloadUrl,
+        ),
+      ));
     } catch (e) {
-      debugPrint('[UpdateService] Check failed: $e');
+      debugPrint('[UpdateCubit] Check failed: $e');
     }
   }
 
   /// Download the APK in-app with progress tracking.
   Future<void> downloadAndInstall() async {
-    if (_info.downloadUrl == null) return;
-    if (kIsWeb) return; // Not applicable on web
+    if (state.info.downloadUrl == null) return;
+    if (kIsWeb) return;
 
-    _downloadState = UpdateDownloadState.downloading;
-    _downloadProgress = 0.0;
-    _errorMessage = null;
-    notifyListeners();
+    emit(state.copyWith(
+      downloadState: UpdateDownloadState.downloading,
+      downloadProgress: 0.0,
+      errorMessage: null,
+    ));
 
     try {
       final dir = await getTemporaryDirectory();
-      final filePath = '${dir.path}/LeoBook-v${_info.latestVersion}.apk';
+      final filePath = '${dir.path}/LeoBook-v${state.info.latestVersion}.apk';
 
       final dio = Dio();
       await dio.download(
-        _info.downloadUrl!,
+        state.info.downloadUrl!,
         filePath,
         onReceiveProgress: (received, total) {
           if (total > 0) {
-            _downloadProgress = received / total;
-            notifyListeners();
+            emit(state.copyWith(downloadProgress: received / total));
           }
         },
       );
 
       _downloadedApkPath = filePath;
-      _downloadState = UpdateDownloadState.downloaded;
-      notifyListeners();
-
-      // Auto-trigger install
+      emit(state.copyWith(downloadState: UpdateDownloadState.downloaded));
       await installDownloadedApk();
     } catch (e) {
-      debugPrint('[UpdateService] Download failed: $e');
-      _downloadState = UpdateDownloadState.error;
-      _errorMessage = _friendlyErrorMessage(
-        'Download failed: ${e.toString()}',
-      );
-      notifyListeners();
+      debugPrint('[UpdateCubit] Download failed: $e');
+      emit(state.copyWith(
+        downloadState: UpdateDownloadState.error,
+        errorMessage: _friendlyErrorMessage('Download failed: ${e.toString()}'),
+      ));
     }
   }
 
@@ -158,14 +175,14 @@ class UpdateService extends ChangeNotifier {
 
     final file = File(_downloadedApkPath!);
     if (!await file.exists()) {
-      _downloadState = UpdateDownloadState.error;
-      _errorMessage = 'APK file not found';
-      notifyListeners();
+      emit(state.copyWith(
+        downloadState: UpdateDownloadState.error,
+        errorMessage: 'APK file not found',
+      ));
       return;
     }
 
-    _downloadState = UpdateDownloadState.installing;
-    notifyListeners();
+    emit(state.copyWith(downloadState: UpdateDownloadState.installing));
 
     try {
       final result = await OpenFilex.open(
@@ -174,30 +191,31 @@ class UpdateService extends ChangeNotifier {
       );
 
       if (result.type != ResultType.done) {
-        _downloadState = UpdateDownloadState.error;
-        _errorMessage = _friendlyErrorMessage(result.message);
-        notifyListeners();
+        emit(state.copyWith(
+          downloadState: UpdateDownloadState.error,
+          errorMessage: _friendlyErrorMessage(result.message),
+        ));
       }
     } catch (e) {
-      _downloadState = UpdateDownloadState.error;
-      _errorMessage = _friendlyErrorMessage('Install failed: ${e.toString()}');
-      notifyListeners();
+      emit(state.copyWith(
+        downloadState: UpdateDownloadState.error,
+        errorMessage: _friendlyErrorMessage('Install failed: ${e.toString()}'),
+      ));
     }
   }
 
   /// Reset download state (e.g. after an error, to allow retry).
   void resetDownloadState() {
-    _downloadState = UpdateDownloadState.idle;
-    _downloadProgress = 0.0;
-    _errorMessage = null;
-    notifyListeners();
+    emit(state.copyWith(
+      downloadState: UpdateDownloadState.idle,
+      downloadProgress: 0.0,
+      errorMessage: null,
+    ));
   }
 
-  /// Compare semantic versions: returns true if [remote] > [local].
   bool _isVersionNewer(String remote, String local) {
     final rParts = remote.split('.').map(int.tryParse).toList();
     final lParts = local.split('.').map(int.tryParse).toList();
-
     for (int i = 0; i < 3; i++) {
       final r = (i < rParts.length ? rParts[i] : 0) ?? 0;
       final l = (i < lParts.length ? lParts[i] : 0) ?? 0;
@@ -214,27 +232,19 @@ class UpdateService extends ChangeNotifier {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return directUrl;
     }
-
-    if (rawApkUrls is! Map) {
-      return directUrl;
-    }
+    if (rawApkUrls is! Map) return directUrl;
 
     final apkUrls = <String, String>{};
     rawApkUrls.forEach((key, value) {
       final url = value?.toString().trim();
-      if (url != null && url.isNotEmpty) {
-        apkUrls[key.toString()] = url;
-      }
+      if (url != null && url.isNotEmpty) apkUrls[key.toString()] = url;
     });
 
-    if (apkUrls.isEmpty) {
-      return directUrl;
-    }
+    if (apkUrls.isEmpty) return directUrl;
 
     try {
       final plugin = DeviceInfoPlugin();
       final androidInfo = await plugin.androidInfo;
-
       final abiCandidates = <String>[
         ...androidInfo.supported64BitAbis,
         ...androidInfo.supported32BitAbis,
@@ -249,14 +259,11 @@ class UpdateService extends ChangeNotifier {
       for (final abi in abiCandidates) {
         final normalizedAbi = _normalizeAbi(abi);
         if (normalizedAbi == null) continue;
-
         final matchedUrl = apkUrls[normalizedAbi];
-        if (matchedUrl != null && matchedUrl.isNotEmpty) {
-          return matchedUrl;
-        }
+        if (matchedUrl != null && matchedUrl.isNotEmpty) return matchedUrl;
       }
     } catch (e) {
-      debugPrint('[UpdateService] ABI resolution failed: $e');
+      debugPrint('[UpdateCubit] ABI resolution failed: $e');
     }
 
     return directUrl ?? apkUrls['universal'] ?? _firstNonEmptyUrl(apkUrls);
@@ -265,7 +272,6 @@ class UpdateService extends ChangeNotifier {
   String? _normalizeAbi(String abi) {
     final normalized = abi.trim().toLowerCase();
     if (normalized.isEmpty) return null;
-
     switch (normalized) {
       case 'arm64-v8a':
       case 'arm64_v8a':
@@ -293,36 +299,31 @@ class UpdateService extends ChangeNotifier {
 
   String? _firstNonEmptyUrl(Map<String, String> apkUrls) {
     for (final url in apkUrls.values) {
-      if (url.trim().isNotEmpty) {
-        return url;
-      }
+      if (url.trim().isNotEmpty) return url;
     }
     return null;
   }
 
   String _friendlyErrorMessage(String? rawMessage) {
     final message = (rawMessage ?? '').trim();
-    if (message.isEmpty) {
-      return 'Update failed. Please try again.';
-    }
-
+    if (message.isEmpty) return 'Update failed. Please try again.';
     final lower = message.toLowerCase();
     if (lower.contains('conflicts with an existing package') ||
         lower.contains('package conflict') ||
         lower.contains('inconsistent certificates')) {
-      return 'This update package was signed differently from the installed LeoBook app. Please install the latest official release package.';
+      return 'This update package was signed differently from the installed LeoBook app. '
+          'Please install the latest official release package.';
     }
-
     if (lower.contains('app not installed')) {
-      return 'Android could not install this update package. Please try the latest official LeoBook release again.';
+      return 'Android could not install this update package. '
+          'Please try the latest official LeoBook release again.';
     }
-
     return message;
   }
 
   @override
-  void dispose() {
+  Future<void> close() {
     stopPeriodicCheck();
-    super.dispose();
+    return super.close();
   }
 }

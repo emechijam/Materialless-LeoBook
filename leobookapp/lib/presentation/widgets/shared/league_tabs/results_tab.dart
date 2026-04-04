@@ -83,7 +83,7 @@ class _LeagueResultsTabState extends State<LeagueResultsTab> {
                 const SizedBox(height: 16),
                 Text(
                   "No results found",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     color: AppColors.textGrey,
                     fontSize: 14,
                   ),
@@ -188,7 +188,7 @@ class _RoundHeader extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             title.toUpperCase(),
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               color: AppColors.primary,
@@ -259,7 +259,7 @@ class _ResultsLeagueHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   _parseLeagueName(leagueName),
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -277,7 +277,7 @@ class _ResultsLeagueHeader extends StatelessWidget {
                   ),
                   child: Text(
                     season!,
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
@@ -299,7 +299,7 @@ class _ResultsLeagueHeader extends StatelessWidget {
             children: [
               Text(
                 '$totalResults results',
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textGrey,
@@ -316,7 +316,7 @@ class _ResultsLeagueHeader extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         "STANDINGS",
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textGrey,
@@ -345,7 +345,7 @@ class _ResultsLeagueHeader extends StatelessWidget {
           children: [
             Text(
               'Latest: $latestRound',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: AppColors.primary,
@@ -353,7 +353,7 @@ class _ResultsLeagueHeader extends StatelessWidget {
             ),
             Text(
               '${(progress * 100).toInt()}% of season',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textGrey,

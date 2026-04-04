@@ -110,7 +110,7 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreen> {
                   children: [
                     Text(
                       'Welcome back',
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -120,7 +120,7 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreen> {
                     Text(
                       'Enter your password for\n${widget.identifier}',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         fontSize: 14,
                         color: AppColors.textSecondary,
                         height: 1.5,
@@ -150,11 +150,11 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreen> {
                               controller: _passwordController,
                               obscureText: _obscurePassword,
                               autofocus: true,
-                              style: GoogleFonts.lexend(
+                              style: GoogleFonts.dmSans(
                                   fontSize: 16, color: Colors.white),
                               decoration: InputDecoration(
                                 hintText: 'Password',
-                                hintStyle: GoogleFonts.lexend(
+                                hintStyle: GoogleFonts.dmSans(
                                   color: AppColors.textDisabled,
                                   fontSize: 16,
                                 ),
@@ -217,7 +217,7 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreen> {
                                     )
                                   : Text(
                                       'Sign In',
-                                      style: GoogleFonts.lexend(
+                                      style: GoogleFonts.dmSans(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.black87,
@@ -233,7 +233,7 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreen> {
                       onTap: _forgotPassword,
                       child: Text(
                         'Forgot password?',
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textTertiary,
@@ -245,7 +245,7 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreen> {
                       onTap: () => Navigator.of(context).pop(),
                       child: Text(
                         'Use a different account',
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: AppColors.primary,

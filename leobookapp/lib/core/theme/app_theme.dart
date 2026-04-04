@@ -17,42 +17,42 @@ class AppTheme {
       primaryColor: AppColors.primary,
       cardColor: AppColors.glassDark,
 
-      textTheme: GoogleFonts.lexendTextTheme().copyWith(
-        displayLarge: GoogleFonts.lexend(
+      textTheme: GoogleFonts.dmSansTextTheme().copyWith(
+        displayLarge: GoogleFonts.dmSans(
           fontSize: 22,
           fontWeight: FontWeight.w700,
           color: Colors.white,
           letterSpacing: -1.0,
         ),
-        titleLarge: GoogleFonts.lexend(
+        titleLarge: GoogleFonts.dmSans(
           fontSize: 15,
           fontWeight: FontWeight.w600,
           color: Colors.white,
           letterSpacing: -0.3,
         ),
-        titleMedium: GoogleFonts.lexend(
+        titleMedium: GoogleFonts.dmSans(
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
-        bodyLarge: GoogleFonts.lexend(
+        bodyLarge: GoogleFonts.dmSans(
           fontSize: 13,
           fontWeight: FontWeight.w400,
           color: AppColors.textPrimary,
           height: 1.5,
         ),
-        bodyMedium: GoogleFonts.lexend(
+        bodyMedium: GoogleFonts.dmSans(
           fontSize: 11,
           fontWeight: FontWeight.w400,
           color: AppColors.textTertiary,
           height: 1.5,
         ),
-        bodySmall: GoogleFonts.lexend(
+        bodySmall: GoogleFonts.dmSans(
           fontSize: 10,
           fontWeight: FontWeight.w400,
           color: AppColors.textTertiary,
         ),
-        labelLarge: GoogleFonts.lexend(
+        labelLarge: GoogleFonts.dmSans(
           fontSize: 9,
           fontWeight: FontWeight.w700,
           color: AppColors.textTertiary,
@@ -75,7 +75,7 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: GoogleFonts.lexend(
+        titleTextStyle: GoogleFonts.dmSans(
           color: Colors.white,
           fontSize: 15,
           fontWeight: FontWeight.w700,
@@ -118,7 +118,7 @@ class AppTheme {
       // Animated snackbar
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.neutral800,
-        contentTextStyle: GoogleFonts.lexend(color: Colors.white, fontSize: 12),
+        contentTextStyle: GoogleFonts.dmSans(color: Colors.white, fontSize: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         behavior: SnackBarBehavior.floating,
       ),

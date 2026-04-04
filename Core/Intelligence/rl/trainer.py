@@ -50,7 +50,6 @@ Bug fixes applied (2026-03-14):
 """
 
 import os
-import re
 import json
 import torch
 import torch.nn as nn
@@ -66,7 +65,9 @@ from .model import LeoBookRLModel
 from .feature_encoder import FeatureEncoder
 from .adapter_registry import AdapterRegistry
 from .trainer_phases import TrainerPhasesMixin
+from .trainer_seasons import SeasonsMixin
 from .trainer_io import TrainerIOMixin
+from .trainer_context import build_fixture_context, clear_standings_cache
 from Core.Intelligence.dynamic_concurrency import DynamicConcurrencyEngine
 from .market_space import (
     ACTIONS, N_ACTIONS, SYNTHETIC_ODDS, STAIRWAY_BETTABLE,
@@ -84,126 +85,9 @@ MODELS_DIR = PROJECT_ROOT / "Data" / "Store" / "models"
 BASE_MODEL_PATH = MODELS_DIR / "leobook_base.pth"
 TRAINING_CONFIG_PATH = MODELS_DIR / "training_config.json"
 
-# ── Fixture context builder for RL training rows ─────────────────────────────
-# Called once per fixture to enrich the _row dict with form, H2H, xG, standings.
-# All queries target the training connection (SQLite only). No network calls.
-# Standings are cached per country_league via the _standings_cache dict.
-_standings_cache: dict = {}
 
 
-def _build_fixture_context(
-    conn,
-    home_tid: str,
-    away_tid: str,
-    country_league: str,
-    league_id: str,
-    season: str,
-    f_date: str,
-    h_score,
-    a_score,
-) -> dict:
-    """Return a dict of enrichment fields for a single training fixture."""
-    import json as _json
-
-    def _safe_int(v):
-        try:
-            return int(v or 0)
-        except (ValueError, TypeError):
-            return 0
-
-    # 1. Form: last 10 completed results for each team BEFORE f_date ───────
-    home_form = conn.execute(
-        """SELECT fixture_id, home_team_id, away_team_id, home_score, away_score
-           FROM schedules
-           WHERE date < ? AND (home_team_id=? OR away_team_id=?)
-             AND home_score IS NOT NULL AND away_score IS NOT NULL
-           ORDER BY date DESC LIMIT 10""",
-        (f_date, home_tid, home_tid)
-    ).fetchall()
-
-    away_form = conn.execute(
-        """SELECT fixture_id, home_team_id, away_team_id, home_score, away_score
-           FROM schedules
-           WHERE date < ? AND (home_team_id=? OR away_team_id=?)
-             AND home_score IS NOT NULL AND away_score IS NOT NULL
-           ORDER BY date DESC LIMIT 10""",
-        (f_date, away_tid, away_tid)
-    ).fetchall()
-
-    # 2. H2H: last 10 head-to-head fixtures ───────────────────────────────
-    h2h = conn.execute(
-        """SELECT fixture_id, home_score, away_score
-           FROM schedules
-           WHERE ((home_team_id=? AND away_team_id=?) OR (home_team_id=? AND away_team_id=?))
-             AND home_score IS NOT NULL AND away_score IS NOT NULL
-           ORDER BY date DESC LIMIT 10""",
-        (home_tid, away_tid, away_tid, home_tid)
-    ).fetchall()
-
-    # 3. Standings snapshot (cached per country_league + date) ───────────
-    global _standings_cache
-    cache_key = (country_league, f_date)
-    if cache_key not in _standings_cache:
-        from Data.Access.league_db import computed_standings
-        try:
-            rows = computed_standings(
-                conn=conn, league_id=league_id, season=season, before_date=f_date
-            )
-            _standings_cache[cache_key] = [dict(r) for r in rows]
-        except Exception:
-            _standings_cache[cache_key] = []
-    standings = _standings_cache[cache_key]
-
-    # 4. xG proxy: avg goals scored in last 10 per team ───────────────────
-    def _avg_scored(form_rows, team_id):
-        goals = []
-        for r in form_rows:
-            try:
-                # schedules row index map (from SELECT above): 
-                # 0:fixture_id, 1:home_tid, 2:away_tid, 3:h_score, 4:a_score
-                if r[1] == team_id:
-                    goals.append(_safe_int(r[3]))
-                else:
-                    goals.append(_safe_int(r[4]))
-            except Exception:
-                pass
-        return round(sum(goals) / len(goals), 2) if goals else 0.0
-
-    xg_home = _avg_scored(home_form, home_tid)
-    xg_away = _avg_scored(away_form, away_tid)
-
-    # 5. Tag strings ──────────────────────────────────────────────────────
-    hfn = len(home_form)
-    afn = len(away_form)
-    h2h_n = len(h2h)
-    st_n = len(standings)
-
-    # --- ALL-OR-NOTHING CONTRACT ENFORCEMENT ---
-    # Strict requirement: Minimum 5 matches of form for BOTH teams + Standings
-    # If missing, it's not a "Perfect" fixture.
-    is_complete = (hfn >= 5 and afn >= 5 and st_n > 0)
-
-    return {
-        "is_complete":       is_complete,
-        "home_form_n":       hfn,
-        "away_form_n":       afn,
-        "h2h_count":         h2h_n,
-        "h2h_fixture_ids":   _json.dumps([r[0] for r in h2h]),
-        "form_fixture_ids":  _json.dumps(
-            [r[0] for r in home_form] + [r[0] for r in away_form]
-        ),
-        "standings_snapshot": _json.dumps(standings),
-        "xg_home":           xg_home,
-        "xg_away":           xg_away,
-        "home_tags":         f"form:{hfn}" if hfn else "",
-        "away_tags":         f"form:{afn}" if afn else "",
-        "h2h_tags":          f"h2h:{h2h_n}" if h2h_n else "",
-        "standings_tags":    f"standings:{st_n}" if st_n else "",
-    }
-
-
-
-class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
+class RLTrainer(SeasonsMixin, TrainerPhasesMixin, TrainerIOMixin):
     """
     PPO-based trainer for the LeoBook RL model.
 
@@ -259,210 +143,7 @@ class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
         self.active_phase: int = 1  # Always set before training; default safe value
 
     # -------------------------------------------------------------------
-    # Season Discovery & Date Selection
-    # -------------------------------------------------------------------
-
-    def _discover_seasons(self, conn) -> List[str]:
-        """
-        Return all distinct season labels found in schedules, most-recent-first.
-
-        Sorts by the 4-digit start year embedded in the season string so both
-        split-season ("2024/2025") and calendar-year ("2025") formats rank correctly.
-        """
-        rows = conn.execute(
-            "SELECT DISTINCT season FROM schedules "
-            "WHERE season IS NOT NULL AND season != ''"
-        ).fetchall()
-        seasons = [r[0] for r in rows]
-
-        def _start_year(s: str) -> int:
-            m = re.match(r'(\d{4})', s)
-            return int(m.group(1)) if m else 0
-
-        return sorted(seasons, key=_start_year, reverse=True)
-
-    def _get_season_dates(
-        self, conn, target_season: Union[str, int] = "current"
-    ) -> Tuple[List[str], str]:
-        """
-        Build the ordered list of fixture-dates for training, filtered to the
-        requested season scope.
-
-        The model is fully season-aware: the primary path joins schedules against
-        leagues.current_season per league, so each league's training window starts
-        from its own actual season kickoff date — not a global cutoff.
-        Split-season leagues (e.g. "2025/2026") and calendar-year leagues
-        (e.g. "2025" or "2026") are both handled correctly via the season label
-        stored in leagues.current_season.
-
-        No date caps are applied to the primary path or the first fallback.
-        A 365-day cap is applied ONLY to the emergency last-resort path, which
-        should never be reached in normal operation. If it is reached, training
-        aborts with a clear message directing the operator to run --enrich-leagues.
-
-        Args:
-            target_season:
-                "current"   — per-league join against leagues.current_season.
-                              Training starts from each league's own season start.
-                              This is the correct default.
-                "all"       — all available completed fixtures, oldest-first.
-                              Use with --cold for full historical retraining.
-                int N       — past season by offset: 1 = most recent past,
-                              2 = two seasons ago, etc. (1-indexed, matches
-                              --season N in enrich_leagues).
-                str label   — explicit season label, e.g. "2024/2025" or "2025".
-
-        Returns:
-            (dates, label) where dates is a chronologically sorted list of
-            date strings and label is a human-readable description for logging.
-        """
-        today_str = datetime.now().strftime("%Y-%m-%d")
-
-        # ── All seasons ─────────────────────────────────────────────────────────
-        if target_season == "all":
-            rows = conn.execute("""
-                SELECT DISTINCT date FROM schedules
-                WHERE date IS NOT NULL
-                  AND home_score IS NOT NULL AND away_score IS NOT NULL
-                  AND date <= ?
-                ORDER BY date ASC
-            """, (today_str,)).fetchall()
-            return [r[0] for r in rows], "all seasons (oldest → newest)"
-
-        # ── Past season by offset (int) ──────────────────────────────────────────
-        if isinstance(target_season, int) and target_season >= 1:
-            seasons = self._discover_seasons(conn)
-            if target_season >= len(seasons):
-                print(f"  [TRAIN] Season offset {target_season} out of range "
-                      f"({len(seasons)} seasons in DB). Falling back to current.")
-            else:
-                season_label = seasons[target_season]  # 1-indexed offset
-                rows = conn.execute("""
-                    SELECT DISTINCT date FROM schedules
-                    WHERE season = ?
-                      AND home_score IS NOT NULL AND away_score IS NOT NULL
-                      AND date IS NOT NULL AND date <= ?
-                    ORDER BY date ASC
-                """, (season_label, today_str)).fetchall()
-                if rows:
-                    return [r[0] for r in rows], f"season {season_label} (past offset {target_season})"
-                print(f"  [TRAIN] Season '{season_label}' has no completed fixtures. "
-                      f"Falling back to current.")
-
-        # ── Explicit season label (non-"current" string) ─────────────────────────
-        if isinstance(target_season, str) and target_season != "current":
-            rows = conn.execute("""
-                SELECT DISTINCT date FROM schedules
-                WHERE season = ?
-                  AND home_score IS NOT NULL AND away_score IS NOT NULL
-                  AND date IS NOT NULL AND date <= ?
-                ORDER BY date ASC
-            """, (target_season, today_str)).fetchall()
-            if rows:
-                return [r[0] for r in rows], f"season {target_season}"
-            print(f"  [TRAIN] Season '{target_season}' not found or has no completed "
-                  f"fixtures. Falling back to current.")
-
-        # ── Current season (default) ─────────────────────────────────────────────
-        # Join schedules against leagues.current_season so training starts from
-        # each league's actual season start date. No date cap applied here —
-        # the season label itself is the correct boundary.
-        rows = conn.execute("""
-            SELECT DISTINCT s.date
-            FROM schedules s
-            INNER JOIN leagues l ON s.league_id = l.league_id
-            WHERE s.season = l.current_season
-              AND s.home_score IS NOT NULL AND s.away_score IS NOT NULL
-              AND s.date IS NOT NULL AND s.date <= ?
-            ORDER BY s.date ASC
-        """, (today_str,)).fetchall()
-        dates = [r[0] for r in rows]
-
-        if dates:
-            # ── Sanity check: no football season spans more than ~540 days ──────
-            # If the earliest date returned is older than 540 days, the
-            # leagues.current_season metadata is stale or corrupted — some leagues
-            # have current_season set to a label that also matches historical data
-            # going back years. We detect this, show a diagnostic, and abort so the
-            # operator runs --enrich-leagues to fix the source data.
-            # 540 days = ~18 months, safely covers the longest possible split season.
-            earliest = dates[0]
-            days_back = (datetime.now() - datetime.strptime(earliest, "%Y-%m-%d")).days
-            if days_back > 540:
-                # Find which leagues are contributing the oldest dates
-                stale_leagues = conn.execute("""
-                    SELECT DISTINCT l.league_id, l.name, l.current_season,
-                           MIN(s.date) as earliest_date
-                    FROM schedules s
-                    INNER JOIN leagues l ON s.league_id = l.league_id
-                    WHERE s.season = l.current_season
-                      AND s.home_score IS NOT NULL AND s.away_score IS NOT NULL
-                      AND s.date < date('now', '-540 days')
-                    GROUP BY l.league_id
-                    ORDER BY earliest_date ASC
-                    LIMIT 10
-                """).fetchall()
-                print(
-                    f"\n  [TRAIN] ! WARNING: Current-season join returned dates back to {earliest} "
-                    f"({days_back} days ago).\n"
-                    f"  [TRAIN]   No football season spans 540+ days. This may indicate stale metadata.\n"
-                    f"  [TRAIN]   Iterating anyway as requested.\n"
-                )
-                for row in stale_leagues:
-                    print(f"  [TRAIN]     {row[1] or row[0]:40s}  current_season={row[2]}  earliest={row[3]}")
-                print("\n")
-                # Removed early return: Proceed with the dates found.
-
-            return dates, "current season (per-league season join)"
-
-        # ── First fallback: leagues.current_season not fully populated ────────────
-        # Use the most recent season label discovered in schedules.
-        # No date cap — the season label is the correct boundary.
-        seasons = self._discover_seasons(conn)
-        if seasons:
-            season_label = seasons[0]
-            print(
-                f"\n  [TRAIN] ⚠ WARNING: Current-season join returned no dates.\n"
-                f"  [TRAIN]   leagues.current_season is not populated for enough leagues.\n"
-                f"  [TRAIN]   Falling back to most recent season in DB: {season_label}\n"
-                f"  [TRAIN]   → Run: python Leo.py --enrich-leagues\n"
-                f"  [TRAIN]     to populate current_season and fix this properly.\n"
-            )
-            rows = conn.execute("""
-                SELECT DISTINCT date FROM schedules
-                WHERE season = ?
-                  AND home_score IS NOT NULL AND away_score IS NOT NULL
-                  AND date IS NOT NULL AND date <= ?
-                ORDER BY date ASC
-            """, (season_label, today_str)).fetchall()
-            dates = [r[0] for r in rows]
-            if dates:
-                return dates, (
-                    f"season {season_label} "
-                    f"(fallback — run --enrich-leagues to populate current_season)"
-                )
-
-        # ── Last resort: no season metadata at all — ABORT ────────────────────────
-        # This path should never be reached in normal operation. If it is, the DB
-        # has not been enriched. Returning an uncapped global window here would
-        # silently train on all available history which is NOT what --train-rl means.
-        # We return empty to let train_from_fixtures print the "no dates found" message
-        # and exit cleanly, directing the operator to run --enrich-leagues first.
-        print(
-            f"\n  [TRAIN] ✗ CRITICAL: No season metadata found in the database.\n"
-            f"  [TRAIN]   Cannot determine current season boundaries for any league.\n"
-            f"  [TRAIN]   Training aborted — this would span all available history.\n"
-            f"\n"
-            f"  [TRAIN]   Fix: python Leo.py --enrich-leagues\n"
-            f"  [TRAIN]   Then retry: python Leo.py --train-rl\n"
-            f"\n"
-            f"  [TRAIN]   If you intentionally want to train on all history:\n"
-            f"  [TRAIN]   Use: python Leo.py --train-rl --train-season all --cold\n"
-        )
-        return [], "aborted — no season metadata (run --enrich-leagues first)"
-
-    # -------------------------------------------------------------------
-    # Reward functions (30-dim action space)
+    # Training step (PPO gradient update)
     def train_step(
         self,
         features: torch.Tensor,
@@ -968,7 +649,7 @@ class RLTrainer(TrainerPhasesMixin, TrainerIOMixin):
                     _confidence = day_rec_candidates[-1]['confidence']
 
                     # ── Build enrichment context (form, H2H, standings, xG) ──
-                    _ctx = _build_fixture_context(
+                    _ctx = build_fixture_context(
                         conn, home_tid, away_tid, country_league_val,
                         league_id, season,
                         f_date or match_date,

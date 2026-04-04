@@ -119,16 +119,150 @@ These questions will be answered by data, not assumption.
 
 ---
 
-## 6. What Project Stairway Is Not
+## 6. Phase 1 Infrastructure — Temporary Design Disclaimer
 
-- **Not a guaranteed profit system.** No betting system can guarantee profit. The staircase is designed to extract value from a genuine prediction edge — without that edge, the math does not work in the long run.
-- **Not a commercial product.** Project Stairway operates within the context of Football.com's platform and its terms of service. This is a personal capital management strategy, not a service offered to third parties.
-- **Not a claim of 95% accuracy.** No per-match or per-combo accuracy claim is made in this document. The system's accuracy is an open quest.
-- **Not reckless.** The ₦1,000 base seed, the hard reset on loss, the confidence threshold gate, the audit logging, the dry-run testing mode — these are deliberate engineering decisions that treat capital preservation as seriously as capital growth.
+> **This section exists because the current implementation is intentionally temporary.
+> Understanding its constraints prevents false confidence in the architecture.**
+
+### 6.1 What Phase 1 Is
+
+Phase 1 of Project Stairway uses **Football.com** as its sole betting interface. This means:
+
+- **Bet placement is browser-automated**: `Chapter2Worker` → `run_automated_booking()` navigates Football.com via Playwright, finds the correct match, selects the outcome, and places a stake through the UI.
+- **Odds are harvested from Football.com**: The `run_odds_harvesting()` pipeline extracts live odds from Football.com match pages and stores them in `match_odds` (SQLite + Supabase).
+- **Booking codes are scraped**: `harvest_booking_codes_for_recommendations()` navigates each recommended match's Football.com page to capture the share/booking code.
+
+### 6.2 Why Phase 1 Is Temporary
+
+Browser automation against a bookmaker UI is fragile by nature:
+
+| Risk | Impact | Mitigation (Phase 1) |
+|---|---|---|
+| UI change / DOM update | Selectors break silently | `SelectorManager` centralises selectors; alerts on 0-outcome extracts |
+| Session expiry / login prompt | Booking session fails | `load_or_create_session()` with retry; `is_streamer_alive()` watchdog |
+| Rate limiting / CAPTCHA | Harvesting blocked | Semaphore-bounded concurrency (`MAX_CONCURRENCY`), per-page delays |
+| Football.com ToS compliance | Account suspension | Single-user personal use; no commercial scraping |
+| Odds latency | Stale odds at placement | `IMMINENT_MATCH_CUTOFF_HOURS` filter removes matches too close to kick-off |
+
+**Football.com is used because it is accessible, scrape-friendly for personal use, and has a share-code mechanism that enables booking without exposing credentials in code. It is not the final destination.**
+
+### 6.3 What Phase 1 Does Not Have
+
+- No programmatic API access to odds or bet placement
+- No bid/ask spread analysis (exchange-style)
+- No live in-play betting
+- No multi-bookmaker odds comparison
+- No matched betting / arbitrage infrastructure
+
+These capabilities require an exchange integration, which is the Phase 2 objective.
 
 ---
 
-## 7. The Mission
+## 7. Phase 2 — Betfair & Smarkets Migration Plan
+
+> **Goal**: Replace Football.com browser automation with a programmatic betting exchange
+> integration that gives LeoBook real-time odds access, sub-second bet placement, and
+> liquidity-aware stake sizing.
+
+### 7.1 Why Betting Exchanges
+
+Betting exchanges (Betfair, Smarkets) differ fundamentally from bookmakers:
+
+| Feature | Bookmaker (Phase 1) | Exchange (Phase 2) |
+|---|---|---|
+| Odds source | Fixed by bookmaker | Market-driven, real-time |
+| Bet placement | UI automation | REST API (`PlaceBets`) |
+| Margin | 3–10% bookmaker overround | 2% commission on winnings only |
+| Liquidity | Guaranteed (up to limit) | Depends on matched volume |
+| In-play | Limited | Full real-time |
+| Data access | Scraping required | Official streaming API |
+
+For a system built on mathematical edge, the reduction in margin from ~8% bookmaker overround to ~2% exchange commission is not cosmetic — it is the difference between a borderline edge and a profitable one at scale.
+
+### 7.2 Target Platforms
+
+**Primary: Betfair Exchange**
+- REST API: `api.betfair.com/exchange/betting/`
+- Endpoints: `listMarketCatalogue`, `listMarketBook`, `placeOrders`, `listCurrentOrders`
+- Authentication: App key + session token (login via API)
+- Data: Soccer exchange markets available for most top-tier leagues globally
+- Commission: 2% standard; reduced rate for high-volume accounts
+
+**Secondary: Smarkets**
+- REST API: `api.smarkets.com/v3/`
+- Lighter regulatory overhead; better odds on select markets
+- Useful as a fallback / arbitrage comparison source
+
+### 7.3 Migration Architecture
+
+The Phase 2 migration is designed to be **additive, not destructive**. The Phase 1 pipeline continues to run for leagues or matches where no exchange market exists.
+
+```
+Phase 1 (current)                Phase 2 (target)
+──────────────────               ─────────────────────────────────
+fs_live_streamer      ──────►  (unchanged — outcome tracking)
+run_predictions       ──────►  (unchanged — model inference)
+get_recommendations   ──────►  (unchanged — stairway selection)
+                     │
+run_odds_harvesting   ──X──►  ExchangeOddsHarvester
+  (Football.com)                  - betfair_client.list_market_book()
+                                  - Stores in match_odds with source='betfair'
+
+run_automated_booking ──X──►  ExchangeBookingAgent
+  (Football.com UI)               - betfair_client.place_orders()
+                                  - StaircaseTracker.get_current_step_stake()
+                                  - Kelly-scaled lay/back sizing
+```
+
+**New modules (Phase 2):**
+
+| Module | Responsibility |
+|---|---|
+| `Modules/Exchange/betfair_client.py` | Auth, session keep-alive, `list_market_book()`, `place_orders()` |
+| `Modules/Exchange/smarkets_client.py` | Smarkets REST client (secondary) |
+| `Modules/Exchange/exchange_odds_harvester.py` | Replaces `run_odds_harvesting()` for mapped markets |
+| `Modules/Exchange/exchange_booking_agent.py` | Replaces `run_automated_booking()` for exchange bets |
+| `Core/Safety/exchange_guardrails.py` | Liquidity checks, minimum matched volume gate |
+
+**Unchanged in Phase 2:**
+- `fs_live_streamer.py` — outcome tracking is independent of where bets are placed
+- `run_predictions()` — model inference is platform-agnostic
+- `StaircaseTracker` — step/cycle/stake logic is unchanged
+- Supabase schema — `match_odds.source` column distinguishes `'football.com'` vs `'betfair'`
+
+### 7.4 Betfair-Specific Stairway Adjustments
+
+The staircase structure is unchanged. The following Phase 1 constraints are lifted:
+
+1. **Odds precision**: Exchange odds are decimal with 2dp — no rounding required.
+2. **Stake floor**: Betfair minimum stake is £2.00. The ₦1,000 base seed must be maintained in NGN; exchange deposits will require SWIFT/IBAN FX conversion.
+3. **Back/Lay option**: The exchange enables **laying** (betting against an outcome). The staircase remains a back-bet strategy; laying is reserved for hedging late in a cycle.
+4. **Liquidity gate**: A minimum available-to-match volume threshold must be configured in `exchange_guardrails.py`. No bet is placed if available liquidity < 5× stake.
+5. **In-play gate**: Exchange markets suspend briefly around kick-off. The `IMMINENT_MATCH_CUTOFF_HOURS` filter remains in place.
+
+### 7.5 Trigger Conditions for Phase 2 Activation
+
+Phase 2 migration is triggered when **all three** of the following conditions are met:
+
+1. **Edge confirmation**: First full end-to-end pipeline test completes. Measured per-step win rate ≥ 32% across ≥ 50 placed selections.
+2. **Regulatory clearance**: Betfair account verified, API key issued, and test sandbox bets confirmed end-to-end.
+3. **Capital threshold**: Stairway capital allocated for Phase 2 testing is ring-fenced (separate from Phase 1 Football.com operational capital).
+
+Until all three conditions are met, Football.com Phase 1 continues as the live system.
+
+---
+
+## 8. What Project Stairway Is Not
+
+- **Not a guaranteed profit system.** No betting system can guarantee profit. The staircase is designed to extract value from a genuine prediction edge — without that edge, the math does not work in the long run.
+- **Not a commercial product.** Project Stairway operates within the context of Football.com's platform (Phase 1) and its terms of service. This is a personal capital management strategy, not a service offered to third parties.
+- **Not a claim of 95% accuracy.** No per-match or per-combo accuracy claim is made in this document. The system's accuracy is an open quest.
+- **Not reckless.** The ₦1,000 base seed, the hard reset on loss, the confidence threshold gate, the audit logging, the dry-run testing mode — these are deliberate engineering decisions that treat capital preservation as seriously as capital growth.
+- **Not a finished product (Phase 1).** The Football.com browser automation layer is temporary infrastructure. It is used because it works *now*. It will be replaced by an exchange API when edge is confirmed and regulatory conditions are met.
+
+---
+
+## 9. The Mission
 
 > What is the probability that, out of 100–500 thoroughly analysed matches,
 > a system can find 7 predictions in a row that are right?
@@ -143,11 +277,16 @@ If it fails — learn, improve, and move forward. If it succeeds — the outcome
 ---
 
 **Document Status**
-- Version: 1.4 — Schema version: v7.0 (2026-03-29)
-- System Status: Active Development — Modularisation complete + v9.5 stable
+- Version: 1.5 — Schema version: v9.6 (2026-04-03)
+- System Status: Active Development — v9.6 stable · Basketball modules added · IDataProvider interface complete
 - Staircase State Machine: ✅ Implemented in `Core/System/guardrails.py`
 - Chapter Execution: ✅ `Core/System/pipeline.py` (extracted from `Leo.py` in v9.1)
+- Agentic Chapter Sequencing: ✅ `Core/System/supervisor.py` — time-of-day + prior-run gates
 - Season-Aware RL: ✅ `data_richness_score` per league — scales RL weight with historical depth
+- Phase 1 Infrastructure: ✅ Football.com browser automation (temporary, see §6)
+- Phase 2 Plan: ✅ Betfair/Smarkets exchange migration documented (see §7)
+- Subscription Tiers: ✅ Paystack (₦48,500/mo) + Stripe ($45/mo) implemented
+- ML Filter Config: ✅ `user_rl_config` table + `RlConfigService` (Flutter ↔ Supabase)
 - Performance Data: Pending — Full Pipeline Testing
 - Next Update: Upon completion of first full end-to-end pipeline test
 - Classification: Internal Development Document — Not for public distribution

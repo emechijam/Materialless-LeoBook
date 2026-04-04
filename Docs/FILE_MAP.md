@@ -441,17 +441,8 @@ Uses `now_ng()` + `TZ_NG_NAME` from `constants.py`. Never reads system clock tim
 - `log_segments` SQLite table tracks metadata (path, size, uploaded, remote_path)
 
 ### Timezone policy
-LeoBook backend is **WAT-normalised** reg| Hash | Description |
-|---|---|
-| `d9296ed` | **v9.5.7** Feat: Deterministic Resolution v2.0 (Purged Fuzzy/LLM matching) |
-| `a4b54ff` | **v9.5.7** Fix: Standings Reconstruction in RL Trainer (computed_standings) |
-| `b85a508` | **v9.5.0** Feat: Authentication & Heartbeat Overhaul |
+LeoBook backend is **WAT-normalised** throughout. All timestamps use `now_ng()` from `Core/Utils/constants.py`.
 
 ---
 
-*LeoBook Engineering — Materialless LLC · 2026-03-31 · v9.5.7*
-ending | **v9.4.1** Fix: Ch1 pipeline — 6 bugs (NameError, NoneType crash, race condition, zero resolution, partial hydration, off-season filter) |
-
----
-
-*LeoBook Engineering — Materialless LLC · 2026-03-26 · v9.4.1*
+*LeoBook Engineering — Materialless LLC · 2026-04-03 · v9.5.9*

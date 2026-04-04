@@ -243,7 +243,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     const SizedBox(height: 10),
                     Text(
                       match.homeTeam,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: match.isFinished && match.winner == 'home' ? AppColors.success : Colors.white,
                         fontSize: 13,
                         fontWeight: match.isFinished && match.winner == 'home' ? FontWeight.w900 : FontWeight.w700,
@@ -290,7 +290,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                           Flexible(
                             child: Text(
                               _parseLeagueName(match.league ?? ''),
-                              style: GoogleFonts.lexend(color: AppColors.primary, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                              style: GoogleFonts.dmSans(color: AppColors.primary, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                             ),
@@ -301,7 +301,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       '${match.date} • ${match.time}',
-                      style: GoogleFonts.lexend(color: Colors.white60, fontSize: 10),
+                      style: GoogleFonts.dmSans(color: Colors.white60, fontSize: 10),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
@@ -309,7 +309,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                       match.displayStatus == 'FINISHED' || match.isLive
                           ? '${match.homeScore} : ${match.awayScore}'
                           : 'VS',
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: match.isLive
                             ? AppColors.liveRed
                             : (match.isFinished ? Colors.white : Colors.white24),
@@ -322,7 +322,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                       const SizedBox(height: 4),
                       Text(
                         match.leagueStage!,
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           color: Colors.white30,
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
@@ -340,7 +340,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                         ),
                         child: Text(
                           match.displayStatus,
-                          style: GoogleFonts.lexend(color: AppColors.primary, fontSize: 9, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.dmSans(color: AppColors.primary, fontSize: 9, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -377,7 +377,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     const SizedBox(height: 10),
                     Text(
                       match.awayTeam,
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: match.isFinished && match.winner == 'away' ? AppColors.success : Colors.white,
                         fontSize: 13,
                         fontWeight: match.isFinished && match.winner == 'away' ? FontWeight.w900 : FontWeight.w700,
@@ -421,7 +421,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             const SizedBox(width: 3),
             Text(
               '\u00d7$count',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 color: const Color(0xFFDC0000),
                 fontWeight: FontWeight.w700,
                 fontSize: 10,
@@ -455,7 +455,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             children: [
               Text(
                 "AI WIN PROBABILITY",
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   color: Colors.white54,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -470,7 +470,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                 ),
                 child: Text(
                   "LEO AI MODEL v1.2",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     color: AppColors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -495,7 +495,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                       padding: const EdgeInsets.only(left: 8),
                       child: Text(
                         "HOME ${(match.probHome * 100).toInt()}%",
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -510,7 +510,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                       alignment: Alignment.center,
                       child: Text(
                         "${(match.probDraw * 100).toInt()}%",
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -526,7 +526,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                       padding: const EdgeInsets.only(right: 8),
                       child: Text(
                         "${(match.probAway * 100).toInt()}% AWAY",
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -544,7 +544,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             children: [
               Text(
                 match.homeTeam,
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   color: Colors.white54,
                   fontSize: 9,
                   fontWeight: FontWeight.w500,
@@ -552,7 +552,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
               ),
               Text(
                 "Draw",
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   color: Colors.white54,
                   fontSize: 9,
                   fontWeight: FontWeight.w500,
@@ -560,7 +560,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
               ),
               Text(
                 match.awayTeam,
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   color: Colors.white54,
                   fontSize: 9,
                   fontWeight: FontWeight.w500,
@@ -602,7 +602,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
               const SizedBox(width: 8),
               Text(
                 "EXPERT PREDICTION",
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   color: Colors.white70,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -622,7 +622,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                   children: [
                     Text(
                       match.chosenMarket ?? match.prediction ?? "N/A",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: Colors.white,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -632,7 +632,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       "Confidence: ${(match.statisticalEdge ?? 0.0 * 100).toStringAsFixed(0)}%",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: Colors.white60,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -656,7 +656,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                   children: [
                     Text(
                       "ODDS",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: Colors.white70,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
@@ -664,7 +664,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     ),
                     Text(
                       match.odds ?? "-",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -693,7 +693,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                   Expanded(
                     child: Text(
                       "Rule override: ${match.overrideReason}",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: Colors.amber,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -725,7 +725,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     const SizedBox(width: 6),
                     Text(
                       "SEMANTIC RULE ANALYSIS",
-                      style: GoogleFonts.lexend(
+                      style: GoogleFonts.dmSans(
                         color: Colors.cyanAccent,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -737,7 +737,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   match.ruleExplanation ?? "AI analyzing patterns...",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     color: Colors.white70,
                     fontSize: 11,
                     fontStyle: FontStyle.italic,
@@ -750,7 +750,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
           const SizedBox(height: 12),
           Text(
             "Pure model suggested: ${match.pureModelSuggestion ?? '-'}",
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               color: Colors.white38,
               fontSize: 10,
               fontStyle: FontStyle.italic,
@@ -811,7 +811,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
               Expanded(
                 child: Text(
                   title.toUpperCase(),
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     color: AppColors.primary,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -823,7 +823,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
               ),
               Text(
                 "${matches.length} match${matches.length == 1 ? '' : 'es'}",
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   color: AppColors.textGrey,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -844,7 +844,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
               child: Center(
                 child: Text(
                   "No matches found",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     color: Colors.white24,
                     fontSize: 11,
                   ),
@@ -924,7 +924,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                       const SizedBox(width: 6),
                       Text(
                         isExpanded ? "SHOW LESS" : "SHOW MORE",
-                        style: GoogleFonts.lexend(
+                        style: GoogleFonts.dmSans(
                           color: AppColors.primary,
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -1021,7 +1021,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
               const SizedBox(width: 8),
               Text(
                 "PREDICTION DATA & INSIGHTS",
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   color: AppColors.primary,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -1048,7 +1048,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                         children: [
                           Text(
                             insight['label'] as String,
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               color: Colors.white54,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -1057,7 +1057,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                           const SizedBox(height: 2),
                           Text(
                             insight['value'] as String,
-                            style: GoogleFonts.lexend(
+                            style: GoogleFonts.dmSans(
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
@@ -1067,7 +1067,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                             const SizedBox(height: 1),
                             Text(
                               insight['sub'] as String,
-                              style: GoogleFonts.lexend(
+                              style: GoogleFonts.dmSans(
                                 color: Colors.white30,
                                 fontSize: 9,
                               ),
@@ -1100,7 +1100,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                 Expanded(
                   child: Text(
                     match.aiReasoningSentence,
-                    style: GoogleFonts.lexend(
+                    style: GoogleFonts.dmSans(
                       color: Colors.white60,
                       fontSize: 10,
                       fontStyle: FontStyle.italic,
@@ -1134,7 +1134,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             children: [
               Text(
                 "LEAGUE STANDINGS",
-                style: GoogleFonts.lexend(
+                style: GoogleFonts.dmSans(
                   color: Colors.white54,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -1155,7 +1155,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                 },
                 child: Text(
                   match.league?.toUpperCase() ?? "",
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     color: AppColors.primary,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
@@ -1173,7 +1173,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                 children: [
                   DefaultTextStyle(
                     style:
-                        GoogleFonts.lexend(fontSize: 10, color: Colors.white38),
+                        GoogleFonts.dmSans(fontSize: 10, color: Colors.white38),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 4),
                       child: Row(

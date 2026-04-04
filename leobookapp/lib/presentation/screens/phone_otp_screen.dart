@@ -137,7 +137,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                               const SizedBox(width: 10),
                               Text(
                                 _otpSent ? 'Verify OTP' : 'Phone Number',
-                                style: GoogleFonts.lexend(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
@@ -170,7 +170,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                         ),
                         Text(
                           _otpSent ? 'Verify OTP' : 'Phone Number',
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             fontSize: 17,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -204,7 +204,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
         const SizedBox(height: 32),
         Text(
           'Enter your phone number',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.white,
@@ -213,7 +213,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
         const SizedBox(height: 8),
         Text(
           'We\'ll send you a verification code via SMS.',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 13,
             color: AppColors.textTertiary,
           ),
@@ -242,7 +242,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                 ),
                 child: Text(
                   '+234',
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: Colors.white,
@@ -254,13 +254,13 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.dmSans(
                     fontSize: 15,
                     color: Colors.white,
                   ),
                   decoration: InputDecoration(
                     hintText: '8012345678',
-                    hintStyle: GoogleFonts.lexend(
+                    hintStyle: GoogleFonts.dmSans(
                       color: AppColors.textDisabled,
                       fontSize: 15,
                     ),
@@ -300,7 +300,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                         )
                       : Text(
                           'Send Code',
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -325,7 +325,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
         const SizedBox(height: 32),
         Text(
           'Enter verification code',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.white,
@@ -334,7 +334,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
         const SizedBox(height: 8),
         Text(
           'Code sent to $_phone',
-          style: GoogleFonts.lexend(
+          style: GoogleFonts.dmSans(
             fontSize: 13,
             color: AppColors.textTertiary,
           ),
@@ -356,7 +356,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
               LengthLimitingTextInputFormatter(6),
             ],
             textAlign: TextAlign.center,
-            style: GoogleFonts.lexend(
+            style: GoogleFonts.dmSans(
               fontSize: 24,
               fontWeight: FontWeight.w700,
               color: Colors.white,
@@ -364,7 +364,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
             ),
             decoration: InputDecoration(
               hintText: '000000',
-              hintStyle: GoogleFonts.lexend(
+              hintStyle: GoogleFonts.dmSans(
                 color: AppColors.textDisabled,
                 fontSize: 24,
                 letterSpacing: 12,
@@ -405,7 +405,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                         )
                       : Text(
                           'Verify',
-                          style: GoogleFonts.lexend(
+                          style: GoogleFonts.dmSans(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -425,7 +425,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
             onTap: _sendOtp,
             child: Text(
               'Resend Code',
-              style: GoogleFonts.lexend(
+              style: GoogleFonts.dmSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primary,

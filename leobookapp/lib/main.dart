@@ -13,7 +13,6 @@ import 'package:leobookapp/presentation/screens/splash_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:leobookapp/logic/cubit/user_cubit.dart';
 import 'package:leobookapp/data/repositories/auth_repository.dart';
-import 'package:provider/provider.dart';
 import 'package:leobookapp/core/services/update_service.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -50,9 +49,7 @@ class LeoBookApp extends StatelessWidget {
         RepositoryProvider(create: (context) => DataRepository()),
         RepositoryProvider(create: (context) => NewsRepository()),
       ],
-      child: ChangeNotifierProvider(
-        create: (_) => UpdateService()..startPeriodicCheck(intervalSeconds: 3),
-        child: MultiBlocProvider(
+      child: MultiBlocProvider(
           providers: [
             BlocProvider<HomeCubit>(
               create: (context) => HomeCubit(
@@ -62,6 +59,9 @@ class LeoBookApp extends StatelessWidget {
             ),
             BlocProvider<UserCubit>(create: (context) => UserCubit(context.read<AuthRepository>())),
             BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
+            BlocProvider<UpdateCubit>(
+              create: (_) => UpdateCubit()..startPeriodicCheck(intervalSeconds: 3),
+            ),
           ],
           child: BlocBuilder<ThemeCubit, ThemeMode>(
             builder: (context, themeMode) => MaterialApp(
@@ -94,7 +94,6 @@ class LeoBookApp extends StatelessWidget {
               },
             ),
           ),
-        ),
       ),
     );
   }

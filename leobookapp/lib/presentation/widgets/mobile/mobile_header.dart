@@ -81,7 +81,7 @@ class MobileHeader extends StatelessWidget {
                               ),
                               child: Text(
                                 'SUPER',
-                                style: GoogleFonts.lexend(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 7,
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
