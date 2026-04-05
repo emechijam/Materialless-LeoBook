@@ -44,7 +44,7 @@ _SEL_MARKET_TYPE_ATTR = "data-market-type"
 
 # Regex helpers
 _RE_CATEGORY_ID   = re.compile(r"sr:category:(\d+)")
-_RE_TOURNAMENT_ID = re.compile(r"sr:tournament:(\d+)")
+_RE_TOURNAMENT_ID = re.compile(r"sr:(?:simple_)?tournament:(\d+)")
 _RE_MATCH_ID      = re.compile(r"sr:match:(\d+)")
 _RE_NUMERIC       = re.compile(r"[-+]?\d+(?:\.\d+)?")
 

@@ -232,7 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const Spacer(flex: 5),
           BlocBuilder<UserCubit, UserState>(
             builder: (context, state) {
-              final isGoogleLoading = state is UserLoading && (state as UserLoading).method == 'google';
+              final isGoogleLoading = state is UserLoading && state.method == 'google';
               final isGlobalLoading = state is UserLoading;
               return Column(
                 children: [
@@ -364,7 +364,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 40),
         BlocBuilder<UserCubit, UserState>(
           builder: (context, state) {
-            final isGoogleLoading = state is UserLoading && (state as UserLoading).method == 'google';
+            final isGoogleLoading = state is UserLoading && state.method == 'google';
             final isGlobalLoading = state is UserLoading;
             return Column(
               children: [

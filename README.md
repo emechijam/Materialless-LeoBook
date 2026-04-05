@@ -291,12 +291,18 @@ flutter build apk --release   # Production APK
 
 ### Deploy APK
 
-```bash
-# Build, rename (auto-versioned from pubspec.yaml), and upload to Supabase
-./deploy_apk.sh
+Release builds must be signed. The script [`infra/deploy_apk.sh`](infra/deploy_apk.sh) reads **`leobookapp/.env`** and then **`infra/.env`** (see [`.env.example`](.env.example)).
 
-# Skip build, upload existing APK
-./deploy_apk.sh --skip-build
+**Option A — env vars (typical for Codespaces / CI):** set `LEOBOOK_STORE_PASSWORD`, `LEOBOOK_KEY_ALIAS`, `LEOBOOK_KEY_PASSWORD`, and either `LEOBOOK_KEYSTORE_PATH` (path to your `.jks`) or `LEOBOOK_KEYSTORE_BASE64` (base64 of the keystore). Optional legacy names: `STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Also ensure `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SERVICE_KEY` is set for Storage upload.
+
+**Option B — local Gradle signing:** add `leobookapp/android/key.properties` and your keystore (see [Flutter Android deploy signing](https://docs.flutter.dev/deployment/android#signing-the-app)); the script skips generating `key.properties` when that file already exists.
+
+```bash
+# From repo root (or use: python Leo.py --deploy-apk)
+bash infra/deploy_apk.sh
+
+# Skip Flutter build, upload existing APKs from build output
+bash infra/deploy_apk.sh --skip-build
 ```
 ---
 

@@ -230,7 +230,12 @@ prepare_release_signing() {
   key_password="$(first_non_empty_env LEOBOOK_KEY_PASSWORD KEY_PASSWORD || true)"
 
   if [ -z "$store_password" ] || [ -z "$key_alias" ] || [ -z "$key_password" ]; then
-    echo "ERROR: Signing credentials missing from leobookapp/.env"
+    echo "ERROR: Release signing credentials not found." >&2
+    echo "Either:" >&2
+    echo "  1) Add to leobookapp/.env or infra/.env: LEOBOOK_STORE_PASSWORD, LEOBOOK_KEY_ALIAS, LEOBOOK_KEY_PASSWORD" >&2
+    echo "     (aliases: STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD) plus LEOBOOK_KEYSTORE_PATH or LEOBOOK_KEYSTORE_BASE64" >&2
+    echo "  2) Or create leobookapp/android/key.properties pointing at your release .jks (see Flutter Android signing)." >&2
+    echo "See README.md → Deploy APK." >&2
     exit 1
   fi
 
