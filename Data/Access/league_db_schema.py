@@ -322,24 +322,29 @@ _SCHEMA_SQL = """
         last_updated        TEXT DEFAULT (datetime('now'))
     );
 
-    -- Indexes for hot-path queries
+    -- Indexes for hot-path queries (columns that exist at CREATE TABLE time)
     CREATE INDEX IF NOT EXISTS idx_schedules_league ON schedules(league_id);
     CREATE INDEX IF NOT EXISTS idx_schedules_date ON schedules(date);
     CREATE INDEX IF NOT EXISTS idx_schedules_fixture_id ON schedules(fixture_id);
     CREATE INDEX IF NOT EXISTS idx_leagues_league_id ON leagues(league_id);
-    CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_predictions_date ON predictions(user_id, date);
-    CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(user_id, status);
-    CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id, timestamp);
-    CREATE INDEX IF NOT EXISTS idx_fb_matches_user ON fb_matches(user_id);
-    CREATE INDEX IF NOT EXISTS idx_accuracy_reports_user ON accuracy_reports(user_id);
     CREATE INDEX IF NOT EXISTS idx_user_credentials_user ON user_credentials(user_id, platform);
     CREATE INDEX IF NOT EXISTS idx_match_odds_fixture ON match_odds(fixture_id);
     CREATE INDEX IF NOT EXISTS idx_match_odds_market ON match_odds(market_id, extracted_at);
     CREATE INDEX IF NOT EXISTS idx_match_odds_site ON match_odds(site_match_id);
-    CREATE INDEX IF NOT EXISTS idx_schedules_sport ON schedules(sport, date);
-    CREATE INDEX IF NOT EXISTS idx_accuracy_reports_sport ON accuracy_reports(user_id, sport, period);
 """
+
+# Indexes that depend on columns added by ALTER migrations (user_id, sport).
+# Must be created AFTER _run_alter_migrations().
+_POST_ALTER_INDEXES_SQL = [
+    "CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_predictions_date ON predictions(user_id, date)",
+    "CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(user_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id, timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_fb_matches_user ON fb_matches(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_accuracy_reports_user ON accuracy_reports(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_schedules_sport ON schedules(sport, date)",
+    "CREATE INDEX IF NOT EXISTS idx_accuracy_reports_sport ON accuracy_reports(user_id, sport, period)",
+]
 
 # ── ALTER TABLE migrations (idempotent) ───────────────────────────────────────
 
@@ -475,5 +480,6 @@ _COMPUTED_STANDINGS_SQL = """
 __all__ = [
     "_SCHEMA_SQL",
     "_ALTER_MIGRATIONS",
+    "_POST_ALTER_INDEXES_SQL",
     "_COMPUTED_STANDINGS_SQL",
 ]

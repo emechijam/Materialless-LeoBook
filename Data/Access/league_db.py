@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from Core.Utils.constants import now_ng
 from Data.Access.league_db_schema import (
-    _SCHEMA_SQL, _ALTER_MIGRATIONS, _COMPUTED_STANDINGS_SQL,
+    _SCHEMA_SQL, _ALTER_MIGRATIONS, _POST_ALTER_INDEXES_SQL, _COMPUTED_STANDINGS_SQL,
 )
 
 # ── Sub-module re-exports ─────────────────────────────────────────────────────
@@ -284,6 +284,15 @@ def init_db(conn: Optional[sqlite3.Connection] = None) -> sqlite3.Connection:
     conn.commit()
 
     _run_alter_migrations(conn)
+
+    # Indexes that reference columns added by ALTER migrations (user_id, sport)
+    for idx_sql in _POST_ALTER_INDEXES_SQL:
+        try:
+            conn.execute(idx_sql)
+        except sqlite3.OperationalError:
+            pass
+    conn.commit()
+
     _create_post_alter_indexes(conn)
     _reconstruct_teams_table_if_legacy_unique_exists(conn)
     _initialize_countries(conn)
