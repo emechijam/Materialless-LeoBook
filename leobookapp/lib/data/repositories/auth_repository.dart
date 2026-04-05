@@ -138,22 +138,40 @@ class AuthRepository {
     }
   }
 
-  /// Mobile: Use Supabase OAuth redirect (opens Chrome Custom Tab).
-  /// Deep link com.materialless.leobookapp://login-callback returns the session.
-  /// Does NOT require google-services.json.
+  /// Mobile: Native in-app Google Sign-In via google_sign_in v7+ SDK.
+  /// Shows the native credential-picker sheet — no Chrome / external browser.
+  /// GoogleSignIn.instance.initialize() is called once at startup in main.dart.
   Future<AuthResponse> _signInWithGoogleNative() async {
     try {
-      final success = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: _authRedirectUrl,
-      );
-      if (!success) {
-        throw 'Google sign-in could not open the browser.';
+      // v7+: authenticate() replaces signIn(); returns GoogleSignInAccount.
+      final account = await GoogleSignIn.instance.authenticate();
+
+      // .authentication is a synchronous property in v7 (GoogleSignInAuthentication).
+      final idToken = account.authentication.idToken;
+      if (idToken == null) {
+        throw 'Google authentication failed — missing ID token. '
+            'Ensure GOOGLE_WEB_CLIENT_ID is the Web OAuth client ID.';
       }
-      // Browser opened — session will arrive via authStateChanges deep link.
-      return AuthResponse(session: null, user: null);
-    } catch (e) {
-      debugPrint('[AuthRepository] Google OAuth (mobile) error: $e');
+
+      // Only idToken is needed; accessToken requires authorizationClient in v7.
+      final response = await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+
+      if (response.user != null) {
+        logUserSession(response.user!, deviceInfo: await _buildDeviceInfo());
+      }
+
+      return response;
+    } on Exception catch (e) {
+      final msg = e.toString().toLowerCase();
+      // User tapped Cancel on the picker — not an error.
+      if (msg.contains('cancel') || msg.contains('sign_in_cancelled')) {
+        debugPrint('[AuthRepository] Google sign-in cancelled by user.');
+        return AuthResponse(session: null, user: null);
+      }
+      debugPrint('[AuthRepository] Google native sign-in error: $e');
       rethrow;
     }
   }
@@ -210,8 +228,28 @@ class AuthRepository {
     }
   }
 
+  /// Check whether [identifier] (email or phone) belongs to an existing user.
+  ///
+  /// Strategy (most reliable first):
+  ///   1. Edge function 'check-user-status' — queries auth.users directly.
+  ///   2. Profiles table — covers email/phone if profile row exists.
+  ///   3. Returns null (unknown) on total failure — caller treats as new user.
   Future<Map<String, dynamic>?> checkUserExistence(String identifier) async {
-    // Primary: query profiles table directly (no edge function needed)
+    // ── 1. Edge function (primary) ────────────────────────────────────
+    try {
+      final response = await _supabase.functions
+          .invoke('check-user-status', body: {'identifier': identifier})
+          .timeout(const Duration(seconds: 6));
+      final data = response.data;
+      if (data is Map && data.containsKey('exists')) {
+        debugPrint('[AuthRepository] checkUserExistence via edge fn: $data');
+        return Map<String, dynamic>.from(data);
+      }
+    } catch (e) {
+      debugPrint('[AuthRepository] checkUserExistence edge fn failed: $e');
+    }
+
+    // ── 2. Profiles table (fallback) ──────────────────────────────────
     try {
       final isEmail = identifier.contains('@');
       final List<dynamic> rows = isEmail
@@ -225,22 +263,15 @@ class AuthRepository {
               .select('id')
               .eq('phone', identifier)
               .limit(1);
+      debugPrint(
+          '[AuthRepository] checkUserExistence via profiles: ${rows.isNotEmpty}');
       return {'exists': rows.isNotEmpty};
     } catch (e) {
-      debugPrint('[AuthRepository] checkUserExistence profiles query: $e');
+      debugPrint('[AuthRepository] checkUserExistence profiles failed: $e');
     }
 
-    // Fallback: edge function
-    try {
-      final response = await _supabase.functions.invoke(
-        'check-user-status',
-        body: {'identifier': identifier},
-      );
-      return response.data as Map<String, dynamic>?;
-    } catch (e) {
-      debugPrint('[AuthRepository] checkUserExistence edge function: $e');
-      return null;
-    }
+    // ── 3. Unknown — treat as new user in the caller ──────────────────
+    return null;
   }
 
   // ─── Phone OTP (disabled) ─────────────────────────────────────────

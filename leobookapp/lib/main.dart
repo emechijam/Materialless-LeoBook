@@ -3,7 +3,9 @@
 //
 // Classes: LeoBookApp
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:leobookapp/core/theme/app_theme_v2.dart';
 import 'package:leobookapp/core/theme/theme_cubit.dart';
 import 'package:leobookapp/logic/cubit/home_cubit.dart';
@@ -34,6 +36,17 @@ Future<void> main() async {
       localStorage: SecureSupabaseStorage(),
     ),
   );
+
+  // google_sign_in v7: initialize singleton once before runApp.
+  // On mobile this wires up the server/web client ID so authenticate()
+  // can issue an idToken for Supabase signInWithIdToken.
+  // On web, Supabase OAuth handles Google directly — skip.
+  if (!kIsWeb) {
+    final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
+    await GoogleSignIn.instance.initialize(
+      serverClientId: webClientId,
+    );
+  }
 
   runApp(const LeoBookApp());
 }

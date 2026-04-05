@@ -3,9 +3,10 @@
 //
 // Sections:
 //   • Profile header (Google avatar / initials, name, email, phone, badges)
-//   • Appearance (System / Light / Dark with persistence)
 //   • Device fingerprint (auto-extracted, read-only, locked)
 //   • Football.com vault (phone + password + withdrawal PIN, biometric-gated reveal)
+//
+// Note: Appearance (dark/light/system) is managed in Settings → General → Appearance.
 
 import 'dart:io';
 
@@ -20,7 +21,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'package:leobookapp/core/constants/app_colors.dart';
-import 'package:leobookapp/core/theme/theme_cubit.dart';
 import 'package:leobookapp/logic/cubit/user_cubit.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -250,10 +250,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               const SizedBox(height: 8),
               _buildProfileHeader(user),
               const SizedBox(height: 28),
-              _sectionLabel('Appearance'),
-              const SizedBox(height: 8),
-              _buildAppearanceCard(),
-              const SizedBox(height: 28),
               _sectionLabel('Device Fingerprint'),
               const SizedBox(height: 8),
               _buildFingerprintCard(),
@@ -384,27 +380,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           const Icon(Icons.verified_rounded, size: 14, color: AppColors.success),
         ],
       ],
-    );
-  }
-
-  // ─── Appearance ──────────────────────────────────────────────────
-
-  Widget _buildAppearanceCard() {
-    return BlocBuilder<ThemeCubit, ThemeMode>(
-      builder: (context, mode) {
-        return _card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _cardRow(
-                icon: Icons.brightness_auto_rounded,
-                label: 'Theme',
-                trailing: _ThemeSegmentedControl(current: mode),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -784,24 +759,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _cardRow({
-    required IconData icon,
-    required String label,
-    required Widget trailing,
-  }) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: AppColors.textTertiary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(label,
-              style: GoogleFonts.dmSans(fontSize: 14, color: Colors.white)),
-        ),
-        trailing,
-      ],
-    );
-  }
-
   Widget _sectionLabel(String text) => Padding(
         padding: const EdgeInsets.only(left: 2),
         child: Text(
@@ -815,68 +772,3 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       );
 }
 
-// ─── Theme Segmented Control ─────────────────────────────────────────────────
-
-class _ThemeSegmentedControl extends StatelessWidget {
-  final ThemeMode current;
-  const _ThemeSegmentedControl({required this.current});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.neutral700.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _seg(context, ThemeMode.system, Icons.brightness_auto_rounded, 'Auto'),
-          _seg(context, ThemeMode.light, Icons.light_mode_outlined, 'Light'),
-          _seg(context, ThemeMode.dark, Icons.dark_mode_outlined, 'Dark'),
-        ],
-      ),
-    );
-  }
-
-  Widget _seg(BuildContext ctx, ThemeMode mode, IconData icon, String label) {
-    final selected = current == mode;
-    return GestureDetector(
-      onTap: () {
-        final cubit = ctx.read<ThemeCubit>();
-        if (mode == ThemeMode.system) cubit.setSystem();
-        if (mode == ThemeMode.light) cubit.setLight();
-        if (mode == ThemeMode.dark) cubit.setDark();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary.withValues(alpha: 0.2)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-          border: selected
-              ? Border.all(color: AppColors.primary.withValues(alpha: 0.4))
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14,
-                color: selected ? AppColors.primary : AppColors.textTertiary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: GoogleFonts.dmSans(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected ? AppColors.primary : AppColors.textTertiary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

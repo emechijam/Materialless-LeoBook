@@ -4,12 +4,14 @@
 // Grouped sections with category headers, glass cards, version footer
 // with in-app update availability check.
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:leobookapp/core/constants/app_colors.dart';
 import 'package:leobookapp/core/theme/leo_typography.dart';
+import 'package:leobookapp/core/theme/theme_cubit.dart';
 import 'package:leobookapp/core/services/update_service.dart';
 import 'package:leobookapp/data/models/user_model.dart';
 import 'package:leobookapp/logic/cubit/user_cubit.dart';
@@ -129,11 +131,20 @@ class AccountScreen extends StatelessWidget {
                       _sectionLabel('General'),
                       const SizedBox(height: 8),
                       _glassGroup([
-                        _settingsTile(
-                          icon: Icons.brightness_6_outlined,
-                          title: 'Appearance',
-                          subtitle: 'Dark',
-                          onTap: () {},
+                        BlocBuilder<ThemeCubit, ThemeMode>(
+                          builder: (context, themeMode) {
+                            final subtitle = switch (themeMode) {
+                              ThemeMode.dark => 'Dark',
+                              ThemeMode.light => 'Light',
+                              _ => 'System',
+                            };
+                            return _settingsTile(
+                              icon: Icons.brightness_6_outlined,
+                              title: 'Appearance',
+                              subtitle: subtitle,
+                              onTap: () => _showAppearanceSheet(context),
+                            );
+                          },
                         ),
                         _settingsTile(
                           icon: Icons.notifications_outlined,
@@ -266,21 +277,7 @@ class AccountScreen extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                child: Text(
-                  (user.displayName ?? user.id)
-                      .substring(
-                          0, (user.displayName ?? user.id).length >= 2 ? 2 : 1)
-                      .toUpperCase(),
-                  style: GoogleFonts.dmSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
+              _buildAvatarWidget(user, radius: 24),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -409,6 +406,70 @@ class AccountScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Avatar helper
+  // ═══════════════════════════════════════════════════════════════════
+
+  Widget _buildAvatarWidget(UserModel user, {double radius = 24}) {
+    final initials = (user.displayName ?? user.id)
+        .substring(0, (user.displayName ?? user.id).length >= 2 ? 2 : 1)
+        .toUpperCase();
+    final avatarUrl = user.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+      child: ClipOval(
+        child: hasAvatar
+            ? CachedNetworkImage(
+                imageUrl: avatarUrl,
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => _initialsWidget(initials, radius),
+                errorWidget: (_, __, ___) => _initialsWidget(initials, radius),
+              )
+            : _initialsWidget(initials, radius),
+      ),
+    );
+  }
+
+  Widget _initialsWidget(String initials, double radius) {
+    return SizedBox(
+      width: radius * 2,
+      height: radius * 2,
+      child: Center(
+        child: Text(
+          initials,
+          style: GoogleFonts.dmSans(
+            fontSize: radius * 0.65,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Appearance Sheet
+  // ═══════════════════════════════════════════════════════════════════
+
+  void _showAppearanceSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.neutral800,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => BlocProvider.value(
+        value: context.read<ThemeCubit>(),
+        child: const _AppearanceSheet(),
+      ),
     );
   }
 
@@ -911,6 +972,150 @@ class AccountScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Appearance bottom sheet (System / Light / Dark)
+// ═══════════════════════════════════════════════════════════════════
+
+class _AppearanceSheet extends StatelessWidget {
+  const _AppearanceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ThemeCubit, ThemeMode>(
+      builder: (context, current) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Appearance',
+                style: GoogleFonts.dmSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Defaults to your device system setting.',
+                style: GoogleFonts.dmSans(
+                  fontSize: 13,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _AppearanceTile(
+                icon: Icons.brightness_auto_rounded,
+                label: 'System default',
+                sublabel: 'Follows your device theme',
+                selected: current == ThemeMode.system,
+                onTap: () => context.read<ThemeCubit>().setSystem(),
+              ),
+              const SizedBox(height: 8),
+              _AppearanceTile(
+                icon: Icons.light_mode_outlined,
+                label: 'Light',
+                sublabel: 'Always use light mode',
+                selected: current == ThemeMode.light,
+                onTap: () => context.read<ThemeCubit>().setLight(),
+              ),
+              const SizedBox(height: 8),
+              _AppearanceTile(
+                icon: Icons.dark_mode_outlined,
+                label: 'Dark',
+                sublabel: 'Always use dark mode',
+                selected: current == ThemeMode.dark,
+                onTap: () => context.read<ThemeCubit>().setDark(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AppearanceTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String sublabel;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _AppearanceTile({
+    required this.icon,
+    required this.label,
+    required this.sublabel,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.12)
+              : AppColors.neutral700.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.4)
+                : Colors.white.withValues(alpha: 0.06),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: selected ? AppColors.primary : AppColors.textTertiary,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 14,
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w400,
+                      color:
+                          selected ? Colors.white : AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    sublabel,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 11,
+                      color: AppColors.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              Icon(
+                Icons.check_circle_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
