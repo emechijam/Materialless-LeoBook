@@ -3,8 +3,8 @@
 **Developer**: Materialless LLC
 **Chief Engineer**: Emenike Chinenye James
 **Powered by**: Rule Engine + Neural RL Stairway Engine
-**Architecture**: v9.5.9 "Stairway Engine" (All files ≤500 lines · Fully Modular · Season-Aware RL Weighting · Data Contract)
-**App Version**: 9.5.9 ([pubspec.yaml](leobookapp/pubspec.yaml) aligned with `LEOBOOK_VERSION` in `Core/Utils/constants.py`)
+**Architecture**: v9.6.2 "Stairway Engine" (All files ≤500 lines · Fully Modular · Season-Aware RL Weighting · Data Contract)
+**App Version**: 9.6.2 ([pubspec.yaml](leobookapp/pubspec.yaml) aligned with `LEOBOOK_VERSION` in `Core/Utils/constants.py` and [app_version.dart](leobookapp/lib/core/constants/app_version.dart))
 
 ---
 
