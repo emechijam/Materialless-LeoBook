@@ -20,7 +20,12 @@ class UserInitial extends UserState {
 
 /// Loading during auth operations
 class UserLoading extends UserState {
-  const UserLoading({required super.user});
+  /// Which auth method is loading: 'google', 'email', 'phone', 'otp', 'biometric', etc.
+  final String method;
+  const UserLoading({required super.user, this.method = ''});
+
+  @override
+  List<Object?> get props => [user, method];
 }
 
 /// Successfully authenticated

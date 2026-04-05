@@ -19,6 +19,7 @@ import 'package:leobookapp/presentation/screens/subscription_screen.dart';
 import 'package:leobookapp/presentation/screens/stairway_screen.dart';
 import 'package:leobookapp/presentation/screens/accuracy_dashboard_screen.dart';
 import 'package:leobookapp/presentation/screens/fingerprint_settings_screen.dart';
+import 'package:leobookapp/presentation/screens/user_profile_screen.dart';
 import 'package:leobookapp/data/services/user_account_snapshots_service.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -245,7 +246,16 @@ class AccountScreen extends StatelessWidget {
     return BlocBuilder<UserCubit, UserState>(
       builder: (context, state) {
         final user = state.user;
-        return Container(
+        return GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: context.read<UserCubit>(),
+                child: const UserProfileScreen(),
+              ),
+            ),
+          ),
+          child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppColors.neutral800,
@@ -315,8 +325,15 @@ class AccountScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 13,
+                color: AppColors.textDisabled,
+              ),
             ],
           ),
+        ),
         );
       },
     );

@@ -19,6 +19,9 @@ class UserModel {
   final bool isSuperLeoBook; // UI-level subscription flag
   final bool isProfileComplete;
 
+  /// Google profile photo URL (null for non-Google sign-ins).
+  final String? avatarUrl;
+
   // ─── Subscription Fields ─────────────────────────────────────
   /// Payment provider: 'paystack', 'stripe', 'trial', or null
   final String? subscriptionProvider;
@@ -43,6 +46,7 @@ class UserModel {
     this.isBiometricsEnabled = false,
     this.isSuperLeoBook = false,
     this.isProfileComplete = false,
+    this.avatarUrl,
     this.subscriptionProvider,
     this.subscriptionStatus = 'none',
     this.subscriptionExpiresAt,
@@ -146,16 +150,18 @@ class UserModel {
       isBiometricsEnabled: isBiometricsEnabled,
       isSuperLeoBook: isSuperLeoBook,
       isProfileComplete: isProfileComplete,
+      avatarUrl: meta['avatar_url'] as String? ?? meta['picture'] as String?,
     );
   }
 
   /// Return a copy with modified fields.
   UserModel copyWith({
-    bool? isSuperLeoBook, 
+    bool? isSuperLeoBook,
     UserTier? tier,
     bool? isProfileComplete,
     bool? isPhoneVerified,
     bool? isBiometricsEnabled,
+    String? avatarUrl,
   }) {
     return UserModel(
       id: id,
@@ -168,6 +174,7 @@ class UserModel {
       isBiometricsEnabled: isBiometricsEnabled ?? this.isBiometricsEnabled,
       isSuperLeoBook: isSuperLeoBook ?? this.isSuperLeoBook,
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
     );
   }
 }
