@@ -151,7 +151,7 @@ class AuthRepository {
         throw 'Google sign-in could not open the browser.';
       }
       // Browser opened — session will arrive via authStateChanges deep link.
-      return const AuthResponse(session: null, user: null);
+      return AuthResponse(session: null, user: null);
     } catch (e) {
       debugPrint('[AuthRepository] Google OAuth (mobile) error: $e');
       rethrow;
