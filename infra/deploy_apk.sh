@@ -214,6 +214,23 @@ first_non_empty_env() {
   return 1
 }
 
+# Read a var directly from .env files on disk - bypasses parent-process env inheritance.
+# Needed because Leo.py exports its env to bash subprocesses; load_env_file skips
+# already-set vars (even empty ones), so signing creds may be invisible to first_non_empty_env.
+_read_from_env_files() {
+  local var_name="$1"
+  local env_file v
+  for env_file in "$APP_DIR/.env" "$SCRIPT_DIR/.env"; do
+    [ -f "$env_file" ] || continue
+    v="$(grep -m1 "^[[:space:]]*${var_name}=" "$env_file" 2>/dev/null | sed 's/^[^=]*=//')"
+    v="${v%$'\r'}"
+    v="${v//\"}"
+    v="${v//\'}"
+    [ -n "$v" ] && { printf '%s' "$v"; return 0; }
+  done
+  return 1
+}
+
 prepare_release_signing() {
   if [ -f "$KEY_PROPERTIES_FILE" ]; then
     return 0
@@ -230,9 +247,9 @@ prepare_release_signing() {
   if { [ -z "$keystore_path" ] || [ ! -f "$keystore_path" ]; } && [ -f "$bundled_jks" ]; then
     keystore_path="$bundled_jks"
   fi
-  store_password="$(first_non_empty_env LEOBOOK_STORE_PASSWORD STORE_PASSWORD || true)"
-  key_alias="$(first_non_empty_env LEOBOOK_KEY_ALIAS KEY_ALIAS || true)"
-  key_password="$(first_non_empty_env LEOBOOK_KEY_PASSWORD KEY_PASSWORD || true)"
+  store_password="$(first_non_empty_env LEOBOOK_STORE_PASSWORD STORE_PASSWORD || _read_from_env_files LEOBOOK_STORE_PASSWORD || true)"
+  key_alias="$(first_non_empty_env LEOBOOK_KEY_ALIAS KEY_ALIAS || _read_from_env_files LEOBOOK_KEY_ALIAS || true)"
+  key_password="$(first_non_empty_env LEOBOOK_KEY_PASSWORD KEY_PASSWORD || _read_from_env_files LEOBOOK_KEY_PASSWORD || true)"
 
   if [ -z "$store_password" ] || [ -z "$key_alias" ] || [ -z "$key_password" ]; then
     echo "ERROR: Release signing credentials not found." >&2
