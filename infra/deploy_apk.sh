@@ -225,6 +225,11 @@ prepare_release_signing() {
   local key_password=""
 
   keystore_path="$(first_non_empty_env LEOBOOK_KEYSTORE_PATH KEYSTORE_PATH || true)"
+  # Auto-detect bundled repo keystore when path is unset or points to a placeholder
+  local bundled_jks="$APP_DIR/android/app/leobook-release.jks"
+  if { [ -z "$keystore_path" ] || [ ! -f "$keystore_path" ]; } && [ -f "$bundled_jks" ]; then
+    keystore_path="$bundled_jks"
+  fi
   store_password="$(first_non_empty_env LEOBOOK_STORE_PASSWORD STORE_PASSWORD || true)"
   key_alias="$(first_non_empty_env LEOBOOK_KEY_ALIAS KEY_ALIAS || true)"
   key_password="$(first_non_empty_env LEOBOOK_KEY_PASSWORD KEY_PASSWORD || true)"
@@ -433,6 +438,8 @@ require_command base64
 
 load_env_file "$APP_DIR/.env"
 load_env_file "$SCRIPT_DIR/.env"
+# Also load a committed signing env (not gitignored, safe for Codespaces)
+load_env_file "$SCRIPT_DIR/signing.env"
 
 KEYTOOL_BIN="$(resolve_java_tool keytool)"
 ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$(resolve_android_sdk_root || true)}"
