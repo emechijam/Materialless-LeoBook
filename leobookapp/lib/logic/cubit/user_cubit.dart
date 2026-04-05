@@ -67,19 +67,16 @@ class UserCubit extends Cubit<UserState> {
   }
 
   Future<bool> checkUserStatus(String identifier) async {
-    emit(UserLoading(user: state.user));
     try {
       final userData = await _authRepo.checkUserExistence(identifier);
-      emit(UserInitial(user: state.user));
       return userData?['exists'] == true;
     } catch (_) {
-      emit(UserInitial(user: state.user));
       return false;
     }
   }
 
   Future<void> signInWithPassword(String identifier, String password) async {
-    emit(UserLoading(user: state.user));
+    emit(UserLoading(user: state.user, method: 'password'));
     try {
       final response = await _authRepo.signInWithPassword(identifier, password);
       if (response.user != null) {
@@ -180,15 +177,15 @@ class UserCubit extends Cubit<UserState> {
   }
 
   Future<void> signInWithGoogle() async {
-    emit(UserLoading(user: state.user));
+    emit(UserLoading(user: state.user, method: 'google'));
     try {
       final response = await _authRepo.signInWithGoogle();
       if (response.user != null) {
         _emitCorrectState(UserModel.fromSupabaseUser(response.user!));
-      } else if (kIsWeb) {
-        emit(UserInitial(user: state.user));
       } else {
-        emit(UserError(user: state.user, message: 'Google sign-in failed.'));
+        // OAuth browser opened (mobile) or redirect initiated (web).
+        // Auth completes via authStateChanges deep link — emit idle.
+        emit(UserInitial(user: state.user));
       }
     } catch (e) {
       emit(UserError(
@@ -355,7 +352,7 @@ class UserCubit extends Cubit<UserState> {
   }
 
   Future<void> sendMagicLink(String email) async {
-    emit(UserLoading(user: state.user));
+    emit(UserLoading(user: state.user, method: 'otp'));
     try {
       await _authRepo.sendMagicLink(email);
       emit(UserInitial(user: state.user));

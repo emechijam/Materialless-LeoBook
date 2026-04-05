@@ -1,6 +1,7 @@
 // login_screen.dart: Grok-inspired login/signup screen.
 // Part of LeoBook App - Screens
 
+import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -101,7 +102,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleIdentifierCheck(
       BuildContext context, String title) async {
-    final controller = TextEditingController();
     final isPhone = title.toLowerCase().contains('phone');
 
     return showModalBottomSheet(
@@ -111,119 +111,10 @@ class _LoginScreenState extends State<LoginScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-          top: 32,
-          left: 24,
-          right: 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.dmSans(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isPhone
-                  ? 'Enter your phone number to continue.'
-                  : 'Enter your email to continue.',
-              style: GoogleFonts.dmSans(
-                  color: AppColors.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.neutral700.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: TextField(
-                controller: controller,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                keyboardType:
-                    isPhone ? TextInputType.phone : TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText:
-                      isPhone ? 'e.g. 8012345678' : 'e.g. user@example.com',
-                  hintStyle: const TextStyle(
-                      color: AppColors.textDisabled, fontSize: 14),
-                  border: InputBorder.none,
-                  prefixIcon: Icon(
-                    isPhone ? Icons.phone_outlined : Icons.email_outlined,
-                    color: AppColors.textTertiary,
-                    size: 20,
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28)),
-              ),
-              onPressed: () async {
-                final id = controller.text.trim();
-                if (id.isEmpty) return;
-
-                final formattedId =
-                    isPhone ? (id.startsWith('+') ? id : '+234$id') : id;
-                Navigator.pop(sheetContext);
-                final exists = await context
-                    .read<UserCubit>()
-                    .checkUserStatus(formattedId);
-
-                if (!context.mounted) return;
-
-                if (exists) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          PasswordEntryScreen(identifier: formattedId),
-                    ),
-                  );
-                  return;
-                }
-
-                if (isPhone) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const EmailOtpSignUpScreen(
-                        title: 'Create your account',
-                      ),
-                    ),
-                  );
-                } else {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => EmailOtpSignUpScreen(
-                        initialEmail: formattedId,
-                        title: 'Create your account',
-                      ),
-                    ),
-                  );
-                }
-              },
-              child: Text('Continue',
-                  style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
+      builder: (sheetContext) => _IdentifierInputSheet(
+        title: title,
+        isPhone: isPhone,
+        parentContext: context,
       ),
     );
   }
@@ -341,7 +232,8 @@ class _LoginScreenState extends State<LoginScreen> {
           const Spacer(flex: 5),
           BlocBuilder<UserCubit, UserState>(
             builder: (context, state) {
-              final isLoading = state is UserLoading;
+              final isGoogleLoading = state is UserLoading && (state as UserLoading).method == 'google';
+              final isGlobalLoading = state is UserLoading;
               return Column(
                 children: [
                   _AuthButton(
@@ -351,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 22,
                       height: 22,
                     ),
-                    isLoading: isLoading,
+                    isLoading: isGoogleLoading,
                     onTap: () => context.read<UserCubit>().signInWithGoogle(),
                   ),
                   const SizedBox(height: 12),
@@ -359,16 +251,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     label: 'Sign in with Phone',
                     icon: Icons.phone_outlined,
                     isLoading: false,
-                    onTap: () =>
-                        _handleIdentifierCheck(context, 'Sign in with Phone'),
+                    onTap: isGlobalLoading ? () {} : () => _handleIdentifierCheck(context, 'Sign in with Phone'),
                   ),
                   const SizedBox(height: 12),
                   _AuthButton(
                     label: 'Continue with Email',
                     icon: Icons.email_outlined,
                     isLoading: false,
-                    onTap: () =>
-                        _handleIdentifierCheck(context, 'Continue with Email'),
+                    onTap: isGlobalLoading ? () {} : () => _handleIdentifierCheck(context, 'Continue with Email'),
                   ),
                 ],
               );
@@ -474,7 +364,8 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 40),
         BlocBuilder<UserCubit, UserState>(
           builder: (context, state) {
-            final isLoading = state is UserLoading;
+            final isGoogleLoading = state is UserLoading && (state as UserLoading).method == 'google';
+            final isGlobalLoading = state is UserLoading;
             return Column(
               children: [
                 _AuthButton(
@@ -484,7 +375,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: 22,
                     height: 22,
                   ),
-                  isLoading: isLoading,
+                  isLoading: isGoogleLoading,
                   onTap: () => context.read<UserCubit>().signInWithGoogle(),
                 ),
                 const SizedBox(height: 12),
@@ -492,16 +383,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   label: 'Sign in with Phone',
                   icon: Icons.phone_outlined,
                   isLoading: false,
-                  onTap: () =>
-                      _handleIdentifierCheck(context, 'Sign in with Phone'),
+                  onTap: isGlobalLoading ? () {} : () => _handleIdentifierCheck(context, 'Sign in with Phone'),
                 ),
                 const SizedBox(height: 12),
                 _AuthButton(
                   label: 'Continue with Email',
                   icon: Icons.email_outlined,
                   isLoading: false,
-                  onTap: () =>
-                      _handleIdentifierCheck(context, 'Continue with Email'),
+                  onTap: isGlobalLoading ? () {} : () => _handleIdentifierCheck(context, 'Continue with Email'),
                 ),
               ],
             );
@@ -548,6 +437,237 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Identifier Input Sheet (email or phone with country picker) ───
+class _IdentifierInputSheet extends StatefulWidget {
+  final String title;
+  final bool isPhone;
+  final BuildContext parentContext;
+
+  const _IdentifierInputSheet({
+    required this.title,
+    required this.isPhone,
+    required this.parentContext,
+  });
+
+  @override
+  State<_IdentifierInputSheet> createState() => _IdentifierInputSheetState();
+}
+
+class _IdentifierInputSheetState extends State<_IdentifierInputSheet> {
+  final _controller = TextEditingController();
+  String _countryCode = '+234';
+  String _countryFlag = 'NG';
+  bool _isChecking = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _showCountryPicker() {
+    FocusScope.of(context).unfocus();
+    showCountryPicker(
+      context: context,
+      showPhoneCode: true,
+      countryListTheme: CountryListThemeData(
+        backgroundColor: AppColors.neutral900,
+        textStyle: const TextStyle(color: Colors.white),
+        searchTextStyle: const TextStyle(color: Colors.white),
+        bottomSheetHeight: 500,
+        inputDecoration: InputDecoration(
+          labelText: 'Search',
+          labelStyle: const TextStyle(color: AppColors.textSecondary),
+          hintText: 'Search for country code',
+          hintStyle: const TextStyle(color: AppColors.textDisabled),
+          prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.neutral700),
+          ),
+        ),
+      ),
+      onSelect: (Country country) {
+        setState(() {
+          _countryFlag = country.flagEmoji;
+          _countryCode = '+${country.phoneCode}';
+        });
+      },
+    );
+  }
+
+  Future<void> _onContinue() async {
+    final raw = _controller.text.trim();
+    if (raw.isEmpty) return;
+    if (_isChecking) return;
+
+    final formattedId = widget.isPhone
+        ? (raw.startsWith('+') ? raw : '$_countryCode$raw')
+        : raw;
+
+    setState(() => _isChecking = true);
+    final exists = await widget.parentContext
+        .read<UserCubit>()
+        .checkUserStatus(formattedId);
+    if (!mounted) return;
+    setState(() => _isChecking = false);
+
+    Navigator.pop(context);
+    if (!widget.parentContext.mounted) return;
+
+    if (exists) {
+      Navigator.of(widget.parentContext).push(
+        MaterialPageRoute(
+          builder: (_) => PasswordEntryScreen(identifier: formattedId),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(widget.parentContext).push(
+      MaterialPageRoute(
+        builder: (_) => EmailOtpSignUpScreen(
+          initialEmail: widget.isPhone ? '' : formattedId,
+          title: 'Create your account',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 32,
+        left: 24,
+        right: 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.title,
+            style: GoogleFonts.dmSans(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            widget.isPhone
+                ? 'Enter your phone number to continue.'
+                : 'Enter your email to continue.',
+            style: GoogleFonts.dmSans(
+                color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.neutral700.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(16),
+              border:
+                  Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: TextField(
+              controller: _controller,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              keyboardType: widget.isPhone
+                  ? TextInputType.phone
+                  : TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: widget.isPhone
+                    ? 'e.g. 8012345678'
+                    : 'e.g. user@example.com',
+                hintStyle: const TextStyle(
+                    color: AppColors.textDisabled, fontSize: 14),
+                border: InputBorder.none,
+                prefixIcon: widget.isPhone
+                    ? Padding(
+                        padding:
+                            const EdgeInsets.only(left: 12, right: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            InkWell(
+                              onTap: _showCountryPicker,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.neutral700
+                                      .withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(_countryFlag,
+                                        style: const TextStyle(
+                                            fontSize: 16)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _countryCode,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    const Icon(Icons.arrow_drop_down,
+                                        color: AppColors.textSecondary,
+                                        size: 18),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                                width: 1,
+                                height: 20,
+                                color: Colors.white12),
+                          ],
+                        ),
+                      )
+                    : const Icon(
+                        Icons.email_outlined,
+                        color: AppColors.textTertiary,
+                        size: 20,
+                      ),
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 18, horizontal: 16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28)),
+            ),
+            onPressed: _isChecking ? null : _onContinue,
+            child: _isChecking
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
+                  )
+                : Text('Continue',
+                    style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
     );
   }
 }

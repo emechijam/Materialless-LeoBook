@@ -138,37 +138,22 @@ class AuthRepository {
     }
   }
 
-  /// Mobile: Native google_sign_in → ID token → Supabase exchange.
+  /// Mobile: Use Supabase OAuth redirect (opens Chrome Custom Tab).
+  /// Deep link com.materialless.leobookapp://login-callback returns the session.
+  /// Does NOT require google-services.json.
   Future<AuthResponse> _signInWithGoogleNative() async {
     try {
-      final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
-      final iosClientId = dotenv.env['GOOGLE_IOS_CLIENT_ID'] ?? '';
-
-      final signIn = GoogleSignIn.instance;
-      await signIn.initialize(
-        clientId: iosClientId.isEmpty ? null : iosClientId,
-        serverClientId: webClientId.isEmpty ? null : webClientId,
+      final success = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: _authRedirectUrl,
       );
-
-      final googleUser = await signIn.authenticate();
-
-      final googleAuth = googleUser.authentication;
-      final idToken = googleAuth.idToken;
-
-      if (idToken == null) {
-        throw 'No ID Token found.';
+      if (!success) {
+        throw 'Google sign-in could not open the browser.';
       }
-
-      final response = await _supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-      );
-      if (response.user != null) {
-        logUserSession(response.user!, deviceInfo: await _buildDeviceInfo());
-      }
-      return response;
+      // Browser opened — session will arrive via authStateChanges deep link.
+      return AuthResponse(session: null, user: null);
     } catch (e) {
-      debugPrint('[AuthRepository] Google Sign-In (native) error: $e');
+      debugPrint('[AuthRepository] Google OAuth (mobile) error: $e');
       rethrow;
     }
   }
@@ -226,6 +211,26 @@ class AuthRepository {
   }
 
   Future<Map<String, dynamic>?> checkUserExistence(String identifier) async {
+    // Primary: query profiles table directly (no edge function needed)
+    try {
+      final isEmail = identifier.contains('@');
+      final List<dynamic> rows = isEmail
+          ? await _supabase
+              .from('profiles')
+              .select('id')
+              .eq('email', identifier)
+              .limit(1)
+          : await _supabase
+              .from('profiles')
+              .select('id')
+              .eq('phone', identifier)
+              .limit(1);
+      return {'exists': rows.isNotEmpty};
+    } catch (e) {
+      debugPrint('[AuthRepository] checkUserExistence profiles query: $e');
+    }
+
+    // Fallback: edge function
     try {
       final response = await _supabase.functions.invoke(
         'check-user-status',
@@ -233,7 +238,7 @@ class AuthRepository {
       );
       return response.data as Map<String, dynamic>?;
     } catch (e) {
-      debugPrint('[AuthRepository] Check existence error: $e');
+      debugPrint('[AuthRepository] checkUserExistence edge function: $e');
       return null;
     }
   }

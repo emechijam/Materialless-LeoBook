@@ -445,7 +445,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
                   )
                 : Text(
-                    'Save & Finish',
+                    'Sign Up',
                     style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
           ),
