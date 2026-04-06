@@ -42,7 +42,14 @@ def get_supabase_client() -> Optional[Client]:
     if _client:
         return _client
 
+    # Load environment variables
+    # Check root .env first, then leobookapp/.env for robustness
     load_dotenv()
+    if not os.getenv("SUPABASE_SYNC_KEY"):
+        # If running from root, leobookapp/.env might contain the keys
+        sub_env = os.path.join(os.getcwd(), "leobookapp", ".env")
+        if os.path.exists(sub_env):
+            load_dotenv(sub_env, override=True)
 
     url = os.getenv("SUPABASE_URL")
     if not url:
