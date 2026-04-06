@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Dict, List, Any
 from tqdm import tqdm
 
-from Data.Access.supabase_client import get_supabase_client
+from Data.Access.supabase_client import get_supabase_admin_client
 from Data.Access.league_db import get_connection, init_db, query_all
 from Core.Intelligence.aigo_suite import AIGOSuite
 from Data.Access.sync_schema import (
@@ -29,7 +29,7 @@ class SyncManager(SyncPullMixin):
     """Manages bi-directional sync between local SQLite and Supabase."""
 
     def __init__(self, conn=None):
-        self.supabase = get_supabase_client()
+        self.supabase = get_supabase_admin_client()
         self.conn = conn if conn is not None else init_db()
         self._created_tables = set()
         self._ensure_watermark_table()

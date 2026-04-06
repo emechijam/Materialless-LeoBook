@@ -92,14 +92,9 @@ def get_supabase_client() -> Optional[Client]:
 _storage_client: Optional[Client] = None
 
 
-def get_supabase_storage_client() -> Optional[Client]:
-    """
-    Return a Supabase client authenticated with SUPABASE_SERVICE_KEY.
-
-    Supabase Storage uses bucket policies, NOT Postgres RLS.
-    A scoped JWT (SUPABASE_SYNC_KEY) has no Storage access and will
-    receive 400/403 on every upload.  The service role key is required
-    for all Storage read/write operations.
+def _get_service_client() -> Optional[Client]:
+    """Internal: return a Supabase client using SUPABASE_SERVICE_KEY.
+    Shared by get_supabase_storage_client() and get_supabase_admin_client().
     """
     global _storage_client
     if _storage_client:
@@ -110,12 +105,35 @@ def get_supabase_storage_client() -> Optional[Client]:
     service_key = os.getenv("SUPABASE_SERVICE_KEY")
 
     if not url or not service_key:
-        logger.warning("[Supabase Storage] SUPABASE_SERVICE_KEY missing — storage uploads disabled.")
+        logger.warning("[Supabase] SUPABASE_SERVICE_KEY missing — admin/storage operations disabled.")
         return None
 
     try:
         _storage_client = create_client(url, service_key)
         return _storage_client
     except Exception as e:
-        logger.error(f"[x] Failed to initialize Supabase storage client: {e}")
+        logger.error(f"[x] Failed to initialize Supabase service client: {e}")
         return None
+
+
+def get_supabase_storage_client() -> Optional[Client]:
+    """
+    Return a Supabase client authenticated with SUPABASE_SERVICE_KEY.
+
+    Supabase Storage uses bucket policies, NOT Postgres RLS.
+    A scoped JWT (SUPABASE_SYNC_KEY) has no Storage access and will
+    receive 400/403 on every upload.  The service role key is required
+    for all Storage read/write operations.
+    """
+    return _get_service_client()
+
+
+def get_supabase_admin_client() -> Optional[Client]:
+    """
+    Return a Supabase client authenticated with SUPABASE_SERVICE_KEY.
+
+    Use for server-side / background pipeline operations (enrichment,
+    sync, cron jobs) where there is no end-user context and the scoped
+    SUPABASE_SYNC_KEY may be expired or unavailable.
+    """
+    return _get_service_client()
