@@ -5,12 +5,14 @@
 # Functions: run_full_sync()
 # Pull methods: see sync_pull.py (SyncPullMixin)
 
+import sys
 import asyncio
 import logging
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from typing import Dict, List, Any
+from tqdm import tqdm
 
 from Data.Access.supabase_client import get_supabase_client
 from Data.Access.league_db import get_connection, init_db, query_all
@@ -272,14 +274,12 @@ class SyncManager(SyncPullMixin):
 
         try:
             disable_pbar = not logger.isEnabledFor(logging.INFO)
-            _tqdm_stream = getattr(sys.stderr, '_streams', [sys.stderr])[0] \
-                if hasattr(sys.stderr, '_streams') else sys.stderr
             pbar = tqdm(
                 total=len(deduped),
                 desc=f"    Pushing {remote_table}",
                 unit="row",
                 disable=disable_pbar,
-                file=_tqdm_stream,
+                file=sys.stderr,
                 dynamic_ncols=True,
             )
             for i in range(0, len(deduped), api_batch_size):

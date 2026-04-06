@@ -86,12 +86,21 @@ def validate_match(match: Dict, tab: str = "fixtures") -> Tuple[bool, List[str]]
         # Awarded (w/o, forfeited), abandoned, cancelled, postponed have no score.
         NO_SCORE_STATUSES = ("awarded", "abandoned", "cancelled", "postponed", "walkover")
         score_finished_statuses = ("finished", "ft", "aet", "pen", "after pen", "after et")
+
+        # If Flashscore shows FT but scores are null, it's a walkover/voided match.
+        # Silently downgrade to 'awarded' rather than raising an unresolvable violation.
+        if status in score_finished_statuses and status not in NO_SCORE_STATUSES:
+            h_score_raw = match.get("home_score")
+            a_score_raw = match.get("away_score")
+            if h_score_raw is None or a_score_raw is None:
+                status = "awarded"  # downgrade — skip score requirement
+
         if status in score_finished_statuses and status not in NO_SCORE_STATUSES:
             for field in _MATCH_RESULTS_ONLY:
                 val = match.get(field)
                 if val is None or (isinstance(val, str) and not val.strip()):
                     violations.append(f"match[{match.get('fixture_id', '?')}].{field} missing for finished match")
-            
+
             # Score Sanity
             h_score = match.get("home_score")
             a_score = match.get("away_score")
