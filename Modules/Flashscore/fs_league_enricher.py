@@ -37,7 +37,7 @@ CRESTS_DIR = os.path.join("Data", "Store", "crests")
 LEAGUE_CRESTS_DIR = os.path.join(CRESTS_DIR, "leagues")
 TEAM_CRESTS_DIR  = os.path.join(CRESTS_DIR, "teams")
 
-MAX_CONCURRENCY = 3
+MAX_CONCURRENCY = 1
 
 
 def _sort_leagues_fb_mapped_first(conn, leagues: list) -> list:
