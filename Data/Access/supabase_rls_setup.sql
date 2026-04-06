@@ -35,7 +35,7 @@ ALTER TABLE match_odds        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE live_scores       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE countries         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE accuracy_reports  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE _sync_watermarks  ENABLE ROW LEVEL SECURITY;
+-- _sync_watermarks is SQLite-only (local sync_manager.py) — not present in Supabase, skip.
 
 -- STEP 3 — Service-role bypass (keeps existing behaviour for the service key)
 -- ----------------------------------------------------------------------------
@@ -72,8 +72,7 @@ CREATE POLICY "service_role full access" ON countries
 CREATE POLICY "service_role full access" ON accuracy_reports
     FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-CREATE POLICY "service_role full access" ON _sync_watermarks
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+-- (no _sync_watermarks policy — table is SQLite-only)
 
 -- STEP 4 — Scoped sync-role policies (SELECT + INSERT + UPDATE only)
 -- -------------------------------------------------------------------
@@ -123,9 +122,7 @@ CREATE POLICY "sync read"   ON accuracy_reports FOR SELECT TO leobook_sync USING
 CREATE POLICY "sync write"  ON accuracy_reports FOR INSERT TO leobook_sync WITH CHECK (true);
 CREATE POLICY "sync update" ON accuracy_reports FOR UPDATE TO leobook_sync USING (true) WITH CHECK (true);
 
-CREATE POLICY "sync read"   ON _sync_watermarks FOR SELECT TO leobook_sync USING (true);
-CREATE POLICY "sync write"  ON _sync_watermarks FOR INSERT TO leobook_sync WITH CHECK (true);
-CREATE POLICY "sync update" ON _sync_watermarks FOR UPDATE TO leobook_sync USING (true) WITH CHECK (true);
+-- (no _sync_watermarks policies — table is SQLite-only)
 
 -- STEP 5 — Grant table-level privileges to the sync role
 -- -------------------------------------------------------
