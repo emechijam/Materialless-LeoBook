@@ -90,13 +90,19 @@ def upload_crest_to_supabase(local_path: str, bucket: str, remote_name: str) -> 
     abs_path = os.path.join(BASE_DIR, local_path) if not os.path.isabs(local_path) else local_path
     if not os.path.exists(abs_path):
         return ""
+    public_url = f"{sb_url}/storage/v1/object/public/{bucket}/{remote_name}"
     try:
         with open(abs_path, "rb") as f:
             storage.from_(bucket).upload(
                 path=remote_name, file=f,
-                file_options={"cache-control": "3600", "upsert": "true"}
+                file_options={"cache-control": "3600", "upsert": "true"},
             )
         _uploaded_crests.add(key)
-        return f"{sb_url}/storage/v1/object/public/{bucket}/{remote_name}"
-    except Exception:
+        return public_url
+    except Exception as e:
+        err = str(e).lower()
+        # 400/409 "already exists" — file is already in storage, just return the URL
+        if "already" in err or "duplicate" in err or "400" in err or "409" in err:
+            _uploaded_crests.add(key)  # Cache so we skip next time
+            return public_url
         return ""

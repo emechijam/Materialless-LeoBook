@@ -207,6 +207,8 @@ async def extract_tab(
                 elif "PEN" in su:  status = "finished";  extra = extra or "PEN"
                 elif "POST" in su: status = "postponed"; extra = extra or "Postp"
                 elif "CANC" in su: status = "cancelled"; extra = extra or "Canc"
+                elif "AWR" in su or "AWARD" in su: status = "awarded";  extra = extra or "Awrd"
+                elif "W/O" in su or "WO" == su: status = "awarded";   extra = extra or "W/O"
                 elif "ABD" in su or "ABAN" in su: status = "abandoned"; extra = extra or "Abn"
                 elif "LIVE" in su or "'" in status: status = "live"
                 elif "HT"  in su: status = "halftime"
@@ -228,6 +230,8 @@ async def extract_tab(
                 elif "POSTP" in eu: extra = "Postp"
                 elif "CANC"  in eu: extra = "Canc"
                 elif "ABN" in eu or "ABAN" in eu: extra = "Abn"
+                elif "AWRD" in eu or "AWARD" in eu: extra = "Awrd"
+                elif "W/O"  in eu: extra = "W/O"
 
             # F3: Winner — prefer JS bold-class detection, fall back to score comparison
             winner = m.get("winner")

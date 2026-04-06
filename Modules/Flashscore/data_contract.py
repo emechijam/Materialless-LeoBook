@@ -82,8 +82,11 @@ def validate_match(match: Dict, tab: str = "fixtures") -> Tuple[bool, List[str]]
     # 3. Results Logic
     if tab == "results":
         status = (match.get("match_status") or "").lower()
+        # Only require scores for genuinely finished matches.
+        # Awarded (w/o, forfeited), abandoned, cancelled, postponed have no score.
+        NO_SCORE_STATUSES = ("awarded", "abandoned", "cancelled", "postponed", "walkover")
         score_finished_statuses = ("finished", "ft", "aet", "pen", "after pen", "after et")
-        if status in score_finished_statuses:
+        if status in score_finished_statuses and status not in NO_SCORE_STATUSES:
             for field in _MATCH_RESULTS_ONLY:
                 val = match.get(field)
                 if val is None or (isinstance(val, str) and not val.strip()):
