@@ -15,7 +15,7 @@ from playwright.async_api import async_playwright
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from Data.Access.league_db import (
-    init_db, get_unprocessed_leagues, get_stale_leagues,
+    init_db, get_connection, get_unprocessed_leagues, get_stale_leagues,
     get_all_leagues, get_active_leagues, get_fb_url_for_league,
 )
 from Data.Access.gap_scanner import GapScanner
@@ -37,7 +37,7 @@ CRESTS_DIR = os.path.join("Data", "Store", "crests")
 LEAGUE_CRESTS_DIR = os.path.join(CRESTS_DIR, "leagues")
 TEAM_CRESTS_DIR  = os.path.join(CRESTS_DIR, "teams")
 
-MAX_CONCURRENCY = 5
+MAX_CONCURRENCY = 3
 
 
 def _sort_leagues_fb_mapped_first(conn, leagues: list) -> list:
@@ -226,7 +226,8 @@ async def main(
         )
 
         sem           = asyncio.Semaphore(MAX_CONCURRENCY)
-        db_lock       = asyncio.Lock()  # Serialize DB transactions (shared conn)
+        # No db_lock needed — each worker opens its own WAL-mode connection.
+        # SQLite WAL allows 3 concurrent writers; busy_timeout=60s handles contention.
         crash_counter = 0
         failed_leagues: list = []
         LEAGUE_MAX_RETRIES = 2
@@ -243,73 +244,71 @@ async def main(
                 needs_full          = gap_target.get("needs_full_re_enrich", False)
 
                 last_error = None
-                for attempt in range(1, LEAGUE_MAX_RETRIES + 1):
-                    try:
-                        # ── Transaction BEGIN ─────────────────────────
-                        async with db_lock:
-                            conn.execute("BEGIN")
-
+                # Each worker owns its connection — WAL handles concurrent writes.
+                w_conn = get_connection()
+                try:
+                    for attempt in range(1, LEAGUE_MAX_RETRIES + 1):
+                        try:
                             await enrich_single_league(
-                                context=ctx, league=league, conn=conn,
+                                context=ctx, league=league, conn=w_conn,
                                 idx=idx, total=total, num_seasons=num_seasons,
                                 all_seasons=all_seasons, target_season=target_season,
                                 seasons_with_gaps=s_with_gaps or None,
                                 gap_columns=g_columns or None,
                                 needs_full_re_enrich=needs_full,
                             )
+                            w_conn.commit()
+                            crash_counter = 0
+                            last_error = None
+                            if before_gaps > 0:
+                                verify_league_gaps_closed(w_conn, league_id, before_gaps, idx, total)
+                            break  # Success — exit retry loop
 
-                            # ── Transaction COMMIT ────────────────────────
-                            conn.commit()
-                        crash_counter = 0
-                        last_error = None
+                        except Exception as e:
+                            try:
+                                w_conn.rollback()
+                            except Exception:
+                                pass
 
-                        if before_gaps > 0:
-                            verify_league_gaps_closed(conn, league_id, before_gaps, idx, total)
-                        break  # Success — exit retry loop
+                            last_error = e
+                            err = str(e).lower()
 
-                    except Exception as e:
-                        # ── Transaction ROLLBACK ──────────────────────
-                        try:
-                            conn.rollback()
-                        except Exception:
-                            pass
+                            # Browser crash recovery
+                            if "crashed" in err or "target closed" in err:
+                                crash_counter += 1
+                                if crash_counter >= 2:
+                                    print(f"\n  [Recovery] Browser crashed {crash_counter}x — recycling...")
+                                    try: await ctx.close()
+                                    except Exception: pass
+                                    try: await browser.close()
+                                    except Exception: pass
+                                    browser = await p.chromium.launch(headless=True)
+                                    ctx = await browser.new_context(
+                                        user_agent=(
+                                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                                            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                        ),
+                                        viewport={"width": 1920, "height": 1080},
+                                        timezone_id="Africa/Lagos",
+                                    )
+                                    crash_counter = 0
+                                    print("  [Recovery] Fresh browser ready.")
 
-                        last_error = e
-                        err = str(e).lower()
+                            if attempt < LEAGUE_MAX_RETRIES:
+                                print(f"  [{idx}/{total}] [RETRY {attempt}/{LEAGUE_MAX_RETRIES}] "
+                                      f"{league_name}: {e}")
+                                await asyncio.sleep(3)
+                            else:
+                                print(f"\n  [{idx}/{total}] [FAILED] {league_name} "
+                                      f"after {LEAGUE_MAX_RETRIES} attempts: {e}")
+                                failed_leagues.append({
+                                    "league_id": league_id,
+                                    "name": league_name,
+                                    "error": str(e),
+                                })
+                finally:
+                    w_conn.close()
 
-                        # Browser crash recovery
-                        if "crashed" in err or "target closed" in err:
-                            crash_counter += 1
-                            if crash_counter >= 2:
-                                print(f"\n  [Recovery] Browser crashed {crash_counter}x — recycling...")
-                                try: await ctx.close()
-                                except Exception: pass
-                                try: await browser.close()
-                                except Exception: pass
-                                browser = await p.chromium.launch(headless=True)
-                                ctx = await browser.new_context(
-                                    user_agent=(
-                                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                                        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                                    ),
-                                    viewport={"width": 1920, "height": 1080},
-                                    timezone_id="Africa/Lagos",
-                                )
-                                crash_counter = 0
-                                print("  [Recovery] Fresh browser ready.")
-
-                        if attempt < LEAGUE_MAX_RETRIES:
-                            print(f"  [{idx}/{total}] [RETRY {attempt}/{LEAGUE_MAX_RETRIES}] "
-                                  f"{league_name}: {e}")
-                            await asyncio.sleep(3)
-                        else:
-                            print(f"\n  [{idx}/{total}] [FAILED] {league_name} "
-                                  f"after {LEAGUE_MAX_RETRIES} attempts: {e}")
-                            failed_leagues.append({
-                                "league_id": league_id,
-                                "name": league_name,
-                                "error": str(e),
-                            })
 
                 completed_count += 1
                 if completed_count in sync_checkpoints:
