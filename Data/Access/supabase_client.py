@@ -86,3 +86,36 @@ def get_supabase_client() -> Optional[Client]:
     except Exception as e:
         logger.error(f"[x] Failed to initialize Supabase client: {e}")
         return None
+
+
+# Singleton for the storage-only service-role client
+_storage_client: Optional[Client] = None
+
+
+def get_supabase_storage_client() -> Optional[Client]:
+    """
+    Return a Supabase client authenticated with SUPABASE_SERVICE_KEY.
+
+    Supabase Storage uses bucket policies, NOT Postgres RLS.
+    A scoped JWT (SUPABASE_SYNC_KEY) has no Storage access and will
+    receive 400/403 on every upload.  The service role key is required
+    for all Storage read/write operations.
+    """
+    global _storage_client
+    if _storage_client:
+        return _storage_client
+
+    load_dotenv()
+    url         = os.getenv("SUPABASE_URL")
+    service_key = os.getenv("SUPABASE_SERVICE_KEY")
+
+    if not url or not service_key:
+        logger.warning("[Supabase Storage] SUPABASE_SERVICE_KEY missing — storage uploads disabled.")
+        return None
+
+    try:
+        _storage_client = create_client(url, service_key)
+        return _storage_client
+    except Exception as e:
+        logger.error(f"[x] Failed to initialize Supabase storage client: {e}")
+        return None

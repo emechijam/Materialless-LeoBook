@@ -56,18 +56,24 @@ def schedule_image_download(url: str, dest_path: str):
 
 
 def _init_supabase_storage():
+    """Initialise Supabase Storage using the service-role key.
+
+    Supabase Storage uses bucket policies, NOT Postgres RLS.
+    The scoped SUPABASE_SYNC_KEY JWT has no Storage access and returns
+    400 on every upload — the service-role key is required here.
+    """
     global _supabase_storage, _supabase_url
     if _supabase_storage is not None:
         return _supabase_storage, _supabase_url
     try:
-        from Data.Access.supabase_client import get_supabase_client
-        client = get_supabase_client()
+        from Data.Access.supabase_client import get_supabase_storage_client
+        client = get_supabase_storage_client()
         if client:
             _supabase_storage = client.storage
             _supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
             try:
-                existing = [b.name for b in _supabase_storage.list_buckets()]
-                for bucket in ("league-crests", "team-crests"):
+                existing = {b.name for b in _supabase_storage.list_buckets()}
+                for bucket in ("league-crests", "team-crests", "flags"):
                     if bucket not in existing:
                         _supabase_storage.create_bucket(bucket, options={"public": True})
             except Exception:
