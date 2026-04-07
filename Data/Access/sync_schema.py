@@ -9,7 +9,7 @@ from typing import Dict
 
 # SQLite table -> Supabase table mapping
 TABLE_CONFIG = {
-    'predictions':      {'local_table': 'predictions',      'remote_table': 'predictions',      'key': 'fixture_id'},
+    'predictions':      {'local_table': 'predictions',      'remote_table': 'predictions',      'key': 'fixture_id,user_id'},
     'schedules':        {'local_table': 'schedules',        'remote_table': 'schedules',        'key': 'fixture_id'},
     'teams':            {'local_table': 'teams',            'remote_table': 'teams',            'key': 'team_id'},
     'leagues':          {'local_table': 'leagues',          'remote_table': 'leagues',          'key': 'league_id'},
@@ -28,7 +28,7 @@ TABLE_CONFIG = {
 SUPABASE_SCHEMA = {
     'predictions': """
         CREATE TABLE IF NOT EXISTS public.predictions (
-            fixture_id TEXT PRIMARY KEY,
+            fixture_id TEXT,
             date TEXT, match_time TEXT, country_league TEXT,
             home_team TEXT, away_team TEXT, home_team_id TEXT, away_team_id TEXT,
             prediction TEXT, confidence TEXT, reason TEXT,
@@ -61,7 +61,8 @@ SUPABASE_SCHEMA = {
             rec_qualifications JSONB,
             -- v9.8.0 market period targeting
             market_line REAL,
-            market_period TEXT DEFAULT 'full'
+            market_period TEXT DEFAULT 'full',
+            PRIMARY KEY (fixture_id, user_id)
         );""",
     'schedules': """
         CREATE TABLE IF NOT EXISTS public.schedules (
