@@ -157,16 +157,27 @@ class SyncPullMixin:
         table_cols = [c[1] for c in self.conn.execute(
             f"PRAGMA table_info({local_table})"
         ).fetchall()]
+        
+        # Handle composite keys
+        key_cols = [k.strip() for k in key_field.split(',')]
+        
         for row in rows:
             if 'over_2.5' in row:
                 row['over_2_5'] = row.pop('over_2.5')
+            
             filtered = {k: v for k, v in row.items() if k in table_cols and v is not None}
-            if not filtered or key_field not in filtered:
+            
+            # Check if all key columns are present
+            if not filtered or any(k not in filtered for k in key_cols):
                 continue
+                
             cols = list(filtered.keys())
             placeholders = ", ".join([f":{c}" for c in cols])
             col_str = ", ".join(cols)
-            updates = ", ".join([f"{c} = excluded.{c}" for c in cols if c != key_field])
+            
+            # Exclude all key columns from DO UPDATE SET
+            updates = ", ".join([f"{c} = excluded.{c}" for c in cols if c not in key_cols])
+            
             try:
                 self.conn.execute(
                     f"INSERT INTO {local_table} ({col_str}) VALUES ({placeholders}) "

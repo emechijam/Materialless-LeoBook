@@ -9,15 +9,15 @@ from typing import Dict
 
 # SQLite table -> Supabase table mapping
 TABLE_CONFIG = {
-    'predictions':      {'local_table': 'predictions',      'remote_table': 'predictions',      'key': 'fixture_id'},
+    'predictions':      {'local_table': 'predictions',      'remote_table': 'predictions',      'key': 'fixture_id,user_id'},
     'schedules':        {'local_table': 'schedules',        'remote_table': 'schedules',        'key': 'fixture_id'},
     'teams':            {'local_table': 'teams',            'remote_table': 'teams',            'key': 'team_id'},
     'leagues':          {'local_table': 'leagues',          'remote_table': 'leagues',          'key': 'league_id'},
-    'fb_matches':       {'local_table': 'fb_matches',       'remote_table': 'fb_matches',       'key': 'site_match_id'},
+    'fb_matches':       {'local_table': 'fb_matches',       'remote_table': 'fb_matches',       'key': 'site_match_id,user_id'},
     'profiles':         {'local_table': 'profiles',         'remote_table': 'profiles',         'key': 'id'},
     'custom_rules':     {'local_table': 'custom_rules',     'remote_table': 'custom_rules',     'key': 'id'},
     'rule_executions':  {'local_table': 'rule_executions',  'remote_table': 'rule_executions',  'key': 'id'},
-    'accuracy_reports': {'local_table': 'accuracy_reports', 'remote_table': 'accuracy_reports', 'key': 'report_id'},
+    'accuracy_reports': {'local_table': 'accuracy_reports', 'remote_table': 'accuracy_reports', 'key': 'report_id,user_id'},
     'audit_log':        {'local_table': 'audit_log',        'remote_table': 'audit_log',        'key': 'id'},
     'live_scores':      {'local_table': 'live_scores',      'remote_table': 'live_scores',      'key': 'fixture_id'},
     'countries':        {'local_table': 'countries',        'remote_table': 'countries',        'key': 'code'},
