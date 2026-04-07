@@ -37,16 +37,8 @@ Future<void> main() async {
     ),
   );
 
-  // google_sign_in v7: initialize singleton once before runApp.
-  // On mobile this wires up the server/web client ID so authenticate()
-  // can issue an idToken for Supabase signInWithIdToken.
-  // On web, Supabase OAuth handles Google directly — skip.
-  if (!kIsWeb) {
-    final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
-    await GoogleSignIn.instance.initialize(
-      serverClientId: webClientId,
-    );
-  }
+  // google_sign_in v7: We initialize directly in the repository using the GOOGLE_WEB_CLIENT_ID.
+  // This ensures the idToken is correctly requested for Supabase exchange.
 
   runApp(const LeoBookApp());
 }

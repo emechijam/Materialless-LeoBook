@@ -142,8 +142,7 @@ class _MainScreenState extends State<MainScreen> {
             return Scaffold(
               extendBody: true,
               body: bodyArea,
-              bottomNavigationBar:
-                  isDesktop ? null : _buildFloatingNavBar(isDark),
+              bottomNavigationBar: !isDesktop ? _buildFloatingNavBar(isDark) : null,
             );
           },
         );

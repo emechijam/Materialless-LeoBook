@@ -141,23 +141,31 @@ class AuthRepository {
 
   /// Mobile: Native in-app Google Sign-In via google_sign_in v7+ SDK.
   /// Shows the native credential-picker sheet — no Chrome / external browser.
-  /// GoogleSignIn.instance.initialize() is called once at startup in main.dart.
   Future<AuthResponse> _signInWithGoogleNative() async {
     try {
-      // v7+: authenticate() replaces signIn(); returns GoogleSignInAccount.
-      final account = await GoogleSignIn.instance.authenticate();
+      final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
+      final googleSignIn = GoogleSignIn(
+        serverClientId: webClientId,
+      );
 
-      // .authentication is a synchronous property in v7 (GoogleSignInAuthentication).
-      final idToken = account.authentication.idToken;
-      if (idToken == null) {
-        throw 'Google authentication failed — missing ID token. '
-            'Ensure GOOGLE_WEB_CLIENT_ID is the Web OAuth client ID.';
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        // User cancelled the picker
+        return AuthResponse(session: null, user: null);
       }
 
-      // Only idToken is needed; accessToken requires authorizationClient in v7.
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+
+      if (idToken == null) {
+        throw 'Google authentication failed — missing ID token. '
+            'Ensure GOOGLE_WEB_CLIENT_ID is correct in .env';
+      }
+
       final response = await _supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
+        accessToken: auth.accessToken,
       );
 
       if (response.user != null) {
@@ -167,7 +175,6 @@ class AuthRepository {
       return response;
     } on Exception catch (e) {
       final msg = e.toString().toLowerCase();
-      // User tapped Cancel on the picker — not an error.
       if (msg.contains('cancel') || msg.contains('sign_in_cancelled')) {
         debugPrint('[AuthRepository] Google sign-in cancelled by user.');
         return AuthResponse(session: null, user: null);
