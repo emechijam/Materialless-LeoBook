@@ -28,18 +28,17 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
         return month >= 7 ? startYear : endYear;
     }
 
-    // Detect sport from the page URL or breadcrumb — used for ID prefix & link parsing.
+    // Detect sport from the page URL — used for link parsing.
     // Basketball rows use id="g_3_XXXX"; football uses id="g_1_XXXX".
     const pageSport = (window.location.pathname || '').includes('/basketball/') ? 'basketball' : 'football';
-    const ROW_PREFIX = pageSport === 'basketball' ? 'g_3_' : 'g_1_';
-    const SPORT_PATH = pageSport;  // used in link parsing
 
     const container = document.querySelector(s.main_container)?.parentElement || document.body;
-    // Guard: filter empty selector parts before joining — an empty string makes the
-    // combined selector invalid (e.g. ", div.event__match") and querySelectorAll throws.
-    // Basketball pages have no round headers so s.match_round is often "".
-    const _rowSelParts = [s.match_round, s.match_row].filter(p => p && p.trim());
-    const _rowSel = _rowSelParts.length ? _rowSelParts.join(', ') : ':is([id^="g_1_"],[id^="g_3_"])';
+    // Always use canonical ID-prefix selector for rows — sport-agnostic and resilient
+    // to whatever s.match_row contains (historically was football-only "[id^='g_1_']",
+    // which silently dropped all basketball rows). Round headers handled separately.
+    const _roundSel = (s.match_round || '').trim();
+    const _rowIdSel = ':is([id^="g_1_"],[id^="g_3_"])';
+    const _rowSel = _roundSel ? `${_roundSel}, ${_rowIdSel}` : _rowIdSel;
     const allEls = container.querySelectorAll(_rowSel);
     let currentRound = '';
 
