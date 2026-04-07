@@ -107,10 +107,19 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
                 }
             }
         }
-        const homeEl = row.querySelector(s.home_participant);
-        let homeName = homeEl ? (homeEl.querySelector(s.participant_name) || homeEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
-        const awayEl = row.querySelector(s.away_participant);
-        let awayName = awayEl ? (awayEl.querySelector(s.participant_name) || awayEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
+        // Sport-aware participant lookup:
+        // The fs_league_page selector context only has football participant selectors.
+        // For basketball rows (g_3_ prefix) fall back to the known basketball DOM structure.
+        const BBALL_HOME_SEL = 'div.event__homeParticipant';
+        const BBALL_AWAY_SEL = 'div.event__awayParticipant';
+        const BBALL_NAME_SEL = 'span[data-testid="wcl-scores-simple-text-01"]';
+        const homeEl = row.querySelector(s.home_participant || BBALL_HOME_SEL)
+                    || (rowSport === 'basketball' ? row.querySelector(BBALL_HOME_SEL) : null);
+        const participantNameSel = s.participant_name || BBALL_NAME_SEL;
+        let homeName = homeEl ? (homeEl.querySelector(participantNameSel) || homeEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
+        const awayEl = row.querySelector(s.away_participant || BBALL_AWAY_SEL)
+                    || (rowSport === 'basketball' ? row.querySelector(BBALL_AWAY_SEL) : null);
+        let awayName = awayEl ? (awayEl.querySelector(participantNameSel) || awayEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
         const homeScoreEl = row.querySelector(s.match_score_home);
         const awayScoreEl = row.querySelector(s.match_score_away);
         const homeScore = homeScoreEl && homeScoreEl.innerText.trim() !== '-' ? parseInt(homeScoreEl.innerText.trim()) : null;
