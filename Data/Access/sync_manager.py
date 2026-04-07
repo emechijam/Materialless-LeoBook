@@ -18,7 +18,7 @@ from Data.Access.supabase_client import get_supabase_admin_client
 from Data.Access.league_db import get_connection, init_db, query_all
 from Core.Intelligence.aigo_suite import AIGOSuite
 from Data.Access.sync_schema import (
-    TABLE_CONFIG, SUPABASE_SCHEMA, _ALLOWED_COLS, _COL_REMAP, _BATCH_SIZES,
+    TABLE_CONFIG, SUPABASE_SCHEMA, _ALLOWED_COLS, _COL_REMAP, _BATCH_SIZES, _PUSH_BATCH_SIZES,
 )
 from Data.Access.sync_pull import SyncPullMixin
 
@@ -270,7 +270,7 @@ class SyncManager(SyncPullMixin):
         # ── FIX (2026-03-14): Per-table batch sizes to avoid statement timeout. ──
         # Old value was 15000 globally. schedules upserts at 15k rows took ~11s,
         # exceeding Supabase's 8s statement timeout (error code 57014) on every run.
-        api_batch_size = _BATCH_SIZES.get(remote_table, _BATCH_SIZES['default'])
+        api_batch_size = _PUSH_BATCH_SIZES.get(remote_table, _PUSH_BATCH_SIZES['default'])
 
         try:
             disable_pbar = not logger.isEnabledFor(logging.INFO)

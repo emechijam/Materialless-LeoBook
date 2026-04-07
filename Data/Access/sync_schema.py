@@ -9,15 +9,18 @@ from typing import Dict
 
 # SQLite table -> Supabase table mapping
 TABLE_CONFIG = {
-    'predictions':      {'local_table': 'predictions',      'remote_table': 'predictions',      'key': 'fixture_id,user_id'},
+    # NOTE: keys must match the actual PRIMARY KEY columns in the live Supabase table.
+    # user_id was planned for predictions/fb_matches/accuracy_reports (v9.6.0 DDL)
+    # but the remote tables were never migrated — keep key = single PK until migration runs.
+    'predictions':      {'local_table': 'predictions',      'remote_table': 'predictions',      'key': 'fixture_id'},
     'schedules':        {'local_table': 'schedules',        'remote_table': 'schedules',        'key': 'fixture_id'},
     'teams':            {'local_table': 'teams',            'remote_table': 'teams',            'key': 'team_id'},
     'leagues':          {'local_table': 'leagues',          'remote_table': 'leagues',          'key': 'league_id'},
-    'fb_matches':       {'local_table': 'fb_matches',       'remote_table': 'fb_matches',       'key': 'site_match_id,user_id'},
+    'fb_matches':       {'local_table': 'fb_matches',       'remote_table': 'fb_matches',       'key': 'site_match_id'},
     'profiles':         {'local_table': 'profiles',         'remote_table': 'profiles',         'key': 'id'},
     'custom_rules':     {'local_table': 'custom_rules',     'remote_table': 'custom_rules',     'key': 'id'},
     'rule_executions':  {'local_table': 'rule_executions',  'remote_table': 'rule_executions',  'key': 'id'},
-    'accuracy_reports': {'local_table': 'accuracy_reports', 'remote_table': 'accuracy_reports', 'key': 'report_id,user_id'},
+    'accuracy_reports': {'local_table': 'accuracy_reports', 'remote_table': 'accuracy_reports', 'key': 'report_id'},
     'audit_log':        {'local_table': 'audit_log',        'remote_table': 'audit_log',        'key': 'id'},
     'live_scores':      {'local_table': 'live_scores',      'remote_table': 'live_scores',      'key': 'fixture_id'},
     'countries':        {'local_table': 'countries',        'remote_table': 'countries',        'key': 'code'},
@@ -262,12 +265,21 @@ _COL_REMAP = {
     'away_team_name': 'away_team',
 }
 
-# ── Per-table batch sizes ─────────────────────────────────────────────────────
+# ── Per-table batch sizes (pull = paginate from Supabase, push = upsert to Supabase) ──
+# Pull uses keyset pagination so large values are safe; push upserts are heavier.
 _BATCH_SIZES: Dict[str, int] = {
-    'schedules':   1000,  # bumped from 500: timeout recovery was already using 1000; start there
+    'schedules':   1000,
     'match_odds':  1000,
-    'predictions': 200,   # 1969-row single upsert → Supabase 57014 timeout. Chunked at 200.
+    'predictions': 200,
     'default':     2000,
+}
+
+# Push (upsert) batch sizes — smaller to stay under Supabase 8s statement timeout.
+_PUSH_BATCH_SIZES: Dict[str, int] = {
+    'schedules':   500,   # 200K rows × 24 cols; 500/batch keeps well under 8s
+    'predictions': 200,
+    'match_odds':  500,
+    'default':     1000,
 }
 
 # ── Matching Engine v1.2 — full idempotent SQL (STEP 9 from bootstrap) ────────
@@ -323,5 +335,6 @@ __all__ = [
     "_ALLOWED_COLS",
     "_COL_REMAP",
     "_BATCH_SIZES",
+    "_PUSH_BATCH_SIZES",
     "MATCHING_ENGINE_SQL",
 ]
