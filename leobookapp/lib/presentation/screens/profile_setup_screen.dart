@@ -125,6 +125,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           data: {
             'full_name': _usernameController.text.trim(),
             'username': _usernameController.text.trim(),
+            'phone': formattedPhone, // Save to metadata
             'profile_completed': true,
             'biometrics_enabled': _biometricsEnabled,
             'phone_verified': authPhoneVerified,
@@ -135,9 +136,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await supabase.from('profiles').upsert({
         'id': currentUser.id,
         'email': currentUser.email,
-        'phone': formattedPhone ?? supabase.auth.currentUser?.phone,
+        'phone': formattedPhone, // Save to profiles table
         'full_name': _usernameController.text.trim(),
         'phone_verified': authPhoneVerified,
+        'updated_at': DateTime.now().toIso8601String(),
       });
 
       if (_biometricsEnabled) {
