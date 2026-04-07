@@ -261,10 +261,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 12),
                   _AuthButton(
-                    label: 'Sign in with Phone',
+                    label: 'Continue with Phone',
                     icon: Icons.phone_outlined,
                     isLoading: false,
-                    onTap: isGlobalLoading ? () {} : () => _handleIdentifierCheck(context, 'Sign in with Phone'),
+                    onTap: isGlobalLoading ? () {} : () => _handleIdentifierCheck(context, 'Continue with Phone'),
                   ),
                   const SizedBox(height: 12),
                   _AuthButton(
@@ -393,10 +393,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 12),
                 _AuthButton(
-                  label: 'Sign in with Phone',
+                  label: 'Continue with Phone',
                   icon: Icons.phone_outlined,
                   isLoading: false,
-                  onTap: isGlobalLoading ? () {} : () => _handleIdentifierCheck(context, 'Sign in with Phone'),
+                  onTap: isGlobalLoading ? () {} : () => _handleIdentifierCheck(context, 'Continue with Phone'),
                 ),
                 const SizedBox(height: 12),
                 _AuthButton(
@@ -574,6 +574,7 @@ class _IdentifierInputSheetState extends State<_IdentifierInputSheet> {
         MaterialPageRoute(
           builder: (_) => EmailOtpSignUpScreen(
             initialEmail: widget.isPhone ? '' : formattedId,
+            initialPhone: widget.isPhone ? formattedId : '',
             title: 'Create your account',
           ),
         ),
@@ -688,8 +689,8 @@ class _IdentifierInputSheetState extends State<_IdentifierInputSheet> {
               passwordRevealed
                   ? 'Enter your password to sign in.'
                   : (widget.isPhone
-                      ? 'Enter your phone number to continue.'
-                      : 'Enter your email to continue.'),
+                      ? "We'll check if your account exists, then sign you in."
+                      : "We'll check if your account exists, then sign you in."),
               style: GoogleFonts.dmSans(color: AppColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 24),

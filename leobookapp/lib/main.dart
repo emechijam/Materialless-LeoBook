@@ -37,8 +37,14 @@ Future<void> main() async {
     ),
   );
 
-  // google_sign_in v7: We initialize directly in the repository using the GOOGLE_WEB_CLIENT_ID.
-  // This ensures the idToken is correctly requested for Supabase exchange.
+  // google_sign_in v7: initialize the singleton ONCE before runApp.
+  // Without this, authenticate() hangs indefinitely on mobile.
+  // serverClientId MUST be the Web OAuth 2.0 client ID (not Android/iOS).
+  if (!kIsWeb) {
+    await GoogleSignIn.instance.initialize(
+      serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
+    );
+  }
 
   runApp(const LeoBookApp());
 }

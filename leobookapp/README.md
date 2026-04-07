@@ -25,13 +25,12 @@ Hardcoded pixel values are eliminated.
 
 ## Core Features
 
+- **Unified Auth Flow**: Multi-step "Continue with..." logic for Phone, Email, and Google. Checks account existence before revealing password fields.
+- **Secure Google Sign-In**: Native ID token exchange (v7 SDK) with automatic Supabase session sync.
+- **Real-Time Match Streaming**: Periodic syncs with `fs_live_streamer.py` output for minute-by-minute updates.
+- **Accuracy Report Cards**: Dynamic per-league accuracy charts sorted by match count and percentage.
 - **Liquid Glass Containers**: Premium frosted effects using the `GlassContainer` widget.
-- **4-Tab Match System**: `ALL` | `LIVE` | `FINISHED` | `SCHEDULED` tabs with automatic filtering.
-- **Real-Time Streaming**: Syncs with `fs_live_streamer.py` output for minute-by-minute updates via Supabase.
-- **Accuracy Report Cards**: Dynamic per-league accuracy sorted by match count (descending) then accuracy percentage (descending).
-- **Match Status Display**: Correctly identifies FT, FT (AET), FT (Pen) via exact status matching — avoids false positives from substring traps.
-- **Double Chance Accuracy**: Supports team-name-based OR patterns (e.g., "Arsenal or Liverpool" → accurate if not a draw).
-- **Constraints-Based Layout**: All sizing uses `Responsive.sp()`, `FractionallySizedBox`, `LayoutBuilder`, and `Flexible` widgets.
+- **Constraints-Based Layout**: All sizing uses `Responsive.sp()`, `FractionallySizedBox`, and `Flexible` widgets.
 
 ---
 
@@ -92,5 +91,5 @@ flutter build apk --release                # Android APK
 
 ---
 
-*Last updated: March 1, 2026*
+*Last updated: April 7, 2026*
 *Materialless LLC*

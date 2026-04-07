@@ -17,10 +17,12 @@ class EmailOtpSignUpScreen extends StatefulWidget {
   const EmailOtpSignUpScreen({
     super.key,
     this.initialEmail = '',
+    this.initialPhone = '',
     this.title = 'Create your account',
   });
 
   final String initialEmail;
+  final String initialPhone;
   final String title;
 
   @override
@@ -84,7 +86,11 @@ class _EmailOtpSignUpScreenState extends State<EmailOtpSignUpScreen> {
           _goMain();
         } else if (state is UserProfileIncomplete) {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
+            MaterialPageRoute(
+              builder: (_) => ProfileSetupScreen(
+                initialPhone: widget.initialPhone,
+              ),
+            ),
           );
         } else if (state is UserError) {
           ScaffoldMessenger.of(context).showSnackBar(

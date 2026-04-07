@@ -16,7 +16,8 @@ import 'package:leobookapp/presentation/screens/main_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
-  const ProfileSetupScreen({super.key});
+  final String? initialPhone;
+  const ProfileSetupScreen({super.key, this.initialPhone});
 
   @override
   State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -49,6 +50,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     if (user.phone != null && user.phone!.trim().length > 5) {
       _phoneController.text = user.phone!;
+    } else if (widget.initialPhone != null && widget.initialPhone!.isNotEmpty) {
+      _phoneController.text = widget.initialPhone!;
     }
 
     _usernameController.text = user.displayName ?? '';

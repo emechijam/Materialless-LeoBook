@@ -181,36 +181,35 @@ class UserCubit extends Cubit<UserState> {
   Future<void> signInWithGoogle() async {
     emit(UserLoading(user: state.user, method: 'google'));
     try {
-      final response = await _authRepo.signInWithGoogle();
+      // Add a timeout to prevent the 'forever' spinner if the exchange hangs.
+      final response = await _authRepo.signInWithGoogle().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw Exception('Sign-in timed out. Please check your connection and try again.'),
+      );
+
       if (response.user != null) {
-        // Immediate result (native mobile with cached credentials)
         _emitCorrectState(UserModel.fromSupabaseUser(response.user!));
+      } else {
+        // null means cancelled or no session obtained yet (web)
+        emit(UserInitial(user: state.user));
       }
-      // If response.user == null:
-      //   • Web: OAuth redirect was initiated — browser will return via deep link.
-      //   • Mobile: native Google sheet opened — auth completes via authStateChanges.
-      // In both cases we STAY in UserLoading(google) so the button keeps showing
-      // a spinner. authStateChanges listener will fire emitCorrectState when done.
-      // (do NOT emit UserInitial here — that resets the button prematurely)
     } on Exception catch (e) {
       final msg = e.toString().toLowerCase();
-      // User explicitly cancelled — reset silently, no error snack needed.
       if (msg.contains('cancel') || msg.contains('sign_in_cancelled') || msg.contains('aborted')) {
         emit(UserInitial(user: state.user));
         return;
       }
-      // Google Play Services not available (some Android devices/emulators)
-      final friendlyMsg = msg.contains('play services') || msg.contains('google play')
-          ? 'Google Sign-In is not available on this device.'
-          : AuthRepository.mapAuthError(e, fallbackMessage: 'Google sign-in failed. Please try again.');
+      final friendlyMsg = msg.contains('timeout')
+          ? 'Sign-in timed out. Please try again.'
+          : (msg.contains('play services') 
+              ? 'Google Play Services are required for native sign-in.' 
+              : AuthRepository.mapAuthError(e, fallbackMessage: 'Google sign-in failed. Please try again.'));
+      
       emit(UserError(user: state.user, message: friendlyMsg));
     } catch (e) {
       emit(UserError(
         user: state.user,
-        message: AuthRepository.mapAuthError(
-          e,
-          fallbackMessage: 'Google sign-in failed. Please try again.',
-        ),
+        message: 'An unexpected error occurred during Google sign-in.',
       ));
     }
   }

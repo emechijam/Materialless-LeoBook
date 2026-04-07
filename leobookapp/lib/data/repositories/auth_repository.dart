@@ -139,34 +139,39 @@ class AuthRepository {
     }
   }
 
-  /// Mobile: Native in-app Google Sign-In via google_sign_in v7+ SDK.
-  /// Shows the native credential-picker sheet — no Chrome / external browser.
+  /// Mobile: Native in-app Google Sign-In via google_sign_in v7 SDK.
+  /// Uses GoogleSignIn.instance (v7 singleton — no constructor).
+  /// GoogleSignIn.instance.initialize() is called once in main.dart.
   Future<AuthResponse> _signInWithGoogleNative() async {
     try {
-      final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
-      final googleSignIn = GoogleSignIn(
-        serverClientId: webClientId,
-      );
+      debugPrint('[AuthRepository] Starting native Google Sign-In (authenticate)...');
+      
+      // v7: authenticate() shows the native account picker.
+      final account = await GoogleSignIn.instance.authenticate();
 
-      final account = await googleSignIn.signIn();
-      if (account == null) {
-        // User cancelled the picker
-        return AuthResponse(session: null, user: null);
-      }
+      debugPrint('[AuthRepository] Account selected: ${account.email}. Retrieving authentication tokens...');
 
-      final auth = await account.authentication;
+      // v7: .authentication is synchronous on the account object.
+      final auth = account.authentication;
       final idToken = auth.idToken;
 
+      debugPrint('[AuthRepository] idToken retrieved: ${idToken != null ? "SUCCESS" : "FAILED (NULL)"}');
+
       if (idToken == null) {
-        throw 'Google authentication failed — missing ID token. '
-            'Ensure GOOGLE_WEB_CLIENT_ID is correct in .env';
+        throw Exception(
+          'Google idToken is null. This usually means the serverClientId in main.dart '
+          'is NOT the Web OAuth 2.0 client ID from your Google Cloud Console.'
+        );
       }
+
+      debugPrint('[AuthRepository] Exchanging ID token with Supabase...');
 
       final response = await _supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
-        accessToken: auth.accessToken,
       );
+
+      debugPrint('[AuthRepository] Supabase exchange complete. User: ${response.user?.email ?? "NULL"}');
 
       if (response.user != null) {
         logUserSession(response.user!, deviceInfo: await _buildDeviceInfo());
@@ -175,11 +180,17 @@ class AuthRepository {
       return response;
     } on Exception catch (e) {
       final msg = e.toString().toLowerCase();
-      if (msg.contains('cancel') || msg.contains('sign_in_cancelled')) {
+      if (msg.contains('cancel') ||
+          msg.contains('sign_in_cancelled') ||
+          msg.contains('aborted') ||
+          msg.contains('network_error')) {
         debugPrint('[AuthRepository] Google sign-in cancelled by user.');
         return AuthResponse(session: null, user: null);
       }
-      debugPrint('[AuthRepository] Google native sign-in error: $e');
+      debugPrint('[AuthRepository] ERROR during Google authenticate(): $e');
+      rethrow;
+    } catch (e) {
+      debugPrint('[AuthRepository] UNKNOWN ERROR during Google authenticate(): $e');
       rethrow;
     }
   }
