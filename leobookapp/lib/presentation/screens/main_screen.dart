@@ -167,8 +167,8 @@ class _MainScreenState extends State<MainScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: isDark
-                  ? AppColors.neutral800.withValues(alpha: 0.95)
-                  : Colors.white.withValues(alpha: 0.92),
+                  ? AppColors.neutral800.withValues(alpha: 0.35)
+                  : Colors.white.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(Responsive.sp(context, 28)),
               border: Border.all(
                 color: isDark

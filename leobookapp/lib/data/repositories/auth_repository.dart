@@ -6,6 +6,7 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/twilio_service.dart';
@@ -491,8 +492,19 @@ class AuthRepository {
 
   // ─── Sign Out ────────────────────────────────────────────────────
 
-  /// Sign out from both Supabase and Google.
+  /// Sign out — wipes Football.com credentials from device, then signs out of
+  /// Supabase and Google. Credentials are encrypted in Supabase tied to the
+  /// user's LeoBook account; local copies are always cleared on logout.
   Future<void> signOut() async {
+    // Wipe all Football.com credentials from device secure storage
+    const storage = FlutterSecureStorage();
+    await Future.wait([
+      storage.delete(key: 'fb_cred_phone'),
+      storage.delete(key: 'fb_cred_password'),
+      storage.delete(key: 'fb_cred_pin'),
+      storage.delete(key: 'fb_creds_saved'),
+    ]);
+
     await _supabase.auth.signOut();
     if (!kIsWeb) {
       try {

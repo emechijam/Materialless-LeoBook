@@ -257,15 +257,40 @@ class AccountScreen extends StatelessWidget {
     return BlocBuilder<UserCubit, UserState>(
       builder: (context, state) {
         final user = state.user;
-        return GestureDetector(
-          onTap: () => Navigator.of(context).push(
+
+        // Tap action: guests go to login, registered users go to profile
+        void onCardTap() {
+          if (user.isGuest) {
+            final isDesktop = MediaQuery.of(context).size.width > 1024;
+            if (isDesktop) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                barrierColor: Colors.black87,
+                builder: (_) => BlocProvider.value(
+                  value: context.read<UserCubit>(),
+                  child: const LoginScreen(),
+                ),
+              );
+            } else {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            }
+            return;
+          }
+          Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => BlocProvider.value(
                 value: context.read<UserCubit>(),
                 child: const UserProfileScreen(),
               ),
             ),
-          ),
+          );
+        }
+
+        return GestureDetector(
+          onTap: onCardTap,
           child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -294,10 +319,14 @@ class AccountScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      user.email ?? user.phone ?? user.id,
+                      user.isGuest
+                          ? 'Tap to sign in or create account'
+                          : (user.email ?? user.phone ?? user.id),
                       style: GoogleFonts.dmSans(
                         fontSize: 12,
-                        color: AppColors.textTertiary,
+                        color: user.isGuest
+                            ? AppColors.primary.withValues(alpha: 0.7)
+                            : AppColors.textTertiary,
                       ),
                     ),
                   ],
@@ -323,10 +352,12 @@ class AccountScreen extends StatelessWidget {
                   ),
                 ),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
+              Icon(
+                user.isGuest
+                    ? Icons.login_rounded
+                    : Icons.arrow_forward_ios_rounded,
                 size: 13,
-                color: AppColors.textDisabled,
+                color: user.isGuest ? AppColors.primary : AppColors.textDisabled,
               ),
             ],
           ),
@@ -335,6 +366,7 @@ class AccountScreen extends StatelessWidget {
       },
     );
   }
+
 
   // ═══════════════════════════════════════════════════════════════════
   // Super LeoBook Upsell Card
