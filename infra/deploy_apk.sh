@@ -446,13 +446,33 @@ LATEST_NAME="LeoBook-latest.apk"
 PUBLIC_URL="${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${LATEST_NAME}"
 
 if [ "${1:-}" != "--skip-build" ]; then
-  echo "Building release APK..."
+  echo "Building release APK (low-memory / no-daemon mode for Codespace)..."
   cd "$APP_DIR"
-  flutter build apk --release --split-per-abi
+
+  # Step 1: Clean stale build artefacts & Gradle daemon state to reclaim memory
+  flutter clean
+  rm -rf ~/.gradle/daemon/ ~/.gradle/caches/build-cache/ 2>/dev/null || true
+
+  # Step 2: Inject low-memory Gradle config (overrides whatever is in android/gradle.properties)
+  cat > "$ANDROID_DIR/gradle.properties" << 'GRADLE_EOF'
+org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+UseParallelGC -XX:ParallelGCThreads=2
+org.gradle.daemon=false
+org.gradle.parallel=false
+org.gradle.configureondemand=true
+org.gradle.caching=false
+android.useAndroidX=true
+android.enableJetifier=true
+GRADLE_EOF
+
+  # Step 3: Build — Flutter delegates to Gradle; --no-daemon is passed through
+  flutter build apk --release --split-per-abi \
+    --dart-define=FLUTTER_BUILD_MODE=release
+
   cd "$SCRIPT_DIR"
 else
   echo "Skipping build (--skip-build)"
 fi
+
 
 DEFAULT_SOURCE_APK=""
 for candidate_abi in "$DEFAULT_UPDATE_ABI" "armeabi-v7a" "x86_64"; do
