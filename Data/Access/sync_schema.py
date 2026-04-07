@@ -264,7 +264,7 @@ _COL_REMAP = {
 
 # ── Per-table batch sizes ─────────────────────────────────────────────────────
 _BATCH_SIZES: Dict[str, int] = {
-    'schedules':   500,
+    'schedules':   1000,  # bumped from 500: timeout recovery was already using 1000; start there
     'match_odds':  1000,
     'predictions': 200,   # 1969-row single upsert → Supabase 57014 timeout. Chunked at 200.
     'default':     2000,

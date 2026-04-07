@@ -31,9 +31,10 @@ class SyncPullMixin:
         offset = 0
         while True:
             try:
-                res = self.supabase.table(remote_table).select("*").order(
-                    key_field, desc=False
-                ).range(offset, offset + batch_size - 1).execute()
+                q = self.supabase.table(remote_table).select("*")
+                for _k in [k.strip() for k in key_field.split(',')]:
+                    q = q.order(_k, desc=False)
+                res = q.range(offset, offset + batch_size - 1).execute()
                 rows = res.data
                 if not rows:
                     break
@@ -105,9 +106,10 @@ class SyncPullMixin:
                 max_retries = 3
                 for attempt in range(max_retries + 1):
                     try:
-                        res = self.supabase.table(remote_table).select("*").order(
-                            key_field, desc=False
-                        ).limit(page_size).offset(offset).execute()
+                        q = self.supabase.table(remote_table).select("*")
+                        for _k in [k.strip() for k in key_field.split(',')]:
+                            q = q.order(_k, desc=False)
+                        res = q.limit(page_size).offset(offset).execute()
                         rows = res.data
                         break
                     except Exception as batch_err:
@@ -126,7 +128,7 @@ class SyncPullMixin:
                         else:
                             raise batch_err
                 else:
-                    break
+                    raise batch_err  # all retries exhausted — surface error
 
                 if not rows:
                     break
