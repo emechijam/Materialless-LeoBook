@@ -14,6 +14,7 @@ import '../widgets/shared/recommendation_card.dart';
 import 'package:leobookapp/core/widgets/leo_loading_indicator.dart';
 import 'match_details_screen.dart';
 import '../widgets/shared/recommendation_filter_modal.dart';
+import '../widgets/shared/sport_switcher.dart';
 
 /// Unified Top Predictions screen — lives inside MainScreen's IndexedStack.
 /// No own Scaffold/AppBar. Shows recommendations for SCHEDULED matches,
@@ -157,6 +158,10 @@ class TopPredictionsScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // ── Sport Switcher ──
+            const SportSwitcher(),
+            SizedBox(height: Responsive.sp(context, 4)),
 
             if (recs.isEmpty)
               Expanded(

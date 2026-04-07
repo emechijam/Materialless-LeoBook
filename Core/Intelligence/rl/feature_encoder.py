@@ -87,6 +87,14 @@ class FeatureEncoder:
         # --- 10. Market Likelihood Priors (30 floats) ---
         features.extend(FeatureEncoder._encode_market_likelihoods())
 
+        # --- 11. Basketball Period Features (6 floats) ---
+        # Q1/H1 total averages from period_scores in form data.
+        # Zero for football (no period_scores stored) — safe neutral prior.
+        features.extend(FeatureEncoder._encode_basketball_periods(
+            h2h_data.get("home_last_10_matches", []),
+            h2h_data.get("away_last_10_matches", []),
+        ))
+
         # --- 11. Padding to FEATURE_DIM ---
         current_len = len(features)
         if current_len < FEATURE_DIM:
@@ -339,3 +347,61 @@ class FeatureEncoder:
         """
         from .market_space import ACTIONS
         return [a["likelihood"] / 100.0 for a in ACTIONS]
+
+    @staticmethod
+    def _encode_basketball_periods(
+        home_form: List[Dict],
+        away_form: List[Dict],
+    ) -> List[float]:
+        """Encode basketball quarter/half averages from period_scores (6 floats).
+
+        Features:
+            0: avg Q1 total (home+away) from home_form       / 60.0  (normalised)
+            1: avg Q1 total (home+away) from away_form       / 60.0
+            2: avg H1 total (home+away) from home_form       / 120.0
+            3: avg H1 total (home+away) from away_form       / 120.0
+            4: has_period_data flag (1.0 if any form row has period_scores)
+            5: estimated full total / 250.0  (normalised basketball scale)
+
+        For football matches all values are 0.0 (no period_scores stored).
+        """
+        def _extract_period_avgs(form, period_key):
+            totals = []
+            for m in form:
+                if not m:
+                    continue
+                ps = m.get("period_scores")
+                if not isinstance(ps, dict):
+                    # Try JSON string (trainer_context raw rows path)
+                    if isinstance(ps, str) and ps:
+                        try:
+                            import json as _j
+                            ps = _j.loads(ps)
+                        except Exception:
+                            continue
+                    else:
+                        continue
+                pd = ps.get(period_key)
+                if isinstance(pd, dict):
+                    totals.append(
+                        float(pd.get("home", 0) or 0)
+                        + float(pd.get("away", 0) or 0)
+                    )
+            return sum(totals) / len(totals) if totals else 0.0
+
+        q1_home = _extract_period_avgs(home_form, "q1")
+        q1_away = _extract_period_avgs(away_form, "q1")
+        h1_home = _extract_period_avgs(home_form, "h1")
+        h1_away = _extract_period_avgs(away_form, "h1")
+
+        has_data = 1.0 if (q1_home > 0 or q1_away > 0) else 0.0
+        est_total = (q1_home + q1_away) * 4.0 if has_data else 0.0  # rough full-game estimate
+
+        return [
+            min(q1_home / 60.0, 2.0),   # Normalised: typical Q1 total ~55
+            min(q1_away / 60.0, 2.0),
+            min(h1_home / 120.0, 2.0),  # Normalised: typical H1 total ~110
+            min(h1_away / 120.0, 2.0),
+            has_data,
+            min(est_total / 250.0, 2.0),
+        ]

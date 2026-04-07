@@ -3,6 +3,18 @@
 //
 // Classes: MatchModel
 
+// ignore_for_file: avoid_dynamic_calls
+import 'dart:convert';
+
+/// Decodes a JSON string to Map<String, dynamic>. Returns null on any error.
+Map<String, dynamic>? _jsonDecodeMap(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is Map) return decoded.cast<String, dynamic>();
+  } catch (_) {}
+  return null;
+}
+
 class MatchModel {
   final String date;
   final String time;
@@ -62,6 +74,14 @@ class MatchModel {
   final Map<String, dynamic>? ensembleWeights;
   final Map<String, dynamic>? recQualifications;
 
+  // v9.8.0 — basketball period scores + market period targeting
+  /// JSON: {"q1":{"home":28,"away":22}, "q2":..., "h1":..., "ot":...} — null for football.
+  final Map<String, dynamic>? periodScores;
+  /// The O/U line this prediction targets (e.g. 220.5). Null for 1X2.
+  final double? marketLine;
+  /// Period targeted: 'full' | 'h1' | 'h2' | 'q1'–'q4'. Null for football.
+  final String? marketPeriod;
+
   MatchModel({
     required this.fixtureId,
     required this.date,
@@ -114,6 +134,9 @@ class MatchModel {
     this.rlDecision,
     this.ensembleWeights,
     this.recQualifications,
+    this.periodScores,
+    this.marketLine,
+    this.marketPeriod,
   });
 
   bool get isLive =>
@@ -206,6 +229,9 @@ class MatchModel {
       'rl_decision': rlDecision,
       'ensemble_weights': ensembleWeights,
       'rec_qualifications': recQualifications,
+      'period_scores': periodScores,
+      'market_line': marketLine,
+      'market_period': marketPeriod,
     };
   }
 
@@ -326,6 +352,18 @@ class MatchModel {
       rlDecision: predictionData?['rl_decision'],
       ensembleWeights: predictionData?['ensemble_weights'],
       recQualifications: predictionData?['rec_qualifications'],
+      periodScores: () {
+        final raw = row['period_scores'];
+        if (raw is Map) return raw.cast<String, dynamic>();
+        if (raw is String && raw.isNotEmpty) {
+          final decoded = _jsonDecodeMap(raw);
+          if (decoded != null) return decoded;
+        }
+        return null;
+      }(),
+      marketLine: double.tryParse(
+          predictionData?['market_line']?.toString() ?? ''),
+      marketPeriod: predictionData?['market_period']?.toString(),
     );
   }
 
@@ -403,6 +441,9 @@ class MatchModel {
       rlDecision: other.rlDecision ?? rlDecision,
       ensembleWeights: other.ensembleWeights ?? ensembleWeights,
       recQualifications: other.recQualifications ?? recQualifications,
+      periodScores: other.periodScores ?? periodScores,
+      marketLine: other.marketLine ?? marketLine,
+      marketPeriod: preferNullableString(marketPeriod, other.marketPeriod),
     );
   }
 }

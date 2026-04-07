@@ -132,6 +132,7 @@ class _LeagueResultsTabState extends State<LeagueResultsTab> {
                 leagueCrestUrl: leagueCrest,
                 latestRound: sections.isNotEmpty ? sections.first.key : null,
                 totalResults: matches.length,
+                sport: firstMatch.sport,
                 onStandingsTap: widget.onStandingsTap,
               );
             }
@@ -208,10 +209,12 @@ class _ResultsLeagueHeader extends StatelessWidget {
   final String? leagueCrestUrl;
   final String? latestRound;
   final int totalResults;
+  final String sport;
   final VoidCallback? onStandingsTap;
 
   const _ResultsLeagueHeader({
     required this.leagueName,
+    required this.sport,
     this.season,
     this.leagueCrestUrl,
     this.latestRound,
@@ -256,9 +259,30 @@ class _ResultsLeagueHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
               ],
+              // Sport chip (only for non-football)
+              if (sport.toLowerCase() == 'basketball') ...[
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    '🏀 BASKETBALL',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.orange,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
               Expanded(
                 child: Text(
-                  _parseLeagueName(leagueName),
+                  leagueName, // already "COUNTRY: League Name" from the model
                   style: GoogleFonts.dmSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -377,10 +401,4 @@ class _ResultsLeagueHeader extends StatelessWidget {
     );
   }
 
-  String _parseLeagueName(String fullName) {
-    if (fullName.contains(':')) {
-      return fullName.split(':').last.trim();
-    }
-    return fullName;
-  }
 }

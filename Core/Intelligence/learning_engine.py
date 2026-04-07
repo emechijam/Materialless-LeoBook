@@ -1,6 +1,7 @@
 """
 LearningEngine Module
 Handles prediction learning, performance analysis, and weight adaptation with region-specific granularity.
+Multi-sport: football + basketball weights are unified via sport_profiles.py.
 """
 
 import json
@@ -12,48 +13,77 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 LEARNING_DB = PROJECT_ROOT / "Data" / "Store" / "learning_weights.json"
 
+# Import sport-aware combined maps from the single source of truth.
+# sport_profiles.py owns all reason→rule and default weight definitions.
+try:
+    from Core.Intelligence.sport_profiles import (
+        get_combined_reason_map,
+        get_combined_default_weights,
+    )
+    _COMBINED_REASON_MAP:    Dict[str, str] = get_combined_reason_map()
+    _COMBINED_DEFAULT_WEIGHTS: Dict[str, Any] = get_combined_default_weights()
+except Exception:
+    # Graceful fallback — sport_profiles import may fail during bootstrap
+    _COMBINED_REASON_MAP    = {}
+    _COMBINED_DEFAULT_WEIGHTS = {}
 
 class LearningEngine:
     """Self-learning component that analyzes prediction performance and adjusts weights per region/league."""
 
-    # Map text reasons back to rule keys for learning attribution
-    REASON_TO_RULE_MAP = {
-        "H2H home strong": "h2h_home_win",
-        "H2H away strong": "h2h_away_win",
-        "H2H drawish": "h2h_draw",
-        "Top vs Bottom": "standings_top_vs_bottom",
-        "strong GD": "standings_gd_strong",
-        "weak GD": "standings_gd_weak",
-        "scores 2+": "form_score_2plus",
-        "concedes 2+": "form_concede_2plus",
-        "fails to score": "form_no_score",
-        "strong defense": "form_clean_sheet",
-        "xG advantage": "xg_advantage",
-        "Close xG suggests draw": "xg_draw"
+    # ── Multi-sport reason→rule map (auto-populated from sport_profiles) ──
+    # Maps substrings found in prediction reason text → internal rule weight keys.
+    # All sports are covered. Basketball uses bb_ prefix to avoid key collisions.
+    REASON_TO_RULE_MAP: Dict[str, str] = _COMBINED_REASON_MAP or {
+        # Football (fallback if sport_profiles import fails)
+        "H2H home strong":              "h2h_home_win",
+        "H2H away strong":              "h2h_away_win",
+        "H2H drawish":                  "h2h_draw",
+        "H2H suggests Draw":            "h2h_draw",
+        "Top vs Bottom":                "standings_top_vs_bottom",
+        "strong GD":                    "standings_gd_strong",
+        "weak GD":                      "standings_gd_weak",
+        "scores 2+ often":              "form_score_2plus",
+        "concedes 2+ often":            "form_concede_2plus",
+        "fails to score":               "form_no_score",
+        "strong defense":               "form_clean_sheet",
+        "xG advantage":                 "xg_advantage",
+        "Close xG suggests draw":       "xg_draw",
+        # Basketball (fallback)
+        "High-scoring form boosted OVER":  "bb_form_high_scoring",
+        "Low-scoring form boosted UNDER":  "bb_form_low_scoring",
+        "Strong defense boosted UNDER":    "bb_form_strong_defense",
+        "Weak defense boosted OVER":       "bb_form_weak_defense",
+        "High-pace teams boosted OVER":    "bb_form_high_pace",
+        "Low-pace teams boosted UNDER":    "bb_form_low_pace",
+        "H2H historically high-scoring":   "bb_h2h_total_over",
+        "H2H historically low-scoring":    "bb_h2h_total_under",
+        "Elite offense in standings":      "bb_standings_elite_offense",
+        "Elite defense in standings":      "bb_standings_elite_defense",
+        "→ OVER signal":                   "bb_xpts_high_total",
+        "→ UNDER signal":                  "bb_xpts_low_total",
+        "xPts":                            "bb_xpts_high_total",
     }
 
-    DEFAULT_WEIGHTS = {
-        "h2h_home_win": 3.0,
-        "h2h_away_win": 3.0,
-        "h2h_draw": 3.0,
-        "h2h_over25": 3.0,
-        "standings_top_vs_bottom": 5.0,
-        "standings_table_advantage": 3.0,
-        "standings_gd_strong": 2.0,
-        "standings_gd_weak": 2.0,
-        "form_score_2plus": 3.0,
-        "form_score_3plus": 2.0,
-        "form_concede_2plus": 3.0,
-        "form_no_score": 4.0,
-        "form_clean_sheet": 4.0,
-        "form_vs_top_win": 3.0,
-        "xg_advantage": 4.0,
-        "xg_draw": 2.0,
+    # ── Multi-sport default weights (football + basketball) ──────────────
+    DEFAULT_WEIGHTS: Dict[str, Any] = _COMBINED_DEFAULT_WEIGHTS or {
+        # Football
+        "h2h_home_win": 3.0, "h2h_away_win": 3.0, "h2h_draw": 3.0, "h2h_over25": 3.0,
+        "standings_top_vs_bottom": 5.0, "standings_table_advantage": 3.0,
+        "standings_gd_strong": 2.0, "standings_gd_weak": 2.0,
+        "form_score_2plus": 3.0, "form_score_3plus": 2.0,
+        "form_concede_2plus": 3.0, "form_no_score": 4.0,
+        "form_clean_sheet": 4.0, "form_vs_top_win": 3.0,
+        "xg_advantage": 4.0, "xg_draw": 2.0,
+        # Basketball
+        "bb_form_high_scoring": 4.0, "bb_form_low_scoring": 3.5,
+        "bb_form_strong_defense": 4.5, "bb_form_weak_defense": 3.5,
+        "bb_form_high_pace": 3.0, "bb_form_low_pace": 3.0,
+        "bb_h2h_total_over": 5.0, "bb_h2h_total_under": 5.0,
+        "bb_h2h_home_dom": 1.5, "bb_h2h_away_dom": 1.5,
+        "bb_standings_elite_offense": 3.5, "bb_standings_elite_defense": 3.5,
+        "bb_xpts_high_total": 6.0, "bb_xpts_low_total": 6.0,
         "confidence_calibration": {
-            "Very High": 0.70,
-            "High": 0.60,
-            "Medium": 0.50,
-            "Low": 0.40
+            "Very High": 0.68, "High": 0.60, "Medium": 0.50, "Low": 0.40,
         }
     }
 
@@ -134,7 +164,21 @@ class LearningEngine:
                 is_correct = row.get('outcome_correct') in ('True', '1')
                 country_league = row.get('country_league', 'Unknown')
                 prediction_conf = row.get('confidence', 'Medium')
-                reasoning_text = row.get('reason', '') or ''
+
+                # ── P0 FIX: reason may be a JSON list (basketball) or plain string (football)
+                raw_reason = row.get('reason', '') or ''
+                if isinstance(raw_reason, list):
+                    # Basketball engine emits reason as a list of strings
+                    reasoning_text = ' | '.join(str(r) for r in raw_reason)
+                elif isinstance(raw_reason, str) and raw_reason.startswith('['):
+                    # Stored as JSON string in DB (e.g. '["High-scoring form..."]')
+                    try:
+                        parsed = json.loads(raw_reason)
+                        reasoning_text = ' | '.join(str(r) for r in parsed) if isinstance(parsed, list) else raw_reason
+                    except Exception:
+                        reasoning_text = raw_reason
+                else:
+                    reasoning_text = raw_reason
 
                 conf_performance[country_league][prediction_conf]["total"] += 1
                 conf_performance["GLOBAL"][prediction_conf]["total"] += 1

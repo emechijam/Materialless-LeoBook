@@ -28,6 +28,12 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
         return month >= 7 ? startYear : endYear;
     }
 
+    // Detect sport from the page URL or breadcrumb — used for ID prefix & link parsing.
+    // Basketball rows use id="g_3_XXXX"; football uses id="g_1_XXXX".
+    const pageSport = (window.location.pathname || '').includes('/basketball/') ? 'basketball' : 'football';
+    const ROW_PREFIX = pageSport === 'basketball' ? 'g_3_' : 'g_1_';
+    const SPORT_PATH = pageSport;  // used in link parsing
+
     const container = document.querySelector(s.main_container)?.parentElement || document.body;
     const allEls = container.querySelectorAll(`${s.match_round}, ${s.match_row}`);
     let currentRound = '';
@@ -35,9 +41,13 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
     allEls.forEach(el => {
         if (el.matches(s.match_round)) { currentRound = el.innerText.trim(); return; }
         const rowId = el.getAttribute('id') || '';
-        if (!rowId || !rowId.startsWith('g_1_')) return;
+        // Accept both football (g_1_) and basketball (g_3_) prefixes
+        if (!rowId || (!rowId.startsWith('g_1_') && !rowId.startsWith('g_3_'))) return;
+        // Determine sport for this specific row by its ID prefix
+        const rowSport = rowId.startsWith('g_3_') ? 'basketball' : 'football';
+        const rowPrefix = rowSport === 'basketball' ? 'g_3_' : 'g_1_';
         const row = el;
-        const fixtureId = rowId.replace('g_1_', '');
+        const fixtureId = rowId.replace(rowPrefix, '');
         const timeEl = row.querySelector(s.match_time);
         let matchTime = '', matchDate = '', extraTag = '';
         if (timeEl) {
@@ -59,8 +69,7 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
             if (fullM) {
                 matchDate = `${fullM[3]}-${fullM[2]}-${fullM[1]}`; matchTime = `${fullM[4]}:${fullM[5]}`;
             } else {
-                // Pattern 1b: Full date only "16.11.2025" (historical results — Flashscore omits
-                // kick-off time for completed matches; time element shows date only with no HH:MM)
+                // Pattern 1b: Full date only "16.11.2025"
                 const dateOnlyM = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})\s*$/);
                 if (dateOnlyM) {
                     matchDate = `${dateOnlyM[3]}-${dateOnlyM[2]}-${dateOnlyM[1]}`; matchTime = 'FT';
@@ -99,14 +108,46 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
             }
         }
         const homeEl = row.querySelector(s.home_participant);
-        const homeName = homeEl ? (homeEl.querySelector(s.participant_name) || homeEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
+        let homeName = homeEl ? (homeEl.querySelector(s.participant_name) || homeEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
         const awayEl = row.querySelector(s.away_participant);
-        const awayName = awayEl ? (awayEl.querySelector(s.participant_name) || awayEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
+        let awayName = awayEl ? (awayEl.querySelector(s.participant_name) || awayEl).innerText.trim().replace(/\s*\(.*?\)\s*$/, '') : '';
         const homeScoreEl = row.querySelector(s.match_score_home);
         const awayScoreEl = row.querySelector(s.match_score_away);
         const homeScore = homeScoreEl && homeScoreEl.innerText.trim() !== '-' ? parseInt(homeScoreEl.innerText.trim()) : null;
         const awayScore = awayScoreEl && awayScoreEl.innerText.trim() !== '-' ? parseInt(awayScoreEl.innerText.trim()) : null;
-        // F2: Red card count per side
+
+        // ── Basketball: extract quarter/period scores ───────────────────────────
+        // Selectors: .event__part.event__part--home.event__part--N (N=1..5+)
+        // Part 1-4 = Q1-Q4; Part 5+ = Overtime periods (OT, 2OT, etc.)
+        let periodScores = null;
+        if (rowSport === 'basketball') {
+            const partEls = row.querySelectorAll('.event__part');
+            if (partEls.length > 0) {
+                const periods = {};
+                const PERIOD_NAMES = ['q1', 'q2', 'q3', 'q4', 'ot', 'ot2', 'ot3', 'ot4'];
+                partEls.forEach(pe => {
+                    const cls = pe.className;
+                    // Extract period number from class event__part--N
+                    const numM = cls.match(/event__part--(\d+)/);
+                    if (!numM) return;
+                    const n = parseInt(numM[1]);  // 1=Q1, 2=Q2, 3=Q3, 4=Q4, 5=OT, 6=2OT...
+                    const pKey = PERIOD_NAMES[n - 1] || `ot${n - 4}`;
+                    if (!periods[pKey]) periods[pKey] = {};
+                    const val = pe.innerText.trim();
+                    const score = (val !== '' && val !== '-') ? parseInt(val) : null;
+                    if (cls.includes('event__part--home')) periods[pKey].home = score;
+                    else if (cls.includes('event__part--away')) periods[pKey].away = score;
+                });
+                // Include only periods where both sides have a value
+                const cleaned = {};
+                for (const [k, v] of Object.entries(periods)) {
+                    if (v.home !== undefined || v.away !== undefined) cleaned[k] = v;
+                }
+                if (Object.keys(cleaned).length > 0) periodScores = cleaned;
+            }
+        }
+
+        // F2: Red card count per side (football only; basketball will always be 0)
         const homeRedCards = homeEl ? homeEl.querySelectorAll('[data-testid="wcl-icon-incidents-red-card"]').length : 0;
         const awayRedCards = awayEl ? awayEl.querySelectorAll('[data-testid="wcl-icon-incidents-red-card"]').length : 0;
         // F3: Winner detection from bold class on name span
@@ -139,8 +180,13 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
         let linkEl = row.querySelector(s.match_link);
         if (!linkEl) linkEl = document.querySelector(`a[aria-describedby="${rowId}"]`);
         const mLink = linkEl ? linkEl.getAttribute('href') : '';
-        if (mLink && mLink.includes('/match/football/')) {
-            const parts = mLink.replace(/^(.*\/match\/football\/)/, '').split('/').filter(p => p && !p.startsWith('?'));
+
+        // Parse team IDs and URLs from the match link.
+        // Supports both /match/football/... and /match/basketball/... patterns.
+        const sportLinkMatch = mLink && mLink.match(/\/match\/(football|basketball)\//);
+        if (sportLinkMatch) {
+            const linkSport = sportLinkMatch[1];
+            const parts = mLink.replace(new RegExp(`^.*\/match\/${linkSport}\/`), '').split('/').filter(p => p && !p.startsWith('?'));
             if (parts.length >= 2) {
                 const hSeg = parts[0], aSeg = parts[1];
                 homeTeamId = hSeg.substring(hSeg.lastIndexOf('-') + 1);
@@ -151,18 +197,15 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
                 if (aSlug && awayTeamId) awayTeamUrl = `https://www.flashscore.com/team/${aSlug}/${awayTeamId}/`;
             }
         }
-        // ROOT CAUSE 1 FIX: The URL match_link is the canonical ground truth for home/away order.
-        // Some Flashscore layouts (Club Friendly, postponed fixtures) render DOM elements in
-        // a non-standard order that mismatches the URL path. Detect and correct the swap.
-        // URL structure: /match/football/home-slug-HOMEID/away-slug-AWAYID/?mid=FIXID
+
+        // ROOT CAUSE 1 FIX: URL match_link is canonical ground truth for home/away order.
+        // Applies to both football and basketball. Detect and correct DOM swap.
         if (mLink && homeTeamId && awayTeamId && homeEl && awayEl) {
-            const urlParts = mLink.replace(/^.*\/match\/football\//, '').split('/').filter(p => p && !p.startsWith('?'));
+            const swapLinkSport = (mLink.match(/\/match\/(football|basketball)\//) || [])[1] || 'football';
+            const urlParts = mLink.replace(new RegExp(`^.*\/match\/${swapLinkSport}\/`), '').split('/').filter(p => p && !p.startsWith('?'));
             if (urlParts.length >= 2) {
                 const urlHomeId = urlParts[0].substring(urlParts[0].lastIndexOf('-') + 1);
-                // If the ID we extracted as 'home' doesn't match the URL's first (home) segment,
-                // but it DOES match the URL's second (away) segment, the DOM order is swapped.
                 if (urlHomeId && urlHomeId !== homeTeamId && urlHomeId === awayTeamId) {
-                    // Swap: DOM rendered away-first, URL is canonical home-first
                     [homeName, awayName] = [awayName, homeName];
                     [homeTeamId, awayTeamId] = [awayTeamId, homeTeamId];
                     [homeTeamUrl, awayTeamUrl] = [awayTeamUrl, homeTeamUrl];
@@ -170,7 +213,9 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
                 }
             }
         }
-        matches.push({ fixture_id: fixtureId, date: matchDate, time: matchTime,
+        matches.push({
+            fixture_id: fixtureId, date: matchDate, time: matchTime,
+            sport: rowSport,
             home_team_name: homeName, away_team_name: awayName,
             home_team_id: homeTeamId, away_team_id: awayTeamId,
             home_team_url: homeTeamUrl, away_team_url: awayTeamUrl,
@@ -179,6 +224,7 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
             winner: winner,
             match_status: matchStatus, home_crest_url: homeCrest, away_crest_url: awayCrest,
             league_stage: currentRound, extra: extraTag || null,
+            period_scores: periodScores,
             url: `/match/${fixtureId}/#/match-summary`, match_link: mLink || ''
         });
     });
@@ -258,9 +304,10 @@ EXTRACT_ARCHIVE_JS = r"""(selectors) => {
         seen.add(seasonLabel);
 
         // Derive slug from href, tolerating current-season (no year in path)
-        const hrefM = href.match(/\/football\/([^/]+)\/([^/]+)\/?$/);
-        const country = hrefM ? hrefM[1] : '';
-        let slug = hrefM ? hrefM[2] : seasonLabel.replace('/', '-');
+        // Support both /football/ and /basketball/ archive hrefs
+        const hrefM = href.match(/\/(football|basketball)\/([^/]+)\/([^/]+)\/?$/);
+        const country = hrefM ? hrefM[2] : '';
+        let slug = hrefM ? hrefM[3] : seasonLabel.replace('/', '-');
         const fullUrl = href.startsWith('http') ? href
                       : href.startsWith('/') ? 'https://www.flashscore.com' + href
                       : 'https://www.flashscore.com/' + href;
@@ -297,27 +344,29 @@ EXTRACT_ARCHIVE_JS = r"""(selectors) => {
 
     /* ── Fallback: link-based (pre-2024 DOM without archiveTable) ── */
     if (seasons.length === 0) {
+        // Fallback selectors support both football and basketball archive hrefs
         for (const sel of [selectors.archive_links, selectors.archive_table_links,
-                           'a.archiveTable__column--link', 'a[href*="/football/"]']) {
+                           'a.archiveTable__column--link', 'a[href*="/football/"]', 'a[href*="/basketball/"]']) {
             if (!sel) continue;
             for (const a of document.querySelectorAll(sel)) {
                 const href = a.getAttribute('href') || '';
-                const splitM = href.match(/\/football\/([^/]+)\/([^/]+-(\d{4})-(\d{4}))\/?/i);
-                if (splitM && !seen.has(splitM[2])) {
-                    seen.add(splitM[2]);
-                    seasons.push({ slug: splitM[2], country: splitM[1],
-                        start_year: parseInt(splitM[3]), end_year: parseInt(splitM[4]),
-                        is_split: true, label: `${splitM[3]}/${splitM[4]}`,
+                // Match /football/country/slug-YYYY-YYYY or /basketball/country/slug-YYYY-YYYY
+                const splitM = href.match(/\/(football|basketball)\/([^/]+)\/([^/]+-(\d{4})-(\d{4}))\/?/i);
+                if (splitM && !seen.has(splitM[3])) {
+                    seen.add(splitM[3]);
+                    seasons.push({ slug: splitM[3], country: splitM[2],
+                        start_year: parseInt(splitM[4]), end_year: parseInt(splitM[5]),
+                        is_split: true, label: `${splitM[4]}/${splitM[5]}`,
                         url: href.startsWith('http') ? href : (href.startsWith('/') ? 'https://www.flashscore.com' + href : 'https://www.flashscore.com/' + href),
                         winner_name: null, winner_team_id: null, winner_team_url: null, winner_crest_url: null });
                 }
-                const calM = href.match(/\/football\/([^/]+)\/([^/]+-(\d{4}))\/?$/i);
-                if (calM && !seen.has(calM[2])) {
-                    if (![...seen].some(s => s.startsWith(calM[2] + '-'))) {
-                        seen.add(calM[2]);
-                        seasons.push({ slug: calM[2], country: calM[1],
-                            start_year: parseInt(calM[3]), end_year: parseInt(calM[3]),
-                            is_split: false, label: calM[3],
+                const calM = href.match(/\/(football|basketball)\/([^/]+)\/([^/]+-(\d{4}))\/?$/i);
+                if (calM && !seen.has(calM[3])) {
+                    if (![...seen].some(s => s.startsWith(calM[3] + '-'))) {
+                        seen.add(calM[3]);
+                        seasons.push({ slug: calM[3], country: calM[2],
+                            start_year: parseInt(calM[4]), end_year: parseInt(calM[4]),
+                            is_split: false, label: calM[4],
                             url: href.startsWith('http') ? href : (href.startsWith('/') ? 'https://www.flashscore.com' + href : 'https://www.flashscore.com/' + href),
                             winner_name: null, winner_team_id: null, winner_team_url: null, winner_crest_url: null });
                     }

@@ -35,20 +35,34 @@ class RuleEngineManager:
     def _load_list() -> List[Dict[str, Any]]:
         p = RuleEngineManager._path()
         if not p.exists():
-            default = RuleEngineManager._builtin_default_dict()
-            RuleEngineManager._save_list([default])
-            return [default]
+            defaults = [
+                RuleEngineManager._builtin_default_dict(),
+                RuleEngineManager._builtin_basketball_default_dict(),
+            ]
+            RuleEngineManager._save_list(defaults)
+            return defaults
         try:
             raw = json.loads(p.read_text(encoding="utf-8"))
             if not isinstance(raw, list) or not raw:
-                default = RuleEngineManager._builtin_default_dict()
-                RuleEngineManager._save_list([default])
-                return [default]
+                defaults = [
+                    RuleEngineManager._builtin_default_dict(),
+                    RuleEngineManager._builtin_basketball_default_dict(),
+                ]
+                RuleEngineManager._save_list(defaults)
+                return defaults
+            # Back-fill basketball default if missing (upgrade path)
+            ids = {e.get("id") for e in raw}
+            if "basketball_default" not in ids:
+                raw.append(RuleEngineManager._builtin_basketball_default_dict())
+                RuleEngineManager._save_list(raw)
             return raw
         except (json.JSONDecodeError, OSError):
-            default = RuleEngineManager._builtin_default_dict()
-            RuleEngineManager._save_list([default])
-            return [default]
+            defaults = [
+                RuleEngineManager._builtin_default_dict(),
+                RuleEngineManager._builtin_basketball_default_dict(),
+            ]
+            RuleEngineManager._save_list(defaults)
+            return defaults
 
     @staticmethod
     def _save_list(engines: List[Dict[str, Any]]) -> None:
@@ -57,13 +71,14 @@ class RuleEngineManager:
 
     @staticmethod
     def _builtin_default_dict() -> Dict[str, Any]:
-        """Single default engine — matches RuleConfig / RuleConfigModel defaults."""
+        """Football default engine — matches RuleConfig / RuleConfigModel defaults."""
         return {
             "id": "default",
             "name": "Default",
             "description": "Standard LeoBook prediction logic",
             "is_default": True,
             "is_builtin_default": True,
+            "sport": "football",
             "scope": {"type": "global", "leagues": [], "teams": []},
             "weights": {
                 "xg_advantage": 3.0,
@@ -86,6 +101,48 @@ class RuleEngineManager:
             "parameters": {
                 "h2h_lookback_days": 540,
                 "min_form_matches": 3,
+                "risk_preference": "conservative",
+            },
+            "accuracy": {
+                "total_predictions": 0,
+                "correct": 0,
+                "win_rate": 0.0,
+                "last_backtested": None,
+                "backtest_period": None,
+            },
+        }
+
+    @staticmethod
+    def _builtin_basketball_default_dict() -> Dict[str, Any]:
+        """Basketball default engine — O/U focused for basketball markets."""
+        return {
+            "id": "basketball_default",
+            "name": "Basketball Default",
+            "description": "O/U focused rule engine for basketball (Total, Team, Halves, Quarters)",
+            "is_default": False,
+            "is_builtin_default": True,
+            "sport": "basketball",
+            "scope": {"type": "global", "leagues": [], "teams": []},
+            "weights": {
+                # Basketball-specific O/U symbolic weights
+                "bb_form_high_scoring":      4.0,
+                "bb_form_low_scoring":       3.5,
+                "bb_form_strong_defense":    4.5,
+                "bb_form_weak_defense":      3.5,
+                "bb_form_high_pace":         3.0,
+                "bb_form_low_pace":          3.0,
+                "bb_h2h_total_over":         5.0,
+                "bb_h2h_total_under":        5.0,
+                "bb_h2h_home_dom":           1.5,
+                "bb_h2h_away_dom":           1.5,
+                "bb_standings_elite_offense": 3.5,
+                "bb_standings_elite_defense": 3.5,
+                "bb_xpts_high_total":        6.0,
+                "bb_xpts_low_total":         6.0,
+            },
+            "parameters": {
+                "h2h_lookback_days": 540,
+                "min_form_matches": 5,
                 "risk_preference": "conservative",
             },
             "accuracy": {

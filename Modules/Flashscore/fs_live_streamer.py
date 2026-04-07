@@ -121,6 +121,10 @@ def _propagate_status_updates(live_matches, resolved_matches, force_finished_ids
             if lm.get('home_score') and str(lm['home_score']) != str(row.get('home_score')):
                 updates['home_score'] = lm['home_score']
                 updates['away_score'] = lm['away_score']
+            # Basketball: write quarter scores whenever they're non-null
+            ps = lm.get('part_scores')
+            if ps and isinstance(ps, dict):
+                updates['period_scores'] = json.dumps(ps)
 
         elif fid in resolved_ids:
             rm = resolved_map[fid]
@@ -133,6 +137,10 @@ def _propagate_status_updates(live_matches, resolved_matches, force_finished_ids
                 else:
                     updates['home_score'] = rm.get('home_score', row.get('home_score', ''))
                     updates['away_score'] = rm.get('away_score', row.get('away_score', ''))
+                    # Persist final quarter scores on resolution for basketball
+                    ps = rm.get('part_scores')
+                    if ps and isinstance(ps, dict):
+                        updates['period_scores'] = json.dumps(ps)
 
         # Safety: 2.5hr rule
         if str(row.get('match_status', '')).lower() == 'live':

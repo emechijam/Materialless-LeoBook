@@ -79,7 +79,13 @@ class _LeagueFixturesTabState extends State<LeagueFixturesTab> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.sports_soccer, size: 48, color: AppColors.textGrey),
+                Icon(
+                  matches.first.sport.toLowerCase() == 'basketball'
+                      ? Icons.sports_basketball
+                      : Icons.sports_soccer,
+                  size: 48,
+                  color: AppColors.textGrey,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   "No fixtures found",
@@ -133,6 +139,7 @@ class _LeagueFixturesTabState extends State<LeagueFixturesTab> {
                 season: season,
                 leagueCrestUrl: leagueCrest,
                 regionFlagUrl: regionFlag,
+                sport: firstMatch.sport,
                 currentRound: sections.isNotEmpty ? sections.first.key : null,
                 onStandingsTap: widget.onStandingsTap,
               );
@@ -206,6 +213,7 @@ class _RoundHeader extends StatelessWidget {
 /// League info header — crest, name, season badge, progress, standings link
 class _LeagueInfoHeader extends StatelessWidget {
   final String leagueName;
+  final String sport;
   final String? season;
   final String? leagueCrestUrl;
   final String? regionFlagUrl;
@@ -214,6 +222,7 @@ class _LeagueInfoHeader extends StatelessWidget {
 
   const _LeagueInfoHeader({
     required this.leagueName,
+    required this.sport,
     this.season,
     this.leagueCrestUrl,
     this.regionFlagUrl,
@@ -258,9 +267,30 @@ class _LeagueInfoHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
               ],
+              // Sport chip for non-football
+              if (sport.toLowerCase() == 'basketball') ...[
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    '🏀 BASKETBALL',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.orange,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
               Expanded(
                 child: Text(
-                  _parseLeagueName(leagueName),
+                  leagueName, // already "COUNTRY: League Name" from model
                   style: GoogleFonts.dmSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -376,10 +406,4 @@ class _LeagueInfoHeader extends StatelessWidget {
     );
   }
 
-  String _parseLeagueName(String fullName) {
-    if (fullName.contains(':')) {
-      return fullName.split(':').last.trim();
-    }
-    return fullName;
-  }
 }

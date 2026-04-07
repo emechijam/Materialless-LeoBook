@@ -88,10 +88,20 @@ class _MatchCardState extends State<MatchCard> {
       final parts = leagueName.split(':');
       if (parts.length >= 2) {
         country = parts[0].trim();
-        leagueName = parts[1].trim();
+        leagueName = parts.sublist(1).join(':').trim();
       }
     }
     return (country, leagueName);
+  }
+
+  // Sport label for non-football sports — shown as a small chip
+  String? get _sportChipLabel {
+    final s = match.sport.toLowerCase();
+    if (s == 'basketball') return '🏀';
+    if (s == 'tennis') return '🎾';
+    if (s == 'hockey') return '🏒';
+    if (s != 'football' && s != 'soccer' && s.isNotEmpty) return s.toUpperCase();
+    return null;
   }
 
   bool get _isFinished =>
@@ -192,6 +202,7 @@ class _MatchCardState extends State<MatchCard> {
   // ─────────────────────────────────────────────────────────────
   Widget _buildLeagueHeader(
       BuildContext context, String country, String leagueName) {
+    final sportLabel = _sportChipLabel;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         SpacingScale.cardPadding,
@@ -213,7 +224,30 @@ class _MatchCardState extends State<MatchCard> {
                 errorWidget: (_, __, ___) => const SizedBox.shrink(),
               ),
             ),
-          // League name
+          // Sport chip (basketball 🏀, tennis 🎾, etc.) — hidden for football
+          if (sportLabel != null) ...[
+            Container(
+              margin: const EdgeInsets.only(right: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: match.sport.toLowerCase() == 'basketball'
+                    ? Colors.orange.withValues(alpha: 0.15)
+                    : AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                sportLabel,
+                style: LeoTypography.labelSmall.copyWith(
+                  color: match.sport.toLowerCase() == 'basketball'
+                      ? Colors.orange
+                      : AppColors.primary,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+          // Country + League name
           Expanded(
             child: Text(
               country.isNotEmpty ? '$country: $leagueName' : leagueName,

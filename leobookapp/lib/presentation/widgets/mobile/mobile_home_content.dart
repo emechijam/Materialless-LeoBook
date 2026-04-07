@@ -20,6 +20,7 @@ import '../shared/category_bar.dart';
 import '../shared/leo_tab.dart';
 import '../shared/accuracy_report_card.dart';
 import '../shared/footnote_section.dart';
+import '../shared/sport_switcher.dart';
 
 /// Mobile home content — fullscreen scrollable layout with:
 /// - Glassmorphic App Bar with search + CategoryBar
@@ -135,6 +136,9 @@ class _MobileHomeContentState extends State<MobileHomeContent>
                   child: Column(
                     children: [
                       SizedBox(height: Responsive.sp(context, 10)),
+                      // ── Sport Switcher: auto-hides when only one sport ──
+                      SportSwitcher(horizontalPadding: 0),
+                      SizedBox(height: Responsive.sp(context, 8)),
                       AccuracyReportCard(matches: widget.state.allMatches),
                       SizedBox(height: Responsive.sp(context, 10)),
                     ],

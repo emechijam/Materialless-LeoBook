@@ -109,7 +109,14 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
-                          // 2. AI Win Probability
+                          // 2. Basketball Period Scoreboard (only for basketball)
+                          if (_isBasketball && match.periodScores != null)
+                            _buildPeriodScoreboard(),
+
+                          if (_isBasketball && match.periodScores != null)
+                            const SizedBox(height: 16),
+
+                          // 3. AI Win / O-U Probability
                           _buildWinProbabilitySection(),
 
                           const SizedBox(height: 16),
@@ -287,6 +294,17 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                                 errorWidget: (_, __, ___) => const SizedBox.shrink(),
                               ),
                             ),
+                          // Sport pill — only shown for non-football
+                          if (match.sport.toLowerCase() == 'basketball')
+                            Container(
+                              margin: const EdgeInsets.only(right: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: const Text('🏀', style: TextStyle(fontSize: 8)),
+                            ),
                           Flexible(
                             child: Text(
                               _parseLeagueName(match.league ?? ''),
@@ -433,6 +451,179 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
     );
   }
 
+  /// Basketball quarter/half scoreboard — shown when periodScores is populated.
+  Widget _buildPeriodScoreboard() {
+    final ps = match.periodScores!;
+    final periods = <String>['q1', 'q2', 'q3', 'q4'];
+    final hasSubs = ps.containsKey('h1') || ps.containsKey('h2');
+    final hasOt   = ps.containsKey('ot') &&
+        ((ps['ot']?['home'] ?? 0) > 0 || (ps['ot']?['away'] ?? 0) > 0);
+
+    String sc(String period, String side) {
+      final v = ps[period]?[side];
+      if (v == null) return '-';
+      return v.toString();
+    }
+
+    Widget cell(String text, {bool bold = false, Color? color}) {
+      return Expanded(
+        child: Center(
+          child: Text(
+            text,
+            style: GoogleFonts.dmSans(
+              color: color ?? (bold ? Colors.white : Colors.white70),
+              fontSize: bold ? 13 : 11,
+              fontWeight: bold ? FontWeight.w900 : FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget row(String label, String home, String away,
+        {bool isTotal = false, bool isOt = false}) {
+      final accentColor = isOt ? Colors.amber : (isTotal ? AppColors.primary : null);
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isTotal
+              ? AppColors.primary.withValues(alpha: 0.12)
+              : Colors.white.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(8),
+          border: isTotal || isOt
+              ? Border.all(
+                  color: (accentColor ?? AppColors.primary).withValues(alpha: 0.25))
+              : null,
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 36,
+              child: Text(
+                label,
+                style: GoogleFonts.dmSans(
+                  color: accentColor ?? Colors.white38,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            cell(home, bold: isTotal, color: accentColor),
+            Text('–', style: GoogleFonts.dmSans(color: Colors.white24, fontSize: 11)),
+            cell(away, bold: isTotal, color: accentColor),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.neutral800,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              const Icon(Icons.sports_basketball, size: 14, color: Colors.orange),
+              const SizedBox(width: 6),
+              Text(
+                'PERIOD SCORES',
+                style: GoogleFonts.dmSans(
+                  color: Colors.orange,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Column headers
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                const SizedBox(width: 36),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      match.homeTeam.split(' ').last.toUpperCase(),
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      match.awayTeam.split(' ').last.toUpperCase(),
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.liveRed,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Period rows
+          for (final p in periods)
+            if (ps.containsKey(p))
+              row(p.toUpperCase(), sc(p, 'home'), sc(p, 'away')),
+          if (hasSubs) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Divider(color: Colors.white10, height: 1),
+            ),
+            if (ps.containsKey('h1'))
+              row('H1', sc('h1', 'home'), sc('h1', 'away')),
+            if (ps.containsKey('h2'))
+              row('H2', sc('h2', 'home'), sc('h2', 'away')),
+          ],
+          if (hasOt)
+            row('OT', sc('ot', 'home'), sc('ot', 'away'), isOt: true),
+          // Total (full game)
+          row(
+            'FINAL',
+            match.homeScore ?? '-',
+            match.awayScore ?? '-',
+            isTotal: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Returns true when this match uses the basketball Over/Under prediction schema.
+  bool get _isBasketball => match.sport.toLowerCase() == 'basketball';
+
+  // Over / Under probabilities — parsed from ensembleWeights or rlDecision.
+  // Falls back to 50/50 when not available (symbolic-only path).
+  double get _probOver =>
+      (match.ensembleWeights?['over'] ?? match.rlDecision?['over_prob'] ?? 0.5)
+          .toDouble();
+  double get _probUnder =>
+      (match.ensembleWeights?['under'] ?? match.rlDecision?['under_prob'] ?? 0.5)
+          .toDouble();
+
   Widget _buildWinProbabilitySection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -454,7 +645,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "AI WIN PROBABILITY",
+                _isBasketball ? "AI OVER/UNDER PROBABILITY" : "AI WIN PROBABILITY",
                 style: GoogleFonts.dmSans(
                   color: Colors.white54,
                   fontSize: 10,
@@ -480,94 +671,154 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // Progress Bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              height: 24,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: (match.probHome * 100).toInt().clamp(1, 100),
-                    child: Container(
-                      color: AppColors.primary,
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Text(
-                        "HOME ${(match.probHome * 100).toInt()}%",
-                        style: GoogleFonts.dmSans(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+          if (_isBasketball) ...[
+            // ── Basketball: 2-bar Over / Under ──────────────────────────
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 28,
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: (_probOver * 100).toInt().clamp(1, 99),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF10B981), Color(0xFF059669)],
+                          ),
+                        ),
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Text(
+                          "OVER  ${(_probOver * 100).toInt()}%",
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    flex: (match.probDraw * 100).toInt().clamp(1, 100),
-                    child: Container(
-                      color: Colors.grey[700],
-                      alignment: Alignment.center,
-                      child: Text(
-                        "${(match.probDraw * 100).toInt()}%",
-                        style: GoogleFonts.dmSans(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                    Expanded(
+                      flex: (_probUnder * 100).toInt().clamp(1, 99),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                          ),
+                        ),
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 10),
+                        child: Text(
+                          "${(_probUnder * 100).toInt()}%  UNDER",
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    flex: (match.probAway * 100).toInt().clamp(1, 100),
-                    child: Container(
-                      color: AppColors.liveRed,
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Text(
-                        "${(match.probAway * 100).toInt()}% AWAY",
-                        style: GoogleFonts.dmSans(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                match.homeTeam,
-                style: GoogleFonts.dmSans(
-                  color: Colors.white54,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "More Points",
+                  style: GoogleFonts.dmSans(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  "Total O/U",
+                  style: GoogleFonts.dmSans(color: Colors.white38, fontSize: 9),
+                ),
+                Text(
+                  "Fewer Points",
+                  style: GoogleFonts.dmSans(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ] else ...[
+            // ── Football: 3-bar Home / Draw / Away ─────────────────────
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 24,
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: (match.probHome * 100).toInt().clamp(1, 100),
+                      child: Container(
+                        color: AppColors.primary,
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Text(
+                          "HOME ${(match.probHome * 100).toInt()}%",
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: (match.probDraw * 100).toInt().clamp(1, 100),
+                      child: Container(
+                        color: Colors.grey[700],
+                        alignment: Alignment.center,
+                        child: Text(
+                          "${(match.probDraw * 100).toInt()}%",
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: (match.probAway * 100).toInt().clamp(1, 100),
+                      child: Container(
+                        color: AppColors.liveRed,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Text(
+                          "${(match.probAway * 100).toInt()}% AWAY",
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                "Draw",
-                style: GoogleFonts.dmSans(
-                  color: Colors.white54,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  match.homeTeam,
+                  style: GoogleFonts.dmSans(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w500),
                 ),
-              ),
-              Text(
-                match.awayTeam,
-                style: GoogleFonts.dmSans(
-                  color: Colors.white54,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
+                Text(
+                  "Draw",
+                  style: GoogleFonts.dmSans(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w500),
                 ),
-              ),
-            ],
-          ),
+                Text(
+                  match.awayTeam,
+                  style: GoogleFonts.dmSans(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -598,10 +849,14 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.psychology, color: Colors.white, size: 20),
+              Icon(
+                _isBasketball ? Icons.sports_basketball : Icons.psychology,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
-                "EXPERT PREDICTION",
+                _isBasketball ? "BASKETBALL PREDICTION" : "EXPERT PREDICTION",
                 style: GoogleFonts.dmSans(
                   color: Colors.white70,
                   fontSize: 12,
@@ -960,13 +1215,21 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
       });
     }
 
-    // Win probabilities
-    insights.add({
-      'icon': Icons.pie_chart_outline,
-      'label': 'Win Probability',
-      'value':
-          'H ${(match.probHome * 100).toInt()}%  |  D ${(match.probDraw * 100).toInt()}%  |  A ${(match.probAway * 100).toInt()}%',
-    });
+    // Win / O-U probabilities — sport-aware
+    if (_isBasketball) {
+      insights.add({
+        'icon': Icons.sports_basketball,
+        'label': 'Over / Under Probability',
+        'value': 'OVER ${(_probOver * 100).toInt()}%  |  UNDER ${(_probUnder * 100).toInt()}%',
+      });
+    } else {
+      insights.add({
+        'icon': Icons.pie_chart_outline,
+        'label': 'Win Probability',
+        'value':
+            'H ${(match.probHome * 100).toInt()}%  |  D ${(match.probDraw * 100).toInt()}%  |  A ${(match.probAway * 100).toInt()}%',
+      });
+    }
 
     // Odds
     if (match.odds != null && match.odds!.isNotEmpty && match.odds != '-') {
@@ -1362,10 +1625,15 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
     );
   }
 
+  /// Returns "COUNTRY: LEAGUE" — preserves country for context.
   String _parseLeagueName(String leagueStr) {
     if (leagueStr.contains(':')) {
       final parts = leagueStr.split(':');
-      if (parts.length >= 2) return parts[1].trim().toUpperCase();
+      if (parts.length >= 2) {
+        final country = parts[0].trim().toUpperCase();
+        final league = parts.sublist(1).join(':').trim().toUpperCase();
+        return '$country: $league';
+      }
     }
     return leagueStr.toUpperCase();
   }

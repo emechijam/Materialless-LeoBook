@@ -40,5 +40,46 @@
       "last_backtested": null,
       "backtest_period": null
     }
+  },
+  {
+    "id": "basketball_default",
+    "name": "Basketball Default",
+    "description": "O/U focused rule engine for basketball (Total, Team, Halves, Quarters)",
+    "is_default": false,
+    "is_builtin_default": true,
+    "sport": "basketball",
+    "scope": {
+      "type": "global",
+      "leagues": [],
+      "teams": []
+    },
+    "weights": {
+      "bb_form_high_scoring": 4.0,
+      "bb_form_low_scoring": 3.5,
+      "bb_form_strong_defense": 4.5,
+      "bb_form_weak_defense": 3.5,
+      "bb_form_high_pace": 3.0,
+      "bb_form_low_pace": 3.0,
+      "bb_h2h_total_over": 5.0,
+      "bb_h2h_total_under": 5.0,
+      "bb_h2h_home_dom": 1.5,
+      "bb_h2h_away_dom": 1.5,
+      "bb_standings_elite_offense": 3.5,
+      "bb_standings_elite_defense": 3.5,
+      "bb_xpts_high_total": 6.0,
+      "bb_xpts_low_total": 6.0
+    },
+    "parameters": {
+      "h2h_lookback_days": 540,
+      "min_form_matches": 5,
+      "risk_preference": "conservative"
+    },
+    "accuracy": {
+      "total_predictions": 0,
+      "correct": 0,
+      "win_rate": 0.0,
+      "last_backtested": null,
+      "backtest_period": null
+    }
   }
 ]

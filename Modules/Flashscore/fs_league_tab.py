@@ -67,7 +67,8 @@ async def extract_tab(
         print(f"      [Targeting gaps] {', '.join(sorted(gap_columns))}")
 
     tab_selectors = selector_mgr.get_all_selectors_for_context(CONTEXT_LEAGUE)
-    row_sel: str = tab_selectors.get("match_row", "[id^='g_1_']")
+    # Accept both football (g_1_) and basketball (g_3_) row ID prefixes
+    row_sel: str = tab_selectors.get("match_row", "[id^='g_1_'], [id^='g_3_']")
 
     try:
         resp = await page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -130,7 +131,8 @@ async def extract_tab(
         if attempt == 1:
             try:
                 diag = await page.evaluate("""(sel) => {
-                    const rows = document.querySelectorAll("[id^='g_1_']");
+                    // Accept both football (g_1_) and basketball (g_3_) row ID prefixes
+                    const rows = document.querySelectorAll("[id^='g_1_'], [id^='g_3_']");
                     const timeEls = document.querySelectorAll(sel);
                     const samples = [];
                     for (let i = 0; i < Math.min(3, rows.length); i++) {
@@ -205,6 +207,7 @@ async def extract_tab(
                 if   "FT" in su or "FINISHED" in su: status = "finished"
                 elif "AET" in su:  status = "finished";  extra = extra or "AET"
                 elif "PEN" in su:  status = "finished";  extra = extra or "PEN"
+                elif "AOT" in su or ("OT" == su.strip()):  status = "finished"; extra = extra or "OT"
                 elif "POST" in su: status = "postponed"; extra = extra or "Postp"
                 elif "CANC" in su: status = "cancelled"; extra = extra or "Canc"
                 elif "AWR" in su or "AWARD" in su: status = "awarded";  extra = extra or "Awrd"
@@ -265,6 +268,8 @@ async def extract_tab(
                 "url":            f"https://www.flashscore.com/match/{m.get('fixture_id', '')}/#/match-summary",
                 "country_league":  country_league,
                 "match_link":     m.get("match_link", ""),
+                "period_scores":  m.get("period_scores"),   # basketball quarter scores (dict or None)
+                "sport":          m.get("sport", "football"),
                 # Pass through raw JS fields for contract validation
                 "home_team_url":  home_team_url,
                 "away_team_url":  away_team_url,

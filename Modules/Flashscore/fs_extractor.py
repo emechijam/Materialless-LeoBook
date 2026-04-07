@@ -84,9 +84,19 @@ async def extract_all_matches(page: Page, label: str = "Extractor") -> list:
         let currentLeague = '';
         let currentLeagueUrl = '';
         let currentRegionFlag = '';
+        let currentSport = 'football';    // tracked from sportName container class
         let matchesSinceLastHeader = 0;
 
         allElements.forEach((el) => {
+            // ── Sport container boundary — update sport when we cross into a new sportName div ──
+            // Walk up to find the nearest sportName wrapper and read its sport class
+            const sportEl = el.closest('.sportName');
+            if (sportEl) {
+                if (sportEl.classList.contains('basketball')) currentSport = 'basketball';
+                else if (sportEl.classList.contains('soccer') || sportEl.classList.contains('football_')) currentSport = 'football';
+                else currentSport = 'football';  // default
+            }
+
             if (el.matches(sel.league_header_wrapper)) {
                 // Track previous header's match count
                 if (debug.headers > 0) {
@@ -140,9 +150,14 @@ async def extract_all_matches(page: Page, label: str = "Extractor") -> list:
             let homeScore = homeScoreEl ? homeScoreEl.innerText.trim() : '';
             let awayScore = awayScoreEl ? awayScoreEl.innerText.trim() : '';
 
-            // Content-based live detection fallback
+            // Content-based live detection — football + basketball aware
             const liveStagePattern = /^(\d+['′+]?\s*$|half|break|ht$|pen|extra|et$|\d+\+\d+)/i;
-            const isLiveContent = stageText && liveStagePattern.test(stageText.replace(/\s+/g, ''));
+            // Basketball quarter/period patterns not matched by football regex:
+            const basketballLivePattern = /^(1st|2nd|3rd|4th|Q[1-4]|OT|Overtime|Break|Quarter|Half)/i;
+            const isLiveContent = stageText && (
+                liveStagePattern.test(stageText.replace(/\s+/g, '')) ||
+                basketballLivePattern.test(stageText)
+            );
             const isLive = isLiveClass || isLiveContent;
 
             if (isLive) {
@@ -154,6 +169,8 @@ async def extract_all_matches(page: Page, label: str = "Extractor") -> list:
                 else if (minLower === 'aet' || minLower === 'afteret') { status = 'finished'; stageDetail = 'AET'; }
                 else if (minLower === 'int' || minLower.includes('interrupt')) { status = 'interrupted'; stageDetail = 'INT'; }
                 else if (minLower.includes('et') && !minLower.match(/^\d/)) { status = 'extra_time'; stageDetail = 'ET'; }
+                // Basketball-specific sub-statuses
+                else if (minLower.includes('ot') || minLower.includes('overtime')) { status = 'live'; stageDetail = 'OT'; }
             } else if (stageLower.includes('postp') || stageLower.includes('pp')) {
                 status = 'postponed'; stageDetail = 'Postp'; homeScore = ''; awayScore = '';
             } else if (stageLower.includes('canc')) {
@@ -207,6 +224,41 @@ async def extract_all_matches(page: Page, label: str = "Extractor") -> list:
                 cleanLeague = cleanLeague.substring(0, stageMatch.index).trim();
             }
 
+            // ── Basketball quarter/period part scores ────────────────────────────────
+            // DOM: <div class="event__part event__part--home event__part--1">31</div>
+            // Up to 8 divs per match (4 quarters × home + away). OT is part 5.
+            let partScores = null;
+            if (currentSport === 'basketball') {
+                const partEls = el.querySelectorAll('.event__part');
+                if (partEls.length > 0) {
+                    partScores = {};
+                    partEls.forEach(pEl => {
+                        const classes = Array.from(pEl.classList);
+                        const partNumMatch = classes.find(c => /^event__part--\d+$/.test(c));
+                        const sideMatch = classes.includes('event__part--home') ? 'home' : 'away';
+                        if (partNumMatch) {
+                            const pNum = partNumMatch.replace('event__part--', '');
+                            const key = pNum === '1' ? 'q1' : pNum === '2' ? 'q2' : pNum === '3' ? 'q3' : pNum === '4' ? 'q4' : `ot${parseInt(pNum)-4}`;
+                            if (!partScores[key]) partScores[key] = {};
+                            partScores[key][sideMatch] = pEl.innerText.trim();
+                        }
+                    });
+                    // Derive h1 / h2 composite halves if Q1+Q2 and Q3+Q4 are available
+                    if (partScores.q1 && partScores.q2) {
+                        partScores.h1 = {
+                            home: String((parseInt(partScores.q1.home||0))+(parseInt(partScores.q2.home||0))),
+                            away: String((parseInt(partScores.q1.away||0))+(parseInt(partScores.q2.away||0)))
+                        };
+                    }
+                    if (partScores.q3 && partScores.q4) {
+                        partScores.h2 = {
+                            home: String((parseInt(partScores.q3.home||0))+(parseInt(partScores.q4.home||0))),
+                            away: String((parseInt(partScores.q3.away||0))+(parseInt(partScores.q4.away||0)))
+                        };
+                    }
+                }
+            }
+
             const regionLeague = currentRegion ? currentRegion + ' - ' + cleanLeague : cleanLeague || 'Unknown';
 
             const cleanLeagueUrl = (currentLeagueUrl && !currentLeagueUrl.startsWith('http')) 
@@ -219,6 +271,7 @@ async def extract_all_matches(page: Page, label: str = "Extractor") -> list:
 
             matches.push({
                 fixture_id: cleanId,
+                sport: currentSport,
                 home_team: homeNameEl.innerText.trim(),
                 away_team: awayNameEl.innerText.trim(),
                 home_team_id: homeTeamId,
@@ -238,6 +291,7 @@ async def extract_all_matches(page: Page, label: str = "Extractor") -> list:
                 region_flag: currentRegionFlag,
                 match_link: cleanMatchLink,
                 match_time: rawTime,
+                part_scores: partScores,   // null for football; {q1,q2,q3,q4,h1,h2} for basketball
                 timestamp: new Date().toISOString()
             });
         });

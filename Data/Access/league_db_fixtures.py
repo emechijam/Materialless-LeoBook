@@ -11,6 +11,7 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool 
     """Insert or update a fixture. Returns the row id."""
     now = now_ng().isoformat()
     extra_json = json.dumps(data.get("extra")) if data.get("extra") else None
+    period_scores_json = json.dumps(data["period_scores"]) if data.get("period_scores") else None
 
     cur = conn.execute(
         """INSERT INTO schedules (
@@ -20,6 +21,7 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool 
                match_status, season, home_crest, away_crest, url,
                country_league, match_link,
                home_red_cards, away_red_cards, winner,
+               period_scores, sport,
                last_updated
            ) VALUES (
                :fixture_id, :date, :time, :league_id,
@@ -28,6 +30,7 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool 
                :match_status, :season, :home_crest, :away_crest, :url,
                :country_league, :match_link,
                :home_red_cards, :away_red_cards, :winner,
+               :period_scores, :sport,
                :last_updated
            )
            ON CONFLICT(fixture_id) DO UPDATE SET
@@ -48,6 +51,8 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool 
                home_red_cards = COALESCE(excluded.home_red_cards, schedules.home_red_cards),
                away_red_cards = COALESCE(excluded.away_red_cards, schedules.away_red_cards),
                winner         = COALESCE(excluded.winner, schedules.winner),
+               period_scores  = COALESCE(excluded.period_scores, schedules.period_scores),
+               sport          = COALESCE(excluded.sport, schedules.sport),
                last_updated   = excluded.last_updated
         """,
         {
@@ -73,6 +78,8 @@ def upsert_fixture(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool 
             "home_red_cards": data.get("home_red_cards", 0),
             "away_red_cards": data.get("away_red_cards", 0),
             "winner": data.get("winner"),
+            "period_scores": period_scores_json,
+            "sport": data.get("sport", "football"),
             "last_updated": now,
         },
     )
@@ -87,6 +94,7 @@ def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]
     rows = []
     for f in fixtures:
         extra_json = json.dumps(f.get("extra")) if f.get("extra") else None
+        period_scores_json = json.dumps(f["period_scores"]) if f.get("period_scores") else None
         rows.append((
             f.get("fixture_id", ""), f.get("date"), f.get("time", f.get("match_time")),
             f.get("league_id"),
@@ -98,6 +106,7 @@ def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]
             f.get("home_crest"), f.get("away_crest"),
             f.get("url"), f.get("country_league"), f.get("match_link"),
             f.get("home_red_cards", 0), f.get("away_red_cards", 0), f.get("winner"),
+            period_scores_json, f.get("sport", "football"),
             now,
         ))
     conn.executemany(
@@ -108,8 +117,9 @@ def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]
                match_status, season, home_crest, away_crest, url,
                country_league, match_link,
                home_red_cards, away_red_cards, winner,
+               period_scores, sport,
                last_updated
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(fixture_id) DO UPDATE SET
                date           = COALESCE(excluded.date, schedules.date),
                time           = COALESCE(excluded.time, schedules.time),
@@ -132,6 +142,8 @@ def bulk_upsert_fixtures(conn: sqlite3.Connection, fixtures: List[Dict[str, Any]
                home_red_cards = COALESCE(excluded.home_red_cards, schedules.home_red_cards),
                away_red_cards = COALESCE(excluded.away_red_cards, schedules.away_red_cards),
                winner         = COALESCE(excluded.winner, schedules.winner),
+               period_scores  = COALESCE(excluded.period_scores, schedules.period_scores),
+               sport          = COALESCE(excluded.sport, schedules.sport),
                last_updated   = excluded.last_updated
         """,
         rows,

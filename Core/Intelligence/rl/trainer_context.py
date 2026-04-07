@@ -62,8 +62,10 @@ def build_fixture_context(
             return 0
 
     # 1. Form: last 10 completed results for each team BEFORE f_date ────────
+    #    period_scores included so basketball RL training gets quarter data.
     home_form = conn.execute(
-        """SELECT fixture_id, home_team_id, away_team_id, home_score, away_score
+        """SELECT fixture_id, home_team_id, away_team_id, home_score, away_score,
+                  COALESCE(period_scores, '') as period_scores
            FROM schedules
            WHERE date < ? AND (home_team_id=? OR away_team_id=?)
              AND home_score IS NOT NULL AND away_score IS NOT NULL
@@ -72,7 +74,8 @@ def build_fixture_context(
     ).fetchall()
 
     away_form = conn.execute(
-        """SELECT fixture_id, home_team_id, away_team_id, home_score, away_score
+        """SELECT fixture_id, home_team_id, away_team_id, home_score, away_score,
+                  COALESCE(period_scores, '') as period_scores
            FROM schedules
            WHERE date < ? AND (home_team_id=? OR away_team_id=?)
              AND home_score IS NOT NULL AND away_score IS NOT NULL
@@ -82,7 +85,8 @@ def build_fixture_context(
 
     # 2. H2H: last 10 head-to-head fixtures ──────────────────────────────────
     h2h = conn.execute(
-        """SELECT fixture_id, home_score, away_score
+        """SELECT fixture_id, home_score, away_score,
+                  COALESCE(period_scores, '') as period_scores
            FROM schedules
            WHERE ((home_team_id=? AND away_team_id=?) OR (home_team_id=? AND away_team_id=?))
              AND home_score IS NOT NULL AND away_score IS NOT NULL
@@ -104,18 +108,43 @@ def build_fixture_context(
             _standings_cache[cache_key] = []
     standings = _standings_cache[cache_key]
 
-    # 4. xG proxy: avg goals scored in last 10 per team ─────────────────────
+    # 4. xG proxy: avg goals/points scored in last 10 per team ──────────────
     def _avg_scored(form_rows, team_id):
         goals = []
         for r in form_rows:
             try:
-                if r[1] == team_id:
-                    goals.append(_safe_int(r[3]))
+                if r[1] == team_id:   # home_team_id at index 1
+                    goals.append(_safe_int(r[3]))  # home_score
                 else:
-                    goals.append(_safe_int(r[4]))
+                    goals.append(_safe_int(r[4]))  # away_score
             except Exception:
                 pass
         return round(sum(goals) / len(goals), 2) if goals else 0.0
+
+    # 5. Basketball period_scores — aggregate Q1/H1 rolling avg from form ────
+    #    These are stored as JSON strings (or '') and decoded here.
+    def _avg_period(form_rows, period_key, sub_key):
+        """Average a single team-agnostic period total (home+away) across form rows."""
+        totals = []
+        for r in form_rows:
+            try:
+                ps_raw = r[5] if len(r) > 5 else ''
+                if not ps_raw:
+                    continue
+                ps = json.loads(ps_raw)
+                pd = ps.get(period_key)
+                if isinstance(pd, dict):
+                    totals.append(
+                        float(pd.get('home', 0) or 0) + float(pd.get('away', 0) or 0)
+                    )
+            except Exception:
+                continue
+        return round(sum(totals) / len(totals), 2) if totals else 0.0
+
+    q1_avg_home = _avg_period(home_form, 'q1', 'home')
+    h1_avg_home = _avg_period(home_form, 'h1', 'home')
+    q1_avg_away = _avg_period(away_form, 'q1', 'away')
+    h1_avg_away = _avg_period(away_form, 'h1', 'away')
 
     xg_home = _avg_scored(home_form, home_tid)
     xg_away = _avg_scored(away_form, away_tid)
@@ -143,6 +172,11 @@ def build_fixture_context(
         "away_tags":          f"form:{afn}" if afn else "",
         "h2h_tags":           f"h2h:{h2h_n}" if h2h_n else "",
         "standings_tags":     f"standings:{st_n}" if st_n else "",
+        # Basketball period averages (0.0 for football — no period_scores stored)
+        "bb_q1_avg_home":     q1_avg_home,
+        "bb_h1_avg_home":     h1_avg_home,
+        "bb_q1_avg_away":     q1_avg_away,
+        "bb_h1_avg_away":     h1_avg_away,
     }
 
 

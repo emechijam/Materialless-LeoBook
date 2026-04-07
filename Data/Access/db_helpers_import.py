@@ -88,6 +88,11 @@ def save_prediction(match_data: Dict[str, Any], prediction_result: Dict[str, Any
         'ensemble_weights': prediction_result.get('ensemble_weights', {}),
         'rec_qualifications': prediction_result.get('rec_qualifications', {}),
         'last_updated': dt.now().isoformat(),
+        # v9.6.0 — sport (basketball / football; defaults to football for all existing predictions)
+        'sport': match_data.get('sport') or prediction_result.get('sport', 'football'),
+        # v9.8.0 — period targeting (basketball O/U markets)
+        'market_line':   prediction_result.get('market_line'),
+        'market_period': prediction_result.get('market_period', 'full'),
     }
 
     if not row['odds'] and row['prediction'] != 'SKIP':
@@ -158,6 +163,11 @@ def get_last_processed_info() -> Dict:
 def save_schedule_entry(match_info: Dict[str, Any], commit: bool = True):
     """Saves a single schedule entry."""
     match_info['last_updated'] = dt.now().isoformat()
+    # period_scores: accept either already-encoded JSON string or a raw dict
+    ps = match_info.get('period_scores') or match_info.get('part_scores')
+    if isinstance(ps, dict):
+        import json as _j
+        ps = _j.dumps(ps)
     mapped = {
         'fixture_id': match_info.get('fixture_id'),
         'date': match_info.get('date'),
@@ -173,12 +183,15 @@ def save_schedule_entry(match_info: Dict[str, Any], commit: bool = True):
         'country_league': match_info.get('country_league'),
         'match_link': match_info.get('match_link'),
         'league_stage': match_info.get('league_stage'),
+        'sport': match_info.get('sport', 'football'),
+        'period_scores': ps,
     }
     upsert_fixture(_get_conn_ref(), mapped, commit=commit)
 
 
 def transform_streamer_match_to_schedule(m: Dict[str, Any]) -> Dict[str, Any]:
     """Transforms a raw match dictionary from the streamer into a standard Schedule entry."""
+    import json as _j
     now = dt.now()
 
     date_str = m.get('date')
@@ -196,6 +209,11 @@ def transform_streamer_match_to_schedule(m: Dict[str, Any]) -> Dict[str, Any]:
     if not league_id and m.get('country_league'):
         league_id = m['country_league'].replace(' - ', '_').replace(' ', '_').upper()
 
+    # period_scores: prefer explicit field, fall back to part_scores dict from extractor
+    ps = m.get('period_scores') or m.get('part_scores')
+    if isinstance(ps, dict):
+        ps = _j.dumps(ps)
+
     return {
         'fixture_id': m.get('fixture_id'),
         'date': date_str,
@@ -211,16 +229,22 @@ def transform_streamer_match_to_schedule(m: Dict[str, Any]) -> Dict[str, Any]:
         'match_status': m.get('status', 'scheduled'),
         'match_link': m.get('match_link', ''),
         'league_stage': m.get('league_stage', ''),
+        'sport': m.get('sport', 'football'),
+        'period_scores': ps,
         'last_updated': now.isoformat(),
     }
 
 
 def save_schedule_batch(entries: List[Dict[str, Any]], commit: bool = True):
     """Batch UPSERTs multiple schedule entries."""
+    import json as _j
     if not entries:
         return
     mapped = []
     for e in entries:
+        ps = e.get('period_scores') or e.get('part_scores')
+        if isinstance(ps, dict):
+            ps = _j.dumps(ps)
         mapped.append({
             'fixture_id': e.get('fixture_id'),
             'date': e.get('date'),
@@ -236,6 +260,8 @@ def save_schedule_batch(entries: List[Dict[str, Any]], commit: bool = True):
             'country_league': e.get('country_league'),
             'match_link': e.get('match_link'),
             'league_stage': e.get('league_stage'),
+            'sport': e.get('sport', 'football'),
+            'period_scores': ps,
         })
     bulk_upsert_fixtures(_get_conn_ref(), mapped, commit=commit)
 

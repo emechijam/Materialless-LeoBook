@@ -42,9 +42,26 @@ SUPABASE_SCHEMA = {
             recommendation_score REAL, h2h_fixture_ids JSONB, form_fixture_ids JSONB,
             standings_snapshot JSONB, league_stage TEXT, generated_at TEXT,
             home_score TEXT, away_score TEXT,
-            form_home TEXT, form_away TEXT, h2h_summary TEXT,
+            form_home JSONB, form_away JSONB, h2h_summary JSONB,
+            standings_home JSONB, standings_away JSONB,
             is_available BOOLEAN DEFAULT FALSE,
-            last_updated TIMESTAMPTZ DEFAULT now()
+            last_updated TIMESTAMPTZ DEFAULT now(),
+            -- v9.6.0 rule engine + sport fields
+            sport TEXT DEFAULT 'football',
+            user_id TEXT DEFAULT '',
+            chosen_market TEXT,
+            market_id TEXT,
+            rule_explanation TEXT,
+            override_reason TEXT,
+            statistical_edge REAL,
+            pure_model_suggestion TEXT,
+            rule_engine_decision TEXT,
+            rl_decision JSONB,
+            ensemble_weights JSONB,
+            rec_qualifications JSONB,
+            -- v9.8.0 market period targeting
+            market_line REAL,
+            market_period TEXT DEFAULT 'full'
         );""",
     'schedules': """
         CREATE TABLE IF NOT EXISTS public.schedules (
@@ -58,6 +75,8 @@ SUPABASE_SCHEMA = {
             home_red_cards INTEGER DEFAULT 0,
             away_red_cards INTEGER DEFAULT 0,
             winner TEXT,
+            period_scores JSONB,
+            sport TEXT DEFAULT 'football',
             last_updated TIMESTAMPTZ DEFAULT now()
         );""",
     'teams': """
@@ -107,7 +126,10 @@ SUPABASE_SCHEMA = {
             date TEXT, match_time TEXT,
             home_team TEXT, away_team TEXT,
             home_score TEXT, away_score TEXT, minute TEXT,
-            status TEXT, country_league TEXT, match_link TEXT, timestamp TEXT,
+            status TEXT, country_league TEXT, match_link TEXT,
+            sport TEXT DEFAULT 'football',
+            part_scores TEXT,
+            timestamp TEXT,
             last_updated TIMESTAMPTZ DEFAULT now()
         );""",
     'accuracy_reports': """

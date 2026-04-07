@@ -7,6 +7,9 @@
 Neuro-Symbolic Ensemble Engine
 Merges Rule Engine (Symbolic) and RL (Neural) predictions using weighted averaging.
 Supports per-league weighting and fallback logic for low-confidence neural outputs.
+Supports both sport schemas:
+    Football:    rule_logits = {'home': score, 'draw': score, 'away': score}
+    Basketball:  rule_logits = {'over': score, 'under': score}
 """
 
 import json
@@ -56,12 +59,16 @@ class EnsembleEngine:
         """
         Merge symbolic and neural outputs.
 
+        Supports two logit schemas detected automatically:
+            Football:    rule_logits = {'home': score, 'draw': score, 'away': score}
+            Basketball:  rule_logits = {'over': score, 'under': score}
+
         Args:
-            rule_logits:         Dict with {'home': score, 'draw': score, 'away': score}
-            rule_conf:           Confidence (0.0 - 1.0) from Rule Engine
-            rl_logits:           Dict with {'home_win': prob, 'draw': prob, 'away_win': prob} or None
-            rl_conf:             Confidence (0.0 - 1.0) from RL Engine or None
-            league_id:           League ID for per-league weighting
+            rule_logits:         Symbolic engine vote totals.
+            rule_conf:           Confidence (0.0 - 1.0) from Rule Engine.
+            rl_logits:           RL action probs aligned to rule_logits schema, or None.
+            rl_conf:             Confidence (0.0 - 1.0) from RL Engine or None.
+            league_id:           League ID for per-league weighting.
             data_richness_score: [0.0, 1.0] — scales W_neural.
                                  0.0 = no prior season data (pure Rule Engine).
                                  1.0 = 3+ prior seasons (full RL weight).
@@ -79,6 +86,15 @@ class EnsembleEngine:
         w_n = round(w_n_base * max(0.0, min(1.0, data_richness_score)), 4)
         w_s = round(1.0 - w_n, 4)
 
+        # ── Detect schema ─────────────────────────────────────────────────────
+        # Basketball BasketballRuleEngine produces {"over": score, "under": score}.
+        # Football RuleEngine produces {"home": score, "draw": score, "away": score}.
+        _is_basketball = (
+            "over" in rule_logits
+            and "under" in rule_logits
+            and "home" not in rule_logits
+        )
+
         # Fallback to symbolic if RL confidence is too low or RL failed
         if rl_logits is None or rl_conf is None or rl_conf < 0.3:
             path = "symbolic_fallback"
@@ -88,11 +104,11 @@ class EnsembleEngine:
                 "[Ensemble] %s | Path: %s | Reason: %s | richness: %.2f",
                 league_id, path, reason, data_richness_score
             )
-            
+
             # Normalize rule_logits for consistency
             total = sum(rule_logits.values()) or 1.0
             norm_logits = {k: v / total for k, v in rule_logits.items()}
-            
+
             return {
                 "logits": norm_logits,
                 "confidence": rule_conf,
@@ -102,38 +118,49 @@ class EnsembleEngine:
 
         # Ensemble path
         path = "ensemble"
-        
-        # Mapping RL action probs to consistent keys
-        rl_1x2 = {
-            "home": rl_logits.get("home_win", 0.33),
-            "draw": rl_logits.get("draw", 0.34),
-            "away": rl_logits.get("away_win", 0.33)
-        }
-        
-        # Normalize Rule Logits
-        s_total = sum(rule_logits.values()) or 1.0
-        s_1x2 = {k: v / s_total for k, v in rule_logits.items()}
 
-        # Weighted Merge
-        final_1x2 = {
-            "home": (s_1x2["home"] * w_s) + (rl_1x2["home"] * w_n),
-            "draw": (s_1x2["draw"] * w_s) + (rl_1x2["draw"] * w_n),
-            "away": (s_1x2["away"] * w_s) + (rl_1x2["away"] * w_n)
-        }
-        
+        if _is_basketball:
+            # ── Basketball O/U: 2-way merge ───────────────────────────────────
+            rl_ou = {
+                "over":  rl_logits.get("over",  0.50),
+                "under": rl_logits.get("under", 0.50),
+            }
+            s_total = sum(rule_logits.values()) or 1.0
+            s_ou = {k: v / s_total for k, v in rule_logits.items()}
+            final_logits = {
+                "over":  (s_ou.get("over",  0.5) * w_s) + (rl_ou["over"]  * w_n),
+                "under": (s_ou.get("under", 0.5) * w_s) + (rl_ou["under"] * w_n),
+            }
+        else:
+            # ── Football 1X2: 3-way merge ─────────────────────────────────────
+            rl_1x2 = {
+                "home": rl_logits.get("home_win", 0.33),
+                "draw": rl_logits.get("draw", 0.34),
+                "away": rl_logits.get("away_win", 0.33),
+            }
+            s_total = sum(rule_logits.values()) or 1.0
+            s_1x2 = {k: v / s_total for k, v in rule_logits.items()}
+            final_logits = {
+                "home": (s_1x2["home"] * w_s) + (rl_1x2["home"] * w_n),
+                "draw": (s_1x2["draw"] * w_s) + (rl_1x2["draw"] * w_n),
+                "away": (s_1x2["away"] * w_s) + (rl_1x2["away"] * w_n),
+            }
+
         # Normalize final logits to ensure they sum to 1.0
-        f_total = sum(final_1x2.values()) or 1.0
-        final_1x2 = {k: v / f_total for k, v in final_1x2.items()}
+        f_total = sum(final_logits.values()) or 1.0
+        final_logits = {k: v / f_total for k, v in final_logits.items()}
 
         final_conf = (rule_conf * w_s) + (rl_conf * w_n)
-        
+
         logger.info(
-            "[Ensemble] %s | Path: %s | RL Conf: %.2f | richness: %.2f | s:%.2f n:%.2f",
-            league_id, path, rl_conf, data_richness_score, w_s, w_n
+            "[Ensemble] %s | Path: %s | Schema: %s | RL Conf: %.2f | richness: %.2f | s:%.2f n:%.2f",
+            league_id, path,
+            "basketball" if _is_basketball else "football",
+            rl_conf, data_richness_score, w_s, w_n
         )
-        
+
         return {
-            "logits": final_1x2,
+            "logits": final_logits,
             "confidence": final_conf,
             "path": path,
             "weights": {"W_symbolic": w_s, "W_neural": w_n}
@@ -208,7 +235,7 @@ def rl_action_to_recommendation(
     Returns None if action is no_bet or fails gate.
 
     Args:
-        action_idx:   Index of the selected action in ACTIONS (0–29).
+        action_idx:   Index of the selected action in ACTIONS (0-29).
         model_probs:  Raw softmax probabilities over all 30 actions.
                       These represent action *preference*, not outcome win probability.
         live_odds:    Dict of {market_key: decimal_odds} from the live book (optional).
@@ -216,8 +243,8 @@ def rl_action_to_recommendation(
                       When provided, the calibrated true win probability is derived as:
                           true_prob = (rl_ev + 1.0) / odds
                       and used for gate evaluation and EV computation instead of the
-                      raw softmax action probability (~1/30 ≈ 3.3%), which is too low
-                      to ever pass an EV > 0 gate regardless of model quality.
+                      raw softmax action probability (~1/30 ~= 3.3%), which is too low
+                      to ever pass an EV > 0 gate regardless of actual model quality.
                       Falls back to model_probs[action_idx] if rl_ev is None or odds
                       are unavailable (backward-compatible).
     """
@@ -246,10 +273,10 @@ def rl_action_to_recommendation(
     # ── Calibrated probability derivation ────────────────────────────────
     # When the value head EV is available, back-calculate the true win
     # probability the model has estimated for this outcome:
-    #   EV = true_prob * odds - 1  →  true_prob = (EV + 1) / odds
+    #   EV = true_prob * odds - 1  ->  true_prob = (EV + 1) / odds
     #
     # This corrects the gate logic, which previously used the ~3.3% softmax
-    # action score and always produced EV ≈ -0.90, causing every selection
+    # action score and always produced EV ~= -0.90, causing every selection
     # to fail the EV > 0 threshold regardless of actual model confidence.
     if rl_ev is not None and odds_to_use > 0.0:
         true_prob = (rl_ev + 1.0) / odds_to_use
@@ -278,7 +305,3 @@ def rl_action_to_recommendation(
         "ev":             round(ev, 4) if ev is not None else None,
         "likelihood_pct": action["likelihood"],
     }
-
-
-
-

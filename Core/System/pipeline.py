@@ -19,7 +19,10 @@ from Modules.Flashscore.fs_live_streamer import live_score_streamer
 from Modules.FootballCom.fb_manager import run_odds_harvesting, run_automated_booking
 from Modules.FootballCom.fb_basketball_booker import run_basketball_odds_harvesting
 from Scripts.recommend_bets import get_recommendations
+from Core.Intelligence.unified_prediction_pipeline import run_all_predictions, patch_standings_cache
+# Individual pipelines kept for backward-compat imports from other modules
 from Core.Intelligence.prediction_pipeline import run_predictions
+from Core.Intelligence.basketball_prediction_pipeline import run_basketball_predictions
 from Modules.Flashscore.fs_league_enricher import main as run_league_enricher
 from Data.Access.asset_manager import sync_team_assets, sync_league_assets, sync_region_flags
 
@@ -208,30 +211,42 @@ async def run_chapter_1_p1(p):
 @AIGOSuite.aigo_retry(max_retries=2, delay=3.0)
 async def run_chapter_1_p2(p=None, scheduler: TaskScheduler = None,
                            refresh: bool = False, target_dates: Optional[list] = None):
-    """Chapter 1 Page 2: Predictions (Rule Engine + RL Ensemble)."""
+    """Chapter 1 Page 2: Predictions (Rule Engine + RL Ensemble) — all sports."""
     log_state(chapter="Ch1 P2", action="Predictions")
     conn = init_db()
     try:
         print("\n" + "=" * 60)
-        print("  CHAPTER 1 PAGE 2: Predictions (Pure DB Computation)")
+        print("  CHAPTER 1 PAGE 2: Predictions (Pure DB — Football + Basketball)")
         print("=" * 60)
-        
+
+        # Activate standings cache for this run (P3 optimisation)
+        patch_standings_cache()
+
         # --- START TRANSACTION: All-or-Nothing for Page 2 ---
         conn.execute("BEGIN")
-        
-        predictions = await run_predictions(scheduler=scheduler)
-        count = len(predictions) if predictions else 0
-        
+
+        # Unified dispatcher: runs football then basketball in one call
+        all_results = await run_all_predictions(
+            conn=conn,
+            sports=["football", "basketball"],
+        )
+        fb_count = len(all_results.get("football", []))
+        bb_count = len(all_results.get("basketball", []))
+        total    = fb_count + bb_count
+
         # --- COMMIT TRANSACTION ---
         conn.execute("COMMIT")
-        print(f"    ✓ [Ch1 P2] Atomic commit successful: {count} predictions generated.")
-        log_audit_event("CH1_P2", f"Predictions completed: {count} generated.", status="success")
+        print(f"    ✓ [Ch1 P2] Atomic commit: {fb_count} football + {bb_count} basketball predictions.")
+        log_audit_event(
+            "CH1_P2",
+            f"Predictions completed: {total} total ({fb_count} football, {bb_count} basketball).",
+            status="success",
+        )
     except Exception as e:
         # --- ROLLBACK TRANSACTION ---
         conn.execute("ROLLBACK")
         print(f"    ⚠ [Ch1 P2] PAGE FAILED -> ROLLED BACK. Error: {e}")
         log_audit_event("CH1_P2", f"Failed: {e}", status="failed")
-
 
 
 @AIGOSuite.aigo_retry(max_retries=2, delay=2.0)

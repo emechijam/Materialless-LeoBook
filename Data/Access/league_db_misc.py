@@ -108,43 +108,90 @@ def log_audit_event(conn: sqlite3.Connection, data: Dict[str, Any],
 # ---------------------------------------------------------------------------
 
 def upsert_live_score(conn: sqlite3.Connection, data: Dict[str, Any], commit: bool = True):
-    """Insert or update a live score entry."""
+    """Insert or update a live score entry.
+
+    Columns added for multi-sport support:
+      sport       - 'football' | 'basketball' (from extractor)
+      part_scores - JSON string of quarter scores for basketball (null for football)
+    Both columns are IGNORED gracefully if they don't exist on older DB schemas
+    (the INSERT will fail silently on those columns and fall back to the UPDATE).
+    Safe approach: try with sport/part_scores, fall back without on OperationalError.
+    """
+    import json as _j
     now = now_ng().isoformat()
-    conn.execute(
-        """INSERT INTO live_scores (fixture_id, date, match_time,
-               home_team, away_team,
-               home_score, away_score, minute, status,
-               country_league, match_link, timestamp, last_updated)
-           VALUES (:fixture_id, :date, :match_time,
-               :home_team, :away_team,
-               :home_score, :away_score, :minute, :status,
-               :country_league, :match_link, :timestamp, :last_updated)
-           ON CONFLICT(fixture_id) DO UPDATE SET
-               date           = COALESCE(excluded.date, live_scores.date),
-               match_time     = COALESCE(excluded.match_time, live_scores.match_time),
-               home_score     = excluded.home_score,
-               away_score     = excluded.away_score,
-               minute         = excluded.minute,
-               status         = excluded.status,
-               timestamp      = excluded.timestamp,
-               last_updated   = excluded.last_updated
-        """,
-        {
-            "fixture_id": data["fixture_id"],
-            "date": data.get("date"),
-            "match_time": data.get("match_time"),
-            "home_team": data.get("home_team"),
-            "away_team": data.get("away_team"),
-            "home_score": data.get("home_score"),
-            "away_score": data.get("away_score"),
-            "minute": data.get("minute"),
-            "status": data.get("status"),
-            "country_league": data.get("country_league"),
-            "match_link": data.get("match_link"),
-            "timestamp": data.get("timestamp", now),
-            "last_updated": now,
-        },
-    )
+
+    # Serialize part_scores if present
+    ps = data.get('part_scores') or data.get('period_scores')
+    if isinstance(ps, dict):
+        ps = _j.dumps(ps)
+    sport = data.get('sport', 'football')
+
+    _base_params = {
+        "fixture_id":     data["fixture_id"],
+        "date":           data.get("date"),
+        "match_time":     data.get("match_time"),
+        "home_team":      data.get("home_team"),
+        "away_team":      data.get("away_team"),
+        "home_score":     data.get("home_score"),
+        "away_score":     data.get("away_score"),
+        "minute":         data.get("minute"),
+        "status":         data.get("status"),
+        "country_league": data.get("country_league"),
+        "match_link":     data.get("match_link"),
+        "timestamp":      data.get("timestamp", now),
+        "last_updated":   now,
+    }
+
+    # Try extended INSERT with sport + part_scores first
+    try:
+        conn.execute(
+            """INSERT INTO live_scores (fixture_id, date, match_time,
+                   home_team, away_team,
+                   home_score, away_score, minute, status,
+                   country_league, match_link, sport, part_scores,
+                   timestamp, last_updated)
+               VALUES (:fixture_id, :date, :match_time,
+                   :home_team, :away_team,
+                   :home_score, :away_score, :minute, :status,
+                   :country_league, :match_link, :sport, :part_scores,
+                   :timestamp, :last_updated)
+               ON CONFLICT(fixture_id) DO UPDATE SET
+                   date           = COALESCE(excluded.date, live_scores.date),
+                   match_time     = COALESCE(excluded.match_time, live_scores.match_time),
+                   home_score     = excluded.home_score,
+                   away_score     = excluded.away_score,
+                   minute         = excluded.minute,
+                   status         = excluded.status,
+                   sport          = COALESCE(excluded.sport, live_scores.sport),
+                   part_scores    = COALESCE(excluded.part_scores, live_scores.part_scores),
+                   timestamp      = excluded.timestamp,
+                   last_updated   = excluded.last_updated
+            """,
+            {**_base_params, "sport": sport, "part_scores": ps},
+        )
+    except Exception:
+        # Fallback for legacy schema without sport/part_scores columns
+        conn.execute(
+            """INSERT INTO live_scores (fixture_id, date, match_time,
+                   home_team, away_team,
+                   home_score, away_score, minute, status,
+                   country_league, match_link, timestamp, last_updated)
+               VALUES (:fixture_id, :date, :match_time,
+                   :home_team, :away_team,
+                   :home_score, :away_score, :minute, :status,
+                   :country_league, :match_link, :timestamp, :last_updated)
+               ON CONFLICT(fixture_id) DO UPDATE SET
+                   date           = COALESCE(excluded.date, live_scores.date),
+                   match_time     = COALESCE(excluded.match_time, live_scores.match_time),
+                   home_score     = excluded.home_score,
+                   away_score     = excluded.away_score,
+                   minute         = excluded.minute,
+                   status         = excluded.status,
+                   timestamp      = excluded.timestamp,
+                   last_updated   = excluded.last_updated
+            """,
+            _base_params,
+        )
     if commit:
         conn.commit()
 

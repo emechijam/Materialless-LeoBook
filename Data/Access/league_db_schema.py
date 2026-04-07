@@ -180,6 +180,8 @@ _SCHEMA_SQL = """
         status              TEXT,
         country_league      TEXT,
         match_link          TEXT,
+        sport               TEXT DEFAULT 'football',
+        part_scores         TEXT,
         timestamp           TEXT,
         last_updated        TEXT DEFAULT (datetime('now'))
     );
@@ -380,8 +382,10 @@ _ALTER_MIGRATIONS = [
     ("predictions", "ensemble_weights", "JSON"),
     ("predictions", "rec_qualifications", "JSON"),
     ("predictions", "is_available", "INTEGER DEFAULT 0"),
-    ("live_scores", "date", "TEXT"),
-    ("live_scores", "match_time", "TEXT"),
+    ("live_scores",  "date",        "TEXT"),
+    ("live_scores",  "match_time",  "TEXT"),
+    ("live_scores",  "sport",       "TEXT DEFAULT 'football'"),
+    ("live_scores",  "part_scores", "TEXT"),
     # v9.5.9 — multi-user tenancy: user_id added to all per-user tables
     ("predictions",      "user_id", "TEXT NOT NULL DEFAULT ''"),
     ("audit_log",        "user_id", "TEXT NOT NULL DEFAULT ''"),
@@ -410,6 +414,13 @@ _ALTER_MIGRATIONS = [
     # v9.7.0 — stairway weekly cycle tracking (Free tier cap in app + mirror to Supabase)
     ("stairway_state", "week_bucket", "TEXT"),
     ("stairway_state", "week_cycles_completed", "INTEGER DEFAULT 0"),
+    # v9.8.0 — basketball period scores + market period targeting
+    # period_scores: JSON blob e.g. {"q1":{"home":28,"away":22},"q2":...} — NULL for football
+    ("schedules",   "period_scores",  "TEXT"),
+    # market_line: the O/U line targeted (e.g. 220.5). NULL for football 1X2 predictions.
+    ("predictions", "market_line",    "REAL"),
+    # market_period: which period was predicted — 'full'|'h1'|'h2'|'q1'|'q2'|'q3'|'q4'
+    ("predictions", "market_period",  "TEXT DEFAULT 'full'"),
 ]
 
 # ── CSV → SQLite import map REMOVED (v7.0) ───────────────────────────────────
