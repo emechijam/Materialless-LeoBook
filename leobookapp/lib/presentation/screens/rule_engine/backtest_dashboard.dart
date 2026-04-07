@@ -232,7 +232,7 @@ class _BacktestDashboardState extends State<BacktestDashboard> {
                 ),
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
           floatingActionButton: Padding(
-            padding: const EdgeInsets.only(bottom: 112),
+            padding: const EdgeInsets.only(bottom: 148),
             child: FloatingActionButton.extended(
               onPressed: kIsWeb || _currentConfig == null ? null : _runBacktest,
               backgroundColor: AppColors.primary,
