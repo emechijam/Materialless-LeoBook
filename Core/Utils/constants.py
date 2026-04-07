@@ -79,5 +79,5 @@ IMMINENT_MATCH_CUTOFF_HOURS = 0.5
 # ── LeoBook Version ──────────────────────────────────────────────────────────
 # Increment both on every release. Referenced by lifecycle.py session header
 # and any other version-stamped output. Do NOT hardcode elsewhere.
-LEOBOOK_VERSION = "9.6.2"
+LEOBOOK_VERSION = "9.6.5"
 LEOBOOK_CODENAME = "Stairway Engine"

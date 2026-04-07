@@ -85,7 +85,8 @@ class SyncPullMixin:
             print(f"   [{remote_table}] FORCE FULL PULL -- counting... (paginating until exhausted)")
 
         total_pulled = 0
-        page_size = 5000
+        from Data.Access.sync_schema import _BATCH_SIZES
+        page_size = _BATCH_SIZES.get(table_key, _BATCH_SIZES.get('default', 1000))
         offset = 0
         disable_pbar = not logger.isEnabledFor(logging.INFO)
         _tqdm_stream = getattr(sys.stderr, '_streams', [sys.stderr])[0] \
@@ -144,7 +145,7 @@ class SyncPullMixin:
             return total_pulled
 
         except Exception as e:
-            if 'pbar' in locals() and pbar:
+            if 'pbar' in locals() and pbar is not None:
                 pbar.close()
             print(f"    [x] Pull failed for {remote_table}: {e}")
             logger.error(f"    [x] Pull failed: {e}")

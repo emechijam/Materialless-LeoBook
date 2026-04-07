@@ -9,7 +9,7 @@ from typing import Dict
 
 # SQLite table -> Supabase table mapping
 TABLE_CONFIG = {
-    'predictions':      {'local_table': 'predictions',      'remote_table': 'predictions',      'key': 'fixture_id,user_id'},
+    'predictions':      {'local_table': 'predictions',      'remote_table': 'predictions',      'key': 'fixture_id'},
     'schedules':        {'local_table': 'schedules',        'remote_table': 'schedules',        'key': 'fixture_id'},
     'teams':            {'local_table': 'teams',            'remote_table': 'teams',            'key': 'team_id'},
     'leagues':          {'local_table': 'leagues',          'remote_table': 'leagues',          'key': 'league_id'},
