@@ -35,11 +35,16 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
     const SPORT_PATH = pageSport;  // used in link parsing
 
     const container = document.querySelector(s.main_container)?.parentElement || document.body;
-    const allEls = container.querySelectorAll(`${s.match_round}, ${s.match_row}`);
+    // Guard: filter empty selector parts before joining — an empty string makes the
+    // combined selector invalid (e.g. ", div.event__match") and querySelectorAll throws.
+    // Basketball pages have no round headers so s.match_round is often "".
+    const _rowSelParts = [s.match_round, s.match_row].filter(p => p && p.trim());
+    const _rowSel = _rowSelParts.length ? _rowSelParts.join(', ') : ':is([id^="g_1_"],[id^="g_3_"])';
+    const allEls = container.querySelectorAll(_rowSel);
     let currentRound = '';
 
     allEls.forEach(el => {
-        if (el.matches(s.match_round)) { currentRound = el.innerText.trim(); return; }
+        if (s.match_round && s.match_round.trim() && el.matches(s.match_round)) { currentRound = el.innerText.trim(); return; }
         const rowId = el.getAttribute('id') || '';
         // Accept both football (g_1_) and basketball (g_3_) prefixes
         if (!rowId || (!rowId.startsWith('g_1_') && !rowId.startsWith('g_3_'))) return;
@@ -51,7 +56,8 @@ EXTRACT_MATCHES_JS = r"""(ctx) => {
         const timeEl = row.querySelector(s.match_time);
         let matchTime = '', matchDate = '', extraTag = '';
         if (timeEl) {
-            const stageInTime = timeEl.querySelector(`${s.match_stage_block}, ${s.match_stage_pkv}, ${s.match_stage}`);
+            const _stageParts = [s.match_stage_block, s.match_stage_pkv, s.match_stage].filter(p => p && p.trim());
+            const stageInTime = _stageParts.length ? timeEl.querySelector(_stageParts.join(', ')) : null;
             if (stageInTime) extraTag = stageInTime.innerText.trim();
             // Strategy: collect text from (1) text nodes, (2) lineThrough spans, (3) full innerText
             let raw = '';
