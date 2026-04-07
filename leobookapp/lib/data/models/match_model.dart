@@ -6,7 +6,7 @@
 // ignore_for_file: avoid_dynamic_calls
 import 'dart:convert';
 
-/// Decodes a JSON string to Map<String, dynamic>. Returns null on any error.
+/// Decodes a JSON string to `Map<String, dynamic>`. Returns null on any error.
 Map<String, dynamic>? _jsonDecodeMap(String raw) {
   try {
     final decoded = jsonDecode(raw);

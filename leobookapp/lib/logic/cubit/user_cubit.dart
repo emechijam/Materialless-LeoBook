@@ -38,6 +38,8 @@ class UserCubit extends Cubit<UserState> {
           _emitCorrectState(UserModel.fromSupabaseUser(user));
         }
       } else if (event == AuthChangeEvent.signedOut) {
+        // If we were mid-Google-OAuth and the user cancelled at browser level,
+        // reset from UserLoading back to idle so the button unfreezes.
         emit(const UserInitial(user: UserModel(id: 'guest')));
       }
     });
@@ -181,12 +183,27 @@ class UserCubit extends Cubit<UserState> {
     try {
       final response = await _authRepo.signInWithGoogle();
       if (response.user != null) {
+        // Immediate result (native mobile with cached credentials)
         _emitCorrectState(UserModel.fromSupabaseUser(response.user!));
-      } else {
-        // OAuth browser opened (mobile) or redirect initiated (web).
-        // Auth completes via authStateChanges deep link — emit idle.
-        emit(UserInitial(user: state.user));
       }
+      // If response.user == null:
+      //   • Web: OAuth redirect was initiated — browser will return via deep link.
+      //   • Mobile: native Google sheet opened — auth completes via authStateChanges.
+      // In both cases we STAY in UserLoading(google) so the button keeps showing
+      // a spinner. authStateChanges listener will fire emitCorrectState when done.
+      // (do NOT emit UserInitial here — that resets the button prematurely)
+    } on Exception catch (e) {
+      final msg = e.toString().toLowerCase();
+      // User explicitly cancelled — reset silently, no error snack needed.
+      if (msg.contains('cancel') || msg.contains('sign_in_cancelled') || msg.contains('aborted')) {
+        emit(UserInitial(user: state.user));
+        return;
+      }
+      // Google Play Services not available (some Android devices/emulators)
+      final friendlyMsg = msg.contains('play services') || msg.contains('google play')
+          ? 'Google Sign-In is not available on this device.'
+          : AuthRepository.mapAuthError(e, fallbackMessage: 'Google sign-in failed. Please try again.');
+      emit(UserError(user: state.user, message: friendlyMsg));
     } catch (e) {
       emit(UserError(
         user: state.user,
