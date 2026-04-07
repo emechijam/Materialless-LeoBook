@@ -67,8 +67,9 @@ async def extract_tab(
         print(f"      [Targeting gaps] {', '.join(sorted(gap_columns))}")
 
     tab_selectors = selector_mgr.get_all_selectors_for_context(CONTEXT_LEAGUE)
-    # Accept both football (g_1_) and basketball (g_3_) row ID prefixes
-    row_sel: str = tab_selectors.get("match_row", "[id^='g_1_'], [id^='g_3_']")
+    # Accept both football (g_1_) and basketball (g_3_) row ID prefixes.
+    # Use :is() so Playwright locator() handles compound selectors correctly.
+    row_sel: str = tab_selectors.get("match_row", ":is([id^='g_1_'], [id^='g_3_'])")
 
     try:
         resp = await page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -109,8 +110,11 @@ async def extract_tab(
     except Exception:
         print(f"      [Hydrate] [!] No {time_sel} elements found — extraction may fail")
 
-    # Pre-scan: count DOM rows for row-count parity check
-    scanned_count = await page.locator(row_sel).count()
+    # Pre-scan: count DOM rows for row-count parity check.
+    # Use evaluate() to avoid Playwright locator compound-selector limitation.
+    scanned_count = await page.evaluate(
+        "() => document.querySelectorAll(\"[id^='g_1_'], [id^='g_3_']\").length"
+    )
     print(f"      [Pre-scan] {scanned_count} DOM rows")
 
     season_ctx = parse_season_string(season)

@@ -46,7 +46,7 @@ async def _wait_for_page_hydration(
     max_wait: float = HYDRATION_MAX_WAIT,
 ) -> int:
     container_sel = selectors.get("main_container", "")
-    row_sel = selectors.get("match_row", "[id^='g_1_']")
+    row_sel = selectors.get("match_row", ":is([id^='g_1_'], [id^='g_3_'])")
     phase1_budget = max_wait / 2.0
     phase1_start = time.monotonic()
     if container_sel:
@@ -120,7 +120,7 @@ async def _expand_show_more(page: Page, selector_mgr, context_league: str, max_c
     """
     clicks = 0
     btn_sel = selector_mgr.get_selector(context_league, "show_more_matches")
-    row_sel = selector_mgr.get_selector(context_league, "match_row") or "[id^='g_1_']"
+    row_sel = selector_mgr.get_selector(context_league, "match_row") or ":is([id^='g_1_'], [id^='g_3_'])"
     while clicks < max_clicks:
         try:
             btn = page.locator(btn_sel)

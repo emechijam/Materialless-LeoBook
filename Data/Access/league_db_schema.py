@@ -421,6 +421,10 @@ _ALTER_MIGRATIONS = [
     ("predictions", "market_line",    "REAL"),
     # market_period: which period was predicted — 'full'|'h1'|'h2'|'q1'|'q2'|'q3'|'q4'
     ("predictions", "market_period",  "TEXT DEFAULT 'full'"),
+    # v9.6.3 — no new columns; extraction fix: compound CSS selector in Playwright
+    # now uses :is([id^='g_1_'], [id^='g_3_']) so basketball rows are counted correctly.
+    # This version also tightens the profile page (guest → login), read-only fingerprint,
+    # signout credential wipe, FAB +32dp clearance, and nav bar 35% glass opacity.
 ]
 
 # ── CSV → SQLite import map REMOVED (v7.0) ───────────────────────────────────
