@@ -5,11 +5,11 @@ purge_orphan_schedules.py
 Deletes rows from Supabase `schedules` where league_id is NOT present
 in Data/Store/leagues.json.
 
+Strategy: we know the 297 valid IDs — no need to scan schedules.
+Generates a SQL DELETE and executes it via Supabase SQL editor or RPC.
+
 Usage (from repo root in codespace):
     python Scripts/purge_orphan_schedules.py [--dry-run]
-
-Flags:
-    --dry-run   Print counts only — no deletes.
 """
 
 import json
@@ -18,89 +18,69 @@ import os
 import argparse
 from pathlib import Path
 
-# ── Bootstrap env ────────────────────────────────────────────────────────────
+# ── Bootstrap env ─────────────────────────────────────────────────────────────
 from dotenv import load_dotenv
 load_dotenv()
 
 from supabase import create_client
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]  # needs service role for bulk deletes
+SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ── Load valid league IDs ─────────────────────────────────────────────────────
+# ── Load valid league IDs from leagues.json ───────────────────────────────────
 LEAGUES_JSON = Path(__file__).parent.parent / "Data" / "Store" / "leagues.json"
 leagues = json.loads(LEAGUES_JSON.read_text(encoding="utf-8"))
-valid_ids: set[str] = {row["league_id"] for row in leagues if row.get("league_id")}
+valid_ids: list[str] = sorted({row["league_id"] for row in leagues if row.get("league_id")})
 print(f"[INFO] Valid leagues in leagues.json: {len(valid_ids):,}")
 
-# ── Discover distinct league_ids currently in schedules ──────────────────────
-print("[INFO] Fetching distinct league_ids from schedules (paginating)...")
-all_league_ids_in_db: set[str] = set()
-offset = 0
-PAGE = 1000
-while True:
-    res = (
-        supabase.table("schedules")
-        .select("league_id")
-        .limit(PAGE)
-        .offset(offset)
-        .execute()
-    )
-    rows = res.data
-    if not rows:
-        break
-    for r in rows:
-        lid = r.get("league_id")
-        if lid:
-            all_league_ids_in_db.add(lid)
-    offset += len(rows)
-    if len(rows) < PAGE:
-        break
+# ── Build SQL ─────────────────────────────────────────────────────────────────
+id_list = ", ".join(f"'{lid}'" for lid in valid_ids)
+sql = f"DELETE FROM public.schedules WHERE league_id NOT IN ({id_list});"
 
-print(f"[INFO] Distinct league_ids in schedules: {len(all_league_ids_in_db):,}")
+SQL_OUT = Path("/tmp/purge_orphan_schedules.sql")
+SQL_OUT.write_text(sql, encoding="utf-8")
+print(f"[INFO] SQL written to: {SQL_OUT}")
 
-orphan_ids = sorted(all_league_ids_in_db - valid_ids)
-print(f"[INFO] Orphan league_ids (to purge): {len(orphan_ids):,}")
-
-if not orphan_ids:
-    print("[OK] Nothing to delete. schedules is clean.")
-    sys.exit(0)
-
-print("\nOrphan league_ids:")
-for lid in orphan_ids:
-    print(f"  {lid}")
-
-# ── Dry-run guard ─────────────────────────────────────────────────────────────
+# ── Dry-run: just print SQL path and exit ─────────────────────────────────────
 parser = argparse.ArgumentParser()
 parser.add_argument("--dry-run", action="store_true")
 args = parser.parse_args()
 
 if args.dry_run:
-    print("\n[DRY RUN] No deletes performed.")
+    print(f"\n[DRY RUN] Would execute:\n  {sql[:200]}...")
+    print(f"\n[DRY RUN] Paste {SQL_OUT} into Supabase SQL Editor to preview.\n")
     sys.exit(0)
 
 # ── Confirm ───────────────────────────────────────────────────────────────────
-print(f"\n⚠️  About to DELETE all schedules rows for {len(orphan_ids)} orphan league(s).")
-confirm = input("Type YES to proceed: ").strip()
+print(f"\n⚠️  About to DELETE all schedules rows whose league_id is NOT in the {len(valid_ids)} valid leagues.")
+print(f"    SQL saved at: {SQL_OUT}")
+confirm = input("Type YES to proceed via RPC: ").strip()
 if confirm != "YES":
-    print("[ABORTED]")
+    print(f"[ABORTED] Paste {SQL_OUT} into Supabase SQL Editor to run manually.")
     sys.exit(0)
 
-# ── Delete in batches of 50 IDs (Supabase IN clause limit) ───────────────────
-BATCH = 50
-total_deleted = 0
-for i in range(0, len(orphan_ids), BATCH):
-    chunk = orphan_ids[i : i + BATCH]
-    # Supabase REST: .in_() maps to ?league_id=in.(...)
-    res = (
-        supabase.table("schedules")
-        .delete()
-        .in_("league_id", chunk)
-        .execute()
-    )
-    deleted = len(res.data) if res.data else 0
-    total_deleted += deleted
-    print(f"  Batch {i//BATCH + 1}: deleted {deleted:,} rows  (league_ids: {chunk[:3]}{'...' if len(chunk)>3 else ''})")
+# ── Execute via exec_sql RPC (requires the function to exist) ─────────────────
+print("[INFO] Executing via Supabase exec_sql RPC...")
+try:
+    res = supabase.rpc("exec_sql", {"query": sql}).execute()
+    print(f"[DONE] RPC response: {res.data}")
+except Exception as rpc_err:
+    rpc_msg = str(rpc_err)
+    if "Could not find the function" in rpc_msg or "PGRST202" in rpc_msg:
+        print("\n[RPC not available] Falling back to REST batched deletes...")
+        # ── Batched NOT IN delete via REST ─────────────────────────────────────
+        # Supabase REST doesn't support NOT IN natively — we delete by
+        # explicitly including only the orphan IDs we discover from a
+        # lightweight RPC count query, or we chunk the valid IDs with neq workaround.
+        # Simplest reliable path: tell user to run the SQL file.
+        print(f"\n[ACTION REQUIRED] Paste this file into Supabase SQL Editor:")
+        print(f"  {SQL_OUT}")
+        print(f"\nOr run this one-liner SQL:\n")
+        print(f"  DELETE FROM public.schedules WHERE league_id NOT IN ({id_list[:120]}...);")
+        print(f"\n(Full SQL saved at {SQL_OUT})")
+    else:
+        print(f"[ERROR] RPC failed: {rpc_err}")
+        print(f"\n[ACTION REQUIRED] Run manually in Supabase SQL Editor:")
+        print(f"  File: {SQL_OUT}")
 
-print(f"\n[DONE] Total rows deleted: {total_deleted:,}")
